@@ -1,0 +1,25 @@
+{
+  "name": "schemahandler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "schemaHandler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gigasource/schemaHandler.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gigasource/schemaHandler/issues"
+  },
+  "homepage": "https://github.com/gigasource/schemaHandler#readme",
+  "dependencies": {
+    "bson": "^4.2.0",
+    "extend": "^3.0.2",
+    "lodash": "^4.17.20",
+    "traverse": "^0.6.6"
+  }
+}
