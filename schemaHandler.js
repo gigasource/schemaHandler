@@ -169,7 +169,6 @@ function convertPathParentSchema(node, pathSchema, _path) {
   }
 }
 
-
 function initDefaultValue(node, pathSchema, _path) {
   if (pathSchema.$options && pathSchema.$options.default) {
     if (!_.get(node, _path)) {
