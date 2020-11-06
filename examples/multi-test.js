@@ -14,7 +14,7 @@ orm.connect(url, async (err) => {
       type: Number,
       default: 100
     },
-    items : [{}]
+    items: [{}]
   });
   const Model = orm.getCollection('Model', dbName);
   await Model.deleteMany({});
@@ -22,7 +22,11 @@ orm.connect(url, async (err) => {
   await Model.insertMany([
     {a: 2, b: {c: 2, d: 4}}, {a: 3}, {a: 1}, {a: 4}
   ]);
-  const result3 = await Model.findOne({'items._id': new ObjectID().toString()});
+  const result3 = await Model.findOne({
+    'items._id': {
+      $or: [new ObjectID().toString(), new ObjectID().toString()]
+    }
+  });
   const _model = await Model.findOne({$or: [{a: 1}, {a: 3}]}).sort({a: 1}).lean();
   const result2 = await Model.findOne({_id: _model._id.toString()});
   console.log(_model0);
