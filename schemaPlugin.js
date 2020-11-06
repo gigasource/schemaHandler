@@ -1,5 +1,4 @@
-const {parseCondition} = require("../schemaHandler");
-const {convertSchemaToPaths} = require("../schemaHandler");
+const {parseCondition, parseSchema, convertSchemaToPaths} = require("../schemaHandler")
 
 module.exports = function (orm) {
   const defaultSchema = convertSchemaToPaths({});
@@ -28,8 +27,17 @@ module.exports = function (orm) {
       result.value = function () {
         const args = [...arguments];
         const condition = args.shift();
-        const schema = orm.getSchema(target.collection._collection.collectionName, target.dbName) || defaultSchema;
+        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         args.unshift(parseCondition(schema, condition));
+        return defaultFn(...args)
+      }
+    } else if (key === 'create') {
+      result.ok = true;
+      result.value = function () {
+        const args = [...arguments];
+        const obj = args.shift();
+        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
+        args.unshift(parseSchema(schema, obj));
         return defaultFn(...args)
       }
     }

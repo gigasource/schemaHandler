@@ -5,6 +5,7 @@
 * Auto populate
 * hooks
 * convert collectionName : 
+* multiconnection
 
 // Cache
 orm._getCollection(collection, dbName) -> Collection
@@ -15,4 +16,4 @@ orm.cache
 
 models['collection@db']
 
-//
+

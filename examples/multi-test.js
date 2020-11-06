@@ -6,9 +6,16 @@ const dbName = 'myproject';
 orm.setMultiDbMode();
 
 orm.connect(url, async (err) => {
-  orm.registerSchema('Model', dbName, {a: Number});
+  orm.registerSchema('Model', dbName, {
+    a: Number,
+    b: {
+      type: Number,
+      default: 100
+    }
+  });
   const Model = orm.getCollection('Model', dbName);
-  const _model0 = await Model.create({a:10});
+  await Model.deleteMany({});
+  const _model0 = await Model.create({a: 10});
   await Model.insertMany([
     {a: 2, b: {c: 2, d: 4}}, {a: 3}, {a: 1}, {a: 4}
   ]);

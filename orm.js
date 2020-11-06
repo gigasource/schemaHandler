@@ -85,6 +85,7 @@ function createCollectionQuery(collectionName, useNative) {
   const _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
   const mongoCollection = new Proxy({
     collection: _collection,
+    collectionName: collectionName.split('@')[0],
     dbName: collectionName.split('@')[1],
     isCreateCmd: false
   }, {
@@ -92,7 +93,7 @@ function createCollectionQuery(collectionName, useNative) {
       //target here is mongo db collection
       if (!target.cursor) target.cursor = target.collection;
       if (key === 'collectionName') {
-        return target.collection._collection.collectionName;
+        return target.collectionName;
       }
 
       if (key === 'lean') {
@@ -113,7 +114,7 @@ function createCollectionQuery(collectionName, useNative) {
         }
       }
 
-      const defaultFn = function () {
+      let defaultFn = function () {
         console.log('fn : ', key);
         console.log(arguments);
         target.cursor = target.cursor[key](...arguments);
@@ -122,7 +123,7 @@ function createCollectionQuery(collectionName, useNative) {
 
       if (key === 'create') {
         target.isCreateCmd = true;
-        return function (obj) {
+        defaultFn = function (obj) {
           console.log('fn : ', key);
           console.log(arguments);
           target.cursor = target.cursor['insertOne'](obj);
