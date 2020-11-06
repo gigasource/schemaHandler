@@ -117,14 +117,18 @@ function parseCondition(paths, obj) {
       return;
     }*/
 
+    let arrHandler = false;
+
     let pathFilter = filterMongoOperators(path);
-    pathFilter = pathFilter.join('.').split('.');
+    const _pathFilter = pathFilter.join('.').split('.');
+    if (_pathFilter.length !== pathFilter.length) arrHandler = true;
+    pathFilter = _pathFilter;
     const last = _.last(pathFilter);
     if (pathFilter.length >= 1) {
       pathFilter.pop();
     }
 
-    const pathsInLevel = findAllPathsInLevel(paths, pathFilter);
+    let pathsInLevel = findAllPathsInLevel(paths, pathFilter);
     if (!parent) return;
     let _node = node;
 
@@ -136,6 +140,19 @@ function parseCondition(paths, obj) {
         this.block();
       }
     }
+
+    if (arrHandler) {
+      const pathsInLevel2 = findAllPathsInLevelArrHandler(paths, pathFilter);
+
+      for (const {relative: _path, absolute} of pathsInLevel2) {
+        if (_path.split('.').length === 1 && _path === last && isLeaf) {
+          const pathSchema = paths[_path];
+          _node = convertPathParentSchema(_node, pathSchema, absolute);
+          this.update(_node);
+          this.block();
+        }
+      }
+    }
     //if (!this.parent || !Array.isArray(this.parent.node)) {
     //this.before(() => {
     //})
@@ -144,7 +161,7 @@ function parseCondition(paths, obj) {
 }
 
 function filterMongoOperators(paths) {
-  let rememberPrevent= false;
+  let rememberPrevent = false;
   return paths.reduce((list, item, k) => {
     if (logicOperators.includes(item)) {
       rememberPrevent = true;
@@ -189,6 +206,29 @@ function convertPathSchema(node, pathSchema, _path) {
   } else if (value && typeof value !== 'number' && pathSchema.$type === 'Number') {
     _.set(node, _path, Number(value));
   }
+}
+
+function findAllPathsInLevelArrHandler(paths, path) {
+  const _paths = [];
+  for (let _path of Object.keys(paths)) {
+    let changed = false;
+    const _path2 = _path.replace(/\.0/g, '');
+    if (_path2 !== _path) changed = true;
+    if (path.length + 1 === _path2.split('.').length) {
+      const __path2 = _path2.split('.');
+      const __beginPath = __path2.splice(0, path.length);
+      if (checkEqual(path, __beginPath)) {
+        if (changed) {
+          const __path = _path.split('.');
+          __path.splice(0, path.length + 1);
+          _paths.push({relative: __path.join('.'), absolute: _path});
+        } else {
+          _paths.push({relative: __path2.join('.'), absolute: _path});
+        }
+      }
+    }
+  }
+  return _paths;
 }
 
 function findAllPathsInLevel(paths, path) {
