@@ -52,7 +52,7 @@ function convertSchemaToPaths(schema) {
       this.block();
       return;
     }
-    if (isLeaf) {
+    if (isLeaf && key !== '$type') {
       if (parent) {
         paths[_path] = convertType(parent.node);
       }

@@ -11,7 +11,8 @@ orm.connect(url, async (err) => {
     b: {
       type: Number,
       default: 100
-    }
+    },
+    items : [{}]
   });
   const Model = orm.getCollection('Model', dbName);
   await Model.deleteMany({});

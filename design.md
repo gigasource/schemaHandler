@@ -4,7 +4,7 @@
     * supports TTL (Cache)
 * Auto populate
 * hooks
-* convert collectionName : 
+* convert collectionName : Person -> person 
 * multiconnection
 
 // Cache
