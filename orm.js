@@ -98,7 +98,7 @@ function createCollectionQuery(collectionName, useNative) {
 
       if (key === 'lean') {
         return function () {
-          console.log('lean: ignored')
+          //console.log('lean: ignored')
           return proxy;
         }
       }
@@ -115,8 +115,8 @@ function createCollectionQuery(collectionName, useNative) {
       }
 
       let defaultFn = function () {
-        console.log('fn : ', key);
-        console.log(arguments);
+        //console.log('fn : ', key);
+        //console.log(arguments);
         target.cursor = target.cursor[key](...arguments);
         return proxy;
       }
