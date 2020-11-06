@@ -83,7 +83,11 @@ function createCollectionQuery(collectionName, useNative) {
   //const _collection = mquery().collection(orm.collection1);
   let _nativeCollection = _getCollection(...collectionName.split('@'));
   const _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
-  const mongoCollection = new Proxy({collection: _collection, dbName: collectionName.split('@')[1]}, {
+  const mongoCollection = new Proxy({
+    collection: _collection,
+    dbName: collectionName.split('@')[1],
+    isCreateCmd: false
+  }, {
     get(target, key, proxy) {
       //target here is mongo db collection
       if (!target.cursor) target.cursor = target.collection;
@@ -102,7 +106,7 @@ function createCollectionQuery(collectionName, useNative) {
         return async (resolve, reject) => {
           try {
             const result = await target.cursor;
-            resolve(resultPostProcess(result));
+            resolve(resultPostProcess(result, target));
           } catch (e) {
             reject(e);
           }
@@ -116,6 +120,16 @@ function createCollectionQuery(collectionName, useNative) {
         return proxy;
       }
 
+      if (key === 'create') {
+        target.isCreateCmd = true;
+        return function (obj) {
+          console.log('fn : ', key);
+          console.log(arguments);
+          target.cursor = target.cursor['insertOne'](obj);
+          return proxy;
+        }
+      }
+
       const result = {ok: false, value: null};
       orm.execPostSync('proxyQueryHandler', null, [{target, key, proxy, defaultFn}, result]);
       if (result.ok) return result.value;
@@ -127,7 +141,10 @@ function createCollectionQuery(collectionName, useNative) {
   return mongoCollection;
 }
 
-function resultPostProcess(result) {
+function resultPostProcess(result, target) {
+  if (target.isCreateCmd) {
+    return result.ops[0];
+  }
   if (result && result.ok === 1 && result.value) {
     return result.value;
   }
