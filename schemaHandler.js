@@ -53,7 +53,9 @@ function convertSchemaToPaths(schema) {
       return;
     }
     if (isLeaf) {
-      paths[_path] = convertType(parent.node);
+      if (parent) {
+        paths[_path] = convertType(parent.node);
+      }
     } else if (key === '$type') {
       if (Array.isArray(node)) {
         paths[_path] = merge({}, {$options: {default: []}}, parent.node, {$type: 'Array'});
@@ -167,6 +169,7 @@ function convertPathParentSchema(node, pathSchema, _path) {
   } else if (value && typeof value !== 'number' && pathSchema.$type === 'Number') {
     return Number(value);
   }
+  return value;
 }
 
 function initDefaultValue(node, pathSchema, _path) {

@@ -19,6 +19,12 @@ const orm = {
   close() {
     this.client.close();
   },
+  //mock
+  registerSchema(collectionName, dbName, schema) {
+  },
+  //mock
+  getSchema(collectionName, dbName) {
+  },
   plugin(plugin) {
     plugin(orm);
   }
@@ -77,7 +83,7 @@ function createCollectionQuery(collectionName, useNative) {
   //const _collection = mquery().collection(orm.collection1);
   let _nativeCollection = _getCollection(...collectionName.split('@'));
   const _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
-  const mongoCollection = new Proxy({collection: _collection}, {
+  const mongoCollection = new Proxy({collection: _collection, dbName: collectionName.split('@')[1]}, {
     get(target, key, proxy) {
       //target here is mongo db collection
       if (!target.cursor) target.cursor = target.collection;
@@ -103,16 +109,18 @@ function createCollectionQuery(collectionName, useNative) {
         }
       }
 
-      const result = {ok: false, value: null};
-      orm.execPostSync('proxyQueryHandler', null, [{target, key, proxy}, result]);
-      if (result.ok) return result.value;
-
-      return function () {
+      const defaultFn = function () {
         console.log('fn : ', key);
         console.log(arguments);
         target.cursor = target.cursor[key](...arguments);
         return proxy;
       }
+
+      const result = {ok: false, value: null};
+      orm.execPostSync('proxyQueryHandler', null, [{target, key, proxy, defaultFn}, result]);
+      if (result.ok) return result.value;
+
+      return defaultFn;
     }
   })
 
