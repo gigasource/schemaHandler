@@ -1,4 +1,5 @@
 const ObjectID = require('bson').ObjectID;
+const _ = require('lodash');
 
 const {parseCondition, parseSchema, convertSchemaToPaths} = require("../schemaHandler")
 
@@ -83,40 +84,59 @@ module.exports = function (orm) {
     }
   })
 
+  //populate
   orm.post('proxyQueryHandler', null, function ({target, key, proxy, defaultFn}, result) {
     if (result.ok) return;
 
     if (key === 'populate') {
       result.ok = true;
       result.value = function () {
-        target.populate = [...arguments];
+        target.populates = target.populates || [];
+        target.populates.push([...arguments]);
         return proxy;
       }
     }
   })
 
+  //populate
   orm.post('proxyResultPostProcess', null, async function ({target, result}, returnResult) {
     if (returnResult.ok) return;
 
-    if (target.populate) {
-      const [arg1] = target.populate;
-      let path, select, deselect;
-      if (typeof arg1 === 'string') {
-        [path, select] = target.populate;
-      } else {
-        ({path, select} = arg1);
+    if (target.populates) {
+      for (const populate of target.populates) {
+        const [arg1] = populate;
+        let path, select, deselect;
+        if (typeof arg1 === 'string') {
+          [path, select] = populate;
+        } else {
+          ({path, select} = arg1);
+        }
+
+        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
+        const refCollectionName = schema[path].$options.ref;
+
+        const refCollection = orm.getCollection(refCollectionName, target.dbName);
+
+        const refDoc = await refCollection['findById'](_.get(result, path)).select(select).lean();
+        if (refDoc) _.set(result, path, refDoc);
       }
-
-      const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
-      const refCollectionName = schema[path].$options.ref;
-
-      const refCollection = orm.getCollection(refCollectionName, target.dbName);
-
-      const refDoc = await refCollection['findById'](result[path]).select(select).lean();
-      if (refDoc) result[path] = refDoc;
 
       returnResult.ok = true;
       returnResult.value = result;
+    }
+  })
+
+  orm.post('proxyPostQueryHandler', null, function ({target, proxy}, result) {
+    if (target.populates) {
+      const schema = orm.getSchema(target.collectionName, target.dbName);
+      if (schema) {
+        for (const path of Object.keys(schema)) {
+          const {$options, $type} = schema[path];
+          if ($options && $options.autopopulate) {
+            proxy.populate(path, $options.autopopulate);
+          }
+        }
+      }
     }
   })
 }

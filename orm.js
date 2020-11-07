@@ -109,6 +109,9 @@ function createCollectionQuery(collectionName, useNative) {
       if (key === 'then') {
         return async (resolve, reject) => {
           try {
+            const returnResult = {ok: false, value: null};
+            orm.execPostSync('proxyPostQueryHandler', null, [{target, proxy}, returnResult]);
+
             const result = await target.cursor;
             const returnValue = await resultPostProcess(result, target);
             resolve(returnValue);
