@@ -32,6 +32,6 @@ orm.connect(url, async (err) => {
   await Model.findOneAndUpdate({a: 1}, {$push: {items: {$each: [{_id: new ObjectID().toString(), test: 'test'}]}}}, {new: true});
   const result4 = await Model.find({a: 1});
   console.log(_model0);
-  console.log(result2);
+  console.log(result2.toJSON());
   console.log(result4);
 });

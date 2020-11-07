@@ -87,7 +87,8 @@ function createCollectionQuery(collectionName, useNative) {
     collection: _collection,
     collectionName: collectionName.split('@')[0],
     dbName: collectionName.split('@')[1],
-    isCreateCmd: false
+    isCreateCmd: false,
+    lean: false
   }, {
     get(target, key, proxy) {
       //target here is mongo db collection
@@ -98,6 +99,7 @@ function createCollectionQuery(collectionName, useNative) {
 
       if (key === 'lean') {
         return function () {
+          target.lean = true;
           //console.log('lean: ignored')
           return proxy;
         }
@@ -153,17 +155,18 @@ function resultPostProcess(result, target) {
   if (finalResult === null) {
     return null;
   }
-  return new Proxy({result: finalResult}, {
+  if (target.lean) return finalResult;
+  return new Proxy(finalResult, {
     get(target, key) {
-      if (key === 'toJSON') {
+      if (key === 'toJSON' || key === 'toObject') {
         return function () {
-          return target.result;
+          return target;
         }
       }
       if (key === '_doc') {
-        return target.result;
+        return target;
       }
-      return target.result[key];
+      return target[key];
     }
   });
 }
