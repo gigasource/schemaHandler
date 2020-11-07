@@ -8,7 +8,12 @@
     * [x] populate doc
     * [x] populate array
     * [x] auto populate
-* [x] hooks
+* [_] hooks
+    * [_] create/insert (pre, post) (many)
+    * [_] update (pre, post) (many)
+    * [_] mutate (pre, post) (many)
+    * [_] delete (pre, post)
+* [_] debug : get mongo query     
 * [_] convert collectionName : Person -> person
 * [x] multidb  
 * [_] multiconnection 

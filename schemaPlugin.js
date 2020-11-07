@@ -33,6 +33,7 @@ module.exports = function (orm) {
       target.isInsertManyCmd = true;
       //todo: parseSchema
     }
+    if (key === 'updateOne') key = 'findOneAndUpdate';
 
     if (key.includes('delete')) {
       target.isDeleteCmd = true;
@@ -70,7 +71,8 @@ module.exports = function (orm) {
           args.unshift(updateValue);
         }
         args.unshift(_parseCondition);
-        return defaultFn(...args)
+        target.cursor = target.cursor[key](...args);
+        return proxy;
       }
     } else if (key === 'create' || key === 'insertOne') {
       result.ok = true;
