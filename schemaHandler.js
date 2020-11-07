@@ -23,8 +23,8 @@ function convertSchemaToPaths(schema) {
         if (_node.$type) return;
         this.update({$type: _node}, true)
       });
-    } else if (hasTypeDefined(key, node, isRoot)) {
-      if (hasTypeDefined(key, node, isRoot) === true) {
+    } else if (hasTypeDefined(node)) {
+      if (hasTypeDefined(node) === true) {
         this.block();
       }
       const _node = {};
@@ -53,6 +53,10 @@ function convertSchemaToPaths(schema) {
       return;
     }
     if (isLeaf && key !== '$type' && _.last(_path.split('.')) !== '0') {
+      if (parent) {
+        paths[_path] = convertType(parent.node);
+      }
+    } else if (isLeaf && key === '$type' && _.last(_path.split('.')) === '0' && JSON.stringify(node) !== '{}') {
       if (parent) {
         paths[_path] = convertType(parent.node);
       }
@@ -273,7 +277,7 @@ function convertType(node) {
   }
 }
 
-function hasTypeDefined(key, node, isRoot) {
+function hasTypeDefined(node) {
   if (typeof node === 'object' && node.hasOwnProperty('type')) {
     if (isSchemaType('type', node.type, false)) {
       if (typeof node.type === 'object') {

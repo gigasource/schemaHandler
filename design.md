@@ -1,13 +1,18 @@
 ### design
 
-* getCollection(db, name, config)
-    * supports TTL (Cache)
-* Auto populate
-* hooks
-* convert collectionName : Person -> person 
-* multiconnection
-* findOneAndUpdate parse $set -> ... 
-* findById
+* [x] getCollection(db, name, config)
+    * [x] supports TTL (Cache)
+* [_] Auto populate
+
+* [x] hooks
+* [_] convert collectionName : Person -> person
+* [x] multidb  
+* [_] multiconnection 
+* [x] findOneAndUpdate parse $set -> ... 
+* [x] findById
+* [x] [String]
+
+* [x] index
 
 
 // Cache

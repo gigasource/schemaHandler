@@ -67,7 +67,7 @@ let models = builder(function (resolve, reject) {
   const query = {name: this.modelName, chain: this.chain};
   const useNative = query.chain.reduce((result, {fn}) => {
     if (!result) {
-      if (fn.includes('insert') || fn.includes('create')) result = true;
+      if (fn.includes('insert') || fn.includes('create') || fn === 'findById') result = true;
     }
     return result;
   }, false);

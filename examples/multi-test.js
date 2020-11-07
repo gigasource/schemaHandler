@@ -14,10 +14,11 @@ orm.connect(url, async (err) => {
       type: Number,
       default: 100
     },
-    items: [{}]
+    items: [{}],
+    strArr: [String]
   });
   const Model = orm.getCollection('Model', dbName);
-  await Model.deleteMany({});
+  await Model.remove({});
   const _model0 = await Model.create({a: 10});
   await Model.insertMany([
     {a: 2, b: {c: 2, d: 4}}, {a: 3}, {a: 1}, {a: 4}
@@ -34,4 +35,5 @@ orm.connect(url, async (err) => {
   console.log(_model0);
   console.log(result2.toJSON());
   console.log(result4);
+  console.log(await Model.findById(new ObjectID().toString()));
 });
