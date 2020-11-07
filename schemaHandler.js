@@ -52,7 +52,7 @@ function convertSchemaToPaths(schema) {
       this.block();
       return;
     }
-    if (isLeaf && key !== '$type') {
+    if (isLeaf && key !== '$type' && _.last(_path.split('.')) !== '0') {
       if (parent) {
         paths[_path] = convertType(parent.node);
       }
@@ -79,6 +79,7 @@ function parseSchema(paths, obj) {
   return traverse(obj).map(function (node) {
     const {key, path, isRoot, parent, isLeaf} = this;
     if (node instanceof ObjectID) {
+      this.update(this.node_, true);
       return this.block();
     }
     if (!isRoot && isLeaf && typeof node !== 'object') return;
@@ -97,7 +98,7 @@ function parseSchema(paths, obj) {
       }
     }
     //if (!this.parent || !Array.isArray(this.parent.node)) {
-    //this.before(() => {
+    //this.after(() => {
     this.update(_node)
     //})
     //}
@@ -110,6 +111,7 @@ function parseCondition(paths, obj) {
   return traverse(obj).map(function (node) {
     const {key, path, isRoot, parent, isLeaf} = this;
     if (node instanceof ObjectID) {
+      this.update(this.node_, true);
       return this.block();
     }
     //if (!isRoot && isLeaf && typeof node !== 'object') return;

@@ -6,6 +6,9 @@
 * hooks
 * convert collectionName : Person -> person 
 * multiconnection
+* findOneAndUpdate parse $set -> ... 
+* findById
+
 
 // Cache
 orm._getCollection(collection, dbName) -> Collection

@@ -27,8 +27,14 @@ module.exports = function (orm) {
       result.value = function () {
         const args = [...arguments];
         const condition = args.shift();
-        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
-        args.unshift(parseCondition(schema, condition));
+        let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
+        const _parseCondition = parseCondition(schema, condition);
+        if (key.includes('Update')) {
+          let updateValue = args.shift();
+          updateValue = parseCondition(schema, updateValue);
+          args.unshift(updateValue);
+        }
+        args.unshift(_parseCondition);
         return defaultFn(...args)
       }
     } else if (key === 'create') {
