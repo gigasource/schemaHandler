@@ -174,7 +174,9 @@ async function resultPostProcess(result, target) {
     return null;
   }
 
-  if (result.result) return result.result;
+  if (result.result && result === _result) {
+    return result.result;
+  }
 
   /*if (_result === result) {
     debugger

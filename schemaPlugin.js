@@ -35,6 +35,10 @@ module.exports = function (orm) {
     }
     if (key === 'updateOne') key = 'findOneAndUpdate';
 
+    if (key === 'findOneAndUpdate') {
+      target.new = true;
+    }
+
     if (key.includes('delete')) {
       target.isDeleteCmd = true;
       result.ok = true;
@@ -139,16 +143,22 @@ module.exports = function (orm) {
   })
 
   orm.post('proxyPostQueryHandler', null, function ({target, proxy}, result) {
-    if (target.populates) {
-      const schema = orm.getSchema(target.collectionName, target.dbName);
-      if (schema) {
-        for (const path of Object.keys(schema)) {
-          const {$options, $type} = schema[path];
-          if ($options && $options.autopopulate) {
-            proxy.populate(path, $options.autopopulate);
-          }
+    const schema = orm.getSchema(target.collectionName, target.dbName);
+    if (schema) {
+      for (const path of Object.keys(schema)) {
+        const {$options, $type} = schema[path];
+        if ($options && $options.autopopulate) {
+          proxy.populate(path, $options.autopopulate);
         }
       }
     }
   })
+
+  //add new: true ??
+  orm.post('proxyPostQueryHandler', null, function ({target, proxy}, result) {
+    if (target.new) {
+      proxy.setOptions({new: true});
+    }
+  })
+
 }

@@ -30,7 +30,7 @@ orm.connect(url, async (err) => {
   });
   const _model = await Model.findOne({$or: [{a: 1}, {a: 3}]}).sort({a: 1}).lean();
   const result2 = await Model.findOne({_id: _model._id.toString()});
-  await Model.findOneAndUpdate({a: 1}, {$push: {items: {$each: [{_id: new ObjectID().toString(), test: 'test'}]}}}, {new: true});
+  const result5 =await Model.findOneAndUpdate({a: 1}, {$push: {items: {$each: [{_id: new ObjectID().toString(), test: 'test'}]}}});
   await Model.updateMany({a: 1}, {b: 2});
   const test = await Model.updateOne({a: 1}, {b: 3}, {new: true});
   const result4 = await Model.find({a: 1});

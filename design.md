@@ -6,7 +6,7 @@
     * [x] supports regex for dbName
 * [x] Populate
     * [x] populate doc
-    * [x] populate array
+    * [_] populate array
     * [x] auto populate
 * [_] hooks
     * [_] create/insert (pre, post) (many)
@@ -23,7 +23,7 @@
 * [_] insertMany -> parseSchema
 * [_] updateMany -> parseCondition
 
-* [x] index
+* [_] index
 
 
 // Cache

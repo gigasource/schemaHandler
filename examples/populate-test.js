@@ -9,10 +9,6 @@ orm.setMultiDbMode();
 
 orm.connect(url, async (err) => {
 
-  orm.registerSchema('Person', dbName, {
-    name: String
-  });
-
   orm.registerSchema('Model', dbName, {
     a: Number,
     b: {
@@ -37,6 +33,14 @@ orm.connect(url, async (err) => {
       type: ObjectID,
       ref: 'Person'
     },
+    author3: [{
+      type: ObjectID,
+      ref: 'Person'
+    }]
+  });
+
+  orm.registerSchema('Person', dbName, {
+    name: String
   });
 
   const Model = orm.getCollection('Model', dbName);
@@ -53,6 +57,7 @@ orm.connect(url, async (err) => {
     a: 10,
     author: person._id.toString(),
     author2: person._id.toString(),
+    author3: [person._id.toString(), person._id.toString()],
     obj: {person: person._id.toString()}
   });
 
