@@ -256,13 +256,14 @@ function checkEqual(arr1, arr2) {
       if (arr1[i] === '0' && isNormalInteger(arr2[i])) {
       } else {
         equal = false;
+        break;
       }
     }
   }
   return equal;
 }
 
-function isNormalInteger(str) {
+function isNorisNormalInteger(str) {
   return /^\+?(0|[1-9]\d*)$/.test(str);
 }
 

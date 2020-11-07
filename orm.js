@@ -98,7 +98,7 @@ function createCollectionQuery(collectionName, useNative) {
 
       if (key === 'lean') {
         return function () {
-          console.log('lean: ignored')
+          //console.log('lean: ignored')
           return proxy;
         }
       }
@@ -115,8 +115,8 @@ function createCollectionQuery(collectionName, useNative) {
       }
 
       let defaultFn = function () {
-        console.log('fn : ', key);
-        console.log(arguments);
+        //console.log('fn : ', key);
+        //console.log(arguments);
         target.cursor = target.cursor[key](...arguments);
         return proxy;
       }
@@ -143,13 +143,29 @@ function createCollectionQuery(collectionName, useNative) {
 }
 
 function resultPostProcess(result, target) {
+  let finalResult = result;
   if (target.isCreateCmd) {
-    return result.ops[0];
+    finalResult = result.ops[0];
   }
   if (result && result.ok === 1 && result.value) {
-    return result.value;
+    finalResult = result.value;
   }
-  return result;
+  if (finalResult === null) {
+    return null;
+  }
+  return new Proxy({result: finalResult}, {
+    get(target, key) {
+      if (key === 'toJSON') {
+        return function () {
+          return target.result;
+        }
+      }
+      if (key === '_doc') {
+        return target.result;
+      }
+      return target.result[key];
+    }
+  });
 }
 
 function getCollection(collectionName, dbName) {
