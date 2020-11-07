@@ -57,14 +57,14 @@ module.exports = function (orm) {
         target.cursor = target.cursor['findOne']({_id: objId});
         return proxy;
       }
-    } else if (key.includes('find') || key.includes('delete')) {
+    } else if (key.includes('find') || key.includes('delete') || key === 'updateMany') {
       result.ok = true;
       result.value = function () {
         const args = [...arguments];
         const condition = args.shift();
         let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const _parseCondition = parseCondition(schema, condition);
-        if (key.includes('Update') || key.includes('Modify')) {
+        if (key.includes('Update') || key.includes('Modify') || key === 'updateMany') {
           let updateValue = args.shift();
           updateValue = parseCondition(schema, updateValue);
           args.unshift(updateValue);
@@ -72,13 +72,23 @@ module.exports = function (orm) {
         args.unshift(_parseCondition);
         return defaultFn(...args)
       }
-    } else if (key === 'create') {
+    } else if (key === 'create' || key === 'insertOne') {
       result.ok = true;
       result.value = function () {
         const args = [...arguments];
         const obj = args.shift();
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         args.unshift(parseSchema(schema, obj));
+        return defaultFn(...args)
+      }
+    } else if (key === 'insertMany') {
+      result.ok = true;
+      result.value = function () {
+        const args = [...arguments];
+        let objs = args.shift();
+        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
+        objs = objs.map(obj => parseSchema(schema, obj));
+        args.unshift(objs);
         return defaultFn(...args)
       }
     }

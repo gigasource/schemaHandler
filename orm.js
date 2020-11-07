@@ -174,6 +174,13 @@ async function resultPostProcess(result, target) {
     return null;
   }
 
+  if (result.result) return result.result;
+
+  /*if (_result === result) {
+    debugger
+    return _result;
+  }*/
+
   if (target.returnSingleDocument) {
     const returnResult = {ok: false, value: null}
 

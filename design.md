@@ -4,10 +4,10 @@
 * [x] getCollection(db, name, config)
     * [x] supports TTL (Cache)
     * [x] supports regex for dbName
-* [_] Populate
-    * [_] populate doc
-    * [_] populate array
-    * auto populate
+* [x] Populate
+    * [x] populate doc
+    * [x] populate array
+    * [x] auto populate
 * [x] hooks
 * [_] convert collectionName : Person -> person
 * [x] multidb  
@@ -15,7 +15,8 @@
 * [x] findOneAndUpdate parse $set -> ... 
 * [x] findById
 * [x] [String]
-* insertMany, updateMany -> parseSchema
+* [_] insertMany -> parseSchema
+* [_] updateMany -> parseCondition
 
 * [x] index
 
