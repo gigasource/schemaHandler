@@ -67,7 +67,7 @@ let models = builder(function (resolve, reject) {
   const query = {name: this.modelName, chain: this.chain};
   const useNative = query.chain.reduce((result, {fn}) => {
     if (!result) {
-      if (fn.includes('insert') || fn.includes('create') || fn === 'findById') result = true;
+      if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/) result = true;
     }
     return result;
   }, false);
@@ -88,7 +88,8 @@ function createCollectionQuery(collectionName, useNative) {
     collectionName: collectionName.split('@')[0],
     dbName: collectionName.split('@')[1],
     isCreateCmd: false,
-    lean: false
+    lean: false,
+    useNative
   }, {
     get(target, key, proxy) {
       //target here is mongo db collection
@@ -109,7 +110,8 @@ function createCollectionQuery(collectionName, useNative) {
         return async (resolve, reject) => {
           try {
             const result = await target.cursor;
-            resolve(resultPostProcess(result, target));
+            const returnValue = await resultPostProcess(result, target);
+            resolve(returnValue);
           } catch (e) {
             reject(e);
           }
@@ -144,31 +146,74 @@ function createCollectionQuery(collectionName, useNative) {
   return mongoCollection;
 }
 
-function resultPostProcess(result, target) {
-  let finalResult = result;
+async function resultPostProcess(result, target) {
+  let _result = result;
   if (target.isCreateCmd) {
-    finalResult = result.ops[0];
+    _result = result.ops[0];
   }
+
   if (result && result.ok === 1 && result.value) {
-    finalResult = result.value;
+    _result = result.value;
   }
-  if (finalResult === null) {
+
+  if (target.isDeleteCmd) {
+    if (target.returnSingleDocument) {
+      _result = result.message.documents[0];
+    } else {
+      _result = result.message.documents;
+    }
+  }
+  if (target.isInsertManyCmd) {
+    _result = result.ops;
+  }
+
+  if (_result === null) {
     return null;
   }
-  if (target.lean) return finalResult;
-  return new Proxy(finalResult, {
-    get(target, key) {
-      if (key === 'toJSON' || key === 'toObject') {
-        return function () {
+
+  if (target.returnSingleDocument) {
+    const returnResult = {ok: false, value: null}
+
+    await orm.execPostAsync('proxyResultPostProcess', null, [{target, result: _result}, returnResult]);
+    if (returnResult.ok) {
+      _result = returnResult.value;
+    }
+  } else {
+    const returnResult = {ok: false, value: null}
+    let docs = []
+    for (const doc of _result) {
+      await orm.execPostAsync('proxyResultPostProcess', null, [{target, result: doc}, returnResult]);
+      if (returnResult.ok) {
+        docs.push(returnResult.value);
+      } else {
+        docs.push(doc);
+      }
+    }
+    _result = docs;
+  }
+
+  if (target.lean) return _result;
+  function convertProxy(doc) {
+    return new Proxy(doc, {
+      get(target, key) {
+        if (key === 'toJSON' || key === 'toObject') {
+          return function () {
+            return target;
+          }
+        }
+        if (key === '_doc') {
           return target;
         }
+        return target[key];
       }
-      if (key === '_doc') {
-        return target;
-      }
-      return target[key];
-    }
-  });
+    });
+  }
+
+  if (target.returnSingleDocument) {
+    return convertProxy(_result);
+  } else {
+    return _result.map(doc => convertProxy(doc))
+  }
 }
 
 function getCollection(collectionName, dbName) {
@@ -229,3 +274,11 @@ function connect(url) {
 orm.plugin(require('./schemaPlugin'));
 module.exports = orm;
 
+orm.execPostAsync = async function(name, context, args) {
+  const posts = this._posts.get(name) || [];
+  const numPosts = posts.length;
+
+  for (let i = 0; i < numPosts; ++i) {
+    await posts[i].fn.bind(context)(...(args || []));
+  }
+};

@@ -18,11 +18,11 @@ orm.connect(url, async (err) => {
     strArr: [String]
   });
   const Model = orm.getCollection('Model', dbName);
-  await Model.remove({});
+  await Model.deleteMany();
   const _model0 = await Model.create({a: 10});
   await Model.insertMany([
     {a: 2, b: {c: 2, d: 4}}, {a: 3}, {a: 1}, {a: 4}
-  ]);
+  ], {new: true});
   const result3 = await Model.findOne({
     'items._id': {
       $in: [new ObjectID().toString(), new ObjectID().toString()]

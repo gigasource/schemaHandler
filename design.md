@@ -1,9 +1,13 @@
 ### design
 
+* [x] registerSchema(collectionName, dbName, schema, options)
 * [x] getCollection(db, name, config)
     * [x] supports TTL (Cache)
-* [_] Auto populate
-
+    * [x] supports regex for dbName
+* [_] Populate
+    * [_] populate doc
+    * [_] populate array
+    * auto populate
 * [x] hooks
 * [_] convert collectionName : Person -> person
 * [x] multidb  
@@ -11,6 +15,7 @@
 * [x] findOneAndUpdate parse $set -> ... 
 * [x] findById
 * [x] [String]
+* insertMany, updateMany -> parseSchema
 
 * [x] index
 

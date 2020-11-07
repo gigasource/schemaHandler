@@ -60,6 +60,10 @@ function convertSchemaToPaths(schema) {
       if (parent) {
         paths[_path] = convertType(parent.node);
       }
+    } else if (isLeaf && key === '$type' && node && node.name === 'ObjectId') {
+      if (parent) {
+        paths[_path] = convertType(parent.node);
+      }
     } else if (key === '$type') {
       if (Array.isArray(node)) {
         paths[_path] = merge({}, {$options: {default: []}}, parent.node, {$type: 'Array'});
@@ -272,7 +276,9 @@ function isNorisNormalInteger(str) {
 }
 
 function convertType(node) {
-  if (node.$type) {
+  if (node.$type instanceof ObjectID) {
+    return {$type: 'ObjectID'}
+  } else if (node.$type) {
     return _.assign({}, node, {$type: node.$type.name});
   }
 }
