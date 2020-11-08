@@ -6,6 +6,7 @@ const _ = require('lodash');
 const cache = new NodeCache({useClones: false, stdTTL: 20 * 60});
 const orm = {
   cache,
+  connected: false,
   mode: 'single',
   setSingleDbMode() {
     this.mode = 'single';
@@ -27,6 +28,13 @@ const orm = {
   },
   plugin(plugin) {
     plugin(orm);
+  },
+  waitForConnected() {
+    return new Promise((resolve, reject) => {
+      this.post('connected', () => {
+        resolve();
+      })
+    });
   }
 }
 _.extend(orm, new Kareem());
@@ -63,7 +71,7 @@ function builder(resolver) {
   });
 }
 
-let models = builder(function (resolve, reject) {
+let models = builder(async function (resolve, reject) {
   const query = {name: this.modelName, chain: this.chain};
   const useNative = query.chain.reduce((result, {fn}) => {
     if (!result) {
@@ -71,6 +79,10 @@ let models = builder(function (resolve, reject) {
     }
     return result;
   }, false);
+  if (!orm.connected) {
+    await orm.waitForConnected();
+  }
+
   let cursor = createCollectionQuery(query.name, useNative);
   for (const {fn, args} of query.chain) {
     cursor = cursor[fn](...args);
@@ -81,6 +93,7 @@ let models = builder(function (resolve, reject) {
 function createCollectionQuery(collectionName, useNative) {
   //const _mongoCollection = orm.db.collection(collectionName)
   //const _collection = mquery().collection(orm.collection1);
+
   let _nativeCollection = _getCollection(...collectionName.split('@'));
   const _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
   const mongoCollection = new Proxy({
@@ -274,11 +287,13 @@ function connect(url) {
   } else {
     cb = arguments[1];
   }
-  MongoClient.connect(url, (err, client) => {
+  MongoClient.connect(url, async (err, client) => {
     orm.client = client;
     if (dbName) {
       orm.db = client.db(dbName);
     }
+    orm.connected = true;
+    await orm.execPostAsync('connected');
     cb();
   });
 }

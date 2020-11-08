@@ -7,7 +7,7 @@ const url = 'mongodb://localhost:27017';
 const dbName = 'myproject';
 orm.setMultiDbMode();
 
-orm.connect(url, async (err) => {
+async function run() {
   orm.registerSchema('Model', dbName, {
     a: Number,
     b: {
@@ -38,4 +38,11 @@ orm.connect(url, async (err) => {
   console.log(result2.toJSON());
   console.log(result4);
   console.log(await Model.findById(new ObjectID().toString()));
-});
+}
+
+run();
+
+setTimeout(() => {
+  orm.connect(url, async (err) => {
+  });
+}, 1000);
