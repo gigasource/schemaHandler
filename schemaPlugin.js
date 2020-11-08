@@ -1,7 +1,8 @@
 const ObjectID = require('bson').ObjectID;
 const _ = require('lodash');
+const traverse = require("traverse");
 
-const {parseCondition, parseSchema, convertSchemaToPaths} = require("../schemaHandler")
+const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require("../schemaHandler")
 
 module.exports = function (orm) {
   const defaultSchema = convertSchemaToPaths({});
@@ -114,9 +115,31 @@ module.exports = function (orm) {
     }
   })
 
+  function genPaths(_path, obj) {
+    _path = _path.split('.');
+    const paths = [];
+    traverse(obj).map(function (node) {
+      const {key, path, isRoot, parent, isLeaf} = this;
+      if (checkEqual(_path, path)) {
+        paths.push(path.join('.'));
+      }
+      if (_path.length > path.length) {
+        const __path = _.take(_path, path.length);
+        if (!checkEqual(__path, path)) {
+          return this.block();
+        }
+      }
+      if (node instanceof ObjectID) {
+        return this.block();
+      }
+    })
+    return paths;
+  }
+
   //populate
   orm.post('proxyResultPostProcess', null, async function ({target, result}, returnResult) {
     if (returnResult.ok) return;
+    if (result.n && result.ok) return;
 
     if (target.populates) {
       for (const populate of target.populates) {
@@ -130,11 +153,12 @@ module.exports = function (orm) {
 
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const refCollectionName = schema[path].$options.ref;
-
         const refCollection = orm.getCollection(refCollectionName, target.dbName);
-
-        const refDoc = await refCollection['findById'](_.get(result, path)).select(select).lean();
-        if (refDoc) _.set(result, path, refDoc);
+        const paths = genPaths(path, result);
+        for (const _path of paths) {
+          const refDoc = await refCollection['findById'](_.get(result, _path)).select(select).lean();
+          if (refDoc) _.set(result, _path, refDoc);
+        }
       }
 
       returnResult.ok = true;

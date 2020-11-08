@@ -101,8 +101,15 @@ function parseSchema(paths, obj) {
     for (const _path of pathsInLevel) {
       if (_path.split('.').length === 1) {
         const pathSchema = paths[path.concat(_path.split('.')).join('.')];
-        initDefaultValue(_node, pathSchema, _path);
-        convertPathSchema(_node, pathSchema, _path);
+        if (_path === '0' && Array.isArray(_node)) {
+          for (let i = 0; i < _node.length; i++) {
+            initDefaultValue(_node, pathSchema, i + '');
+            convertPathSchema(_node, pathSchema, i + '');
+          }
+        } else {
+          initDefaultValue(_node, pathSchema, _path);
+          convertPathSchema(_node, pathSchema, _path);
+        }
       }
     }
     //if (!this.parent || !Array.isArray(this.parent.node)) {
@@ -276,8 +283,8 @@ function isNormalInteger(str) {
 }
 
 function convertType(node) {
-  if (node.$type instanceof ObjectID) {
-    return {$type: 'ObjectID'}
+  if (node.$type.name === 'ObjectId') {
+    return _.assign({}, node, {$type: 'ObjectID'});
   } else if (node.$type) {
     return _.assign({}, node, {$type: node.$type.name});
   }
@@ -316,5 +323,6 @@ module.exports = {
   convertSchemaToPaths,
   parseCondition,
   parseSchema,
+  checkEqual
 }
 

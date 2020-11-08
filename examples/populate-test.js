@@ -34,8 +34,17 @@ orm.connect(url, async (err) => {
       ref: 'Person'
     },
     author3: [{
+      autopopulate: '-age',
       type: ObjectID,
       ref: 'Person'
+    }],
+    arr: [{
+      name: String,
+      author: {
+        autopopulate: '-age',
+        type: ObjectID,
+        ref: 'Person'
+      }
     }]
   });
 
@@ -58,7 +67,11 @@ orm.connect(url, async (err) => {
     author: person._id.toString(),
     author2: person._id.toString(),
     author3: [person._id.toString(), person._id.toString()],
-    obj: {person: person._id.toString()}
+    obj: {person: person._id.toString()},
+    arr:[{
+      name: 'test',
+      author: person._id.toString()
+    }]
   });
 
   const models = await Model.find().populate('author2', 'age').lean();
