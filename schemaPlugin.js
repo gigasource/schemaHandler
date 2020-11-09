@@ -12,14 +12,24 @@ module.exports = function (orm) {
       schema = dbName;
       orm.schemas[`schema:${collectionName}`] = convertSchemaToPaths(schema);
     } else {
-      orm.schemas[`schema:${collectionName}@${dbName}`] = convertSchemaToPaths(schema);
+      if (typeof dbName === 'string') {
+        orm.schemas[`schema:${collectionName}@${dbName}`] = convertSchemaToPaths(schema);
+      } else if (typeof dbName === 'function') {
+        orm.schemas[`schemaMatch:${collectionName}`] = orm.schemas[`schemaMatch:${collectionName}`] || [];
+        orm.schemas[`schemaMatch:${collectionName}`].push({test: dbName, schema: convertSchemaToPaths(schema)});
+      }
     }
   }
   orm.getSchema = function (collectionName, dbName) {
     if (orm.mode === 'single') {
       return orm.schemas[`schema:${collectionName}`];
     } else {
-      return orm.schemas[`schema:${collectionName}@${dbName}`];
+      if (orm.schemas[`schema:${collectionName}@${dbName}`]) return orm.schemas[`schema:${collectionName}@${dbName}`];
+      if (orm.schemas[`schemaMatch:${collectionName}`]) {
+        for (const {schema, test} of orm.schemas[`schemaMatch:${collectionName}`]) {
+          if (test(dbName)) return schema;
+        }
+      }
     }
   }
 

@@ -3,7 +3,7 @@
 * [x] registerSchema(collectionName, dbName, schema, options)
 * [x] getCollection(db, name, config)
     * [x] supports TTL (Cache)
-    * [x] supports regex for dbName
+    * [_] supports regex for dbName
 * [x] Populate
     * [x] populate doc
     * [x] populate array
@@ -31,7 +31,7 @@
 * [_] index
 * [x] support migrate data
 * [x] sync system
-* [_] await for connected
+* [x] await for connected
 
 // Cache
 orm._getCollection(collection, dbName) -> Collection

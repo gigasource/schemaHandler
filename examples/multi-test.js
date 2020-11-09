@@ -8,7 +8,7 @@ const dbName = 'myproject';
 orm.setMultiDbMode();
 
 async function run() {
-  orm.registerSchema('Model', dbName, {
+  orm.registerSchema('Model', dbName => dbName === 'myproject', {
     a: Number,
     b: {
       type: Number,
