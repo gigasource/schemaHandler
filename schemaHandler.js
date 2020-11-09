@@ -139,11 +139,13 @@ function parseCondition(paths, obj) {
     let pathFilter = filterMongoOperators(path);
     const _pathFilter = pathFilter.join('.').split('.');
     if (_pathFilter.length !== pathFilter.length) arrHandler = true;
+
     pathFilter = _pathFilter;
     const last = _.last(pathFilter);
     if (pathFilter.length >= 1) {
       pathFilter.pop();
     }
+    if (paths[pathFilter.join('.')] && paths[pathFilter.join('.')].$type === 'Array') arrHandler = true;
 
     let pathsInLevel = findAllPathsInLevel(paths, pathFilter);
     if (!parent) return;

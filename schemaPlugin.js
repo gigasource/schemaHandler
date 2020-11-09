@@ -34,8 +34,8 @@ module.exports = function (orm) {
   }
 
   //parse condition
-  orm.post('proxyQueryHandler', null, function ({target, key, proxy, defaultFn}, result) {
-    if (result.ok) return;
+  orm.post('proxyQueryHandler', null, function ({target, key, proxy, defaultFn}, returnResult) {
+    if (returnResult.ok) return;
     if (key === 'remove') key = 'deleteMany'
 
     if (key.includes('One') || key === 'create' || key === 'findById') target.returnSingleDocument = true;
@@ -52,8 +52,8 @@ module.exports = function (orm) {
 
     if (key.includes('delete')) {
       target.isDeleteCmd = true;
-      result.ok = true;
-      result.value = function () {
+      returnResult.ok = true;
+      returnResult.value = function () {
         const args = [...arguments];
         const condition = args.shift();
         let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
@@ -63,8 +63,8 @@ module.exports = function (orm) {
         return proxy;
       }
     } else if (key === 'findById') {
-      result.ok = true;
-      result.value = function () {
+      returnResult.ok = true;
+      returnResult.value = function () {
         const args = [...arguments];
         let objId = args.shift();
         if (typeof objId === 'string') {
@@ -74,8 +74,8 @@ module.exports = function (orm) {
         return proxy;
       }
     } else if (key.includes('find') || key.includes('delete') || key === 'updateMany') {
-      result.ok = true;
-      result.value = function () {
+      returnResult.ok = true;
+      returnResult.value = function () {
         const args = [...arguments];
         const condition = args.shift();
         let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
@@ -90,8 +90,8 @@ module.exports = function (orm) {
         return proxy;
       }
     } else if (key === 'create' || key === 'insertOne') {
-      result.ok = true;
-      result.value = function () {
+      returnResult.ok = true;
+      returnResult.value = function () {
         const args = [...arguments];
         const obj = args.shift();
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
@@ -99,8 +99,8 @@ module.exports = function (orm) {
         return defaultFn(...args)
       }
     } else if (key === 'insertMany') {
-      result.ok = true;
-      result.value = function () {
+      returnResult.ok = true;
+      returnResult.value = function () {
         const args = [...arguments];
         let objs = args.shift();
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
@@ -108,6 +108,20 @@ module.exports = function (orm) {
         args.unshift(objs);
         return defaultFn(...args)
       }
+    }
+  })
+
+
+  function checkMainCmd(key) {
+    if (key.includes('find') || key.includes('create') || key.includes('update')
+      || key.includes('insert') || key.includes('delete') || key.includes('remove')) return true;
+
+    return false;
+  }
+
+  orm.post('proxyQueryHandler', null, function ({target, key, proxy, defaultFn}, result) {
+    if (checkMainCmd(key)) {
+      target.cmd = key;
     }
   })
 
@@ -173,6 +187,19 @@ module.exports = function (orm) {
 
       returnResult.ok = true;
       returnResult.value = result;
+    }
+  })
+
+  orm.post('proxyResultPostProcess', null, async function ({target, result}, returnResult) {
+    let cmd = target.cmd;
+    if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
+      await orm.execPostAsync(`update:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, null, [result, target]);
+      const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
+      await orm.execPostAsync(`update:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}:${type}`, null, [result, target]);
+    } else if (cmd.includes('find')) {
+      await orm.execPostAsync(`find:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, null, [result, target]);
+    } else {
+      await orm.execPostAsync(`delete:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, null, [result, target]);
     }
   })
 

@@ -12,9 +12,10 @@
     * [_] create/insert (pre, post) (many)
     * [_] update (pre, post) (many)
     * [_] mutate (pre, post) (many)
-        * [_] isCreate
+        * [_] c/r/u/d
         * [_] isMany
         * [_] isPre/isPost
+        * [_] condition
     * [_] delete (pre, post)
 * [_] debug : get mongo query     
 * [_] convert collectionName : Person -> person
