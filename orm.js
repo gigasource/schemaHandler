@@ -3,10 +3,14 @@ const NodeCache = require('node-cache');
 const Kareem = require('kareem');
 const MongoClient = require('mongodb').MongoClient;
 const _ = require('lodash');
-const cache = new NodeCache({useClones: false, stdTTL: 20 * 60});
+const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const orm = {
+  setTtl(ttl) {
+    this.cache.options.stdTTL = ttl;
+  },
   cache,
   connected: false,
+  closed: false,
   mode: 'single',
   setSingleDbMode() {
     this.mode = 'single';
@@ -31,7 +35,12 @@ const orm = {
   },
   waitForConnected() {
     return new Promise((resolve, reject) => {
-      this.post('connected', () => {
+      if (this.connected && this.closed) {
+        this.connect(this.url, orm.connectCb);
+      }
+
+      this.post('connected', (err) => {
+        if (err) return reject(err);
         resolve();
       })
     });
@@ -79,8 +88,10 @@ let models = builder(async function (resolve, reject) {
     }
     return result;
   }, false);
-  if (!orm.connected) {
-    await orm.waitForConnected();
+  if (!orm.cache.get('client')) {
+    if (!orm.connected || orm.closed) {
+      await orm.waitForConnected();
+    }
   }
 
   let cursor = createCollectionQuery(query.name, useNative);
@@ -218,6 +229,7 @@ async function resultPostProcess(result, target) {
   }
 
   if (target.lean) return _result;
+
   function convertProxy(doc) {
     return new Proxy(doc, {
       get(target, key) {
@@ -256,7 +268,7 @@ function getCollection(collectionName, dbName) {
 
 function _getCollection(collectionName, dbName) {
   //todo: wait for client
-  if (!orm.client) return;
+  if (!orm.cache.get('client')) return;
 
   let db, collection;
   if (orm.mode === 'single') {
@@ -265,7 +277,8 @@ function _getCollection(collectionName, dbName) {
   } else {
     db = orm.cache.get(`db:${dbName}`);
     if (!db) {
-      db = orm.client.db(dbName);
+      const client = orm.cache.get('client');
+      db = client.db(dbName);
       orm.cache.set(`db:${dbName}`, db);
     }
   }
@@ -280,6 +293,7 @@ function _getCollection(collectionName, dbName) {
 }
 
 function connect(url) {
+  orm.url = url;
   let dbName, cb;
   if (arguments.length === 3) {
     dbName = arguments[1];
@@ -287,21 +301,30 @@ function connect(url) {
   } else {
     cb = arguments[1];
   }
+  orm.connectCb = cb;
   MongoClient.connect(url, async (err, client) => {
-    orm.client = client;
+    console.log('db connected');
+    orm.cache.set('client', client);
+    orm.cache.on("expired", function (key, value) {
+      if (key === 'client') {
+        orm.closed = true;
+        client.close();
+        console.log('db disconnected');
+      }
+    });
     if (dbName) {
       orm.db = client.db(dbName);
     }
     orm.connected = true;
-    await orm.execPostAsync('connected');
-    cb();
+    await orm.execPostAsync('connected', err);
+    if (cb) cb(err);
   });
 }
 
 orm.plugin(require('./schemaPlugin'));
 module.exports = orm;
 
-orm.execPostAsync = async function(name, context, args) {
+orm.execPostAsync = async function (name, context, args) {
   const posts = this._posts.get(name) || [];
   const numPosts = posts.length;
 
