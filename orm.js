@@ -41,7 +41,7 @@ const orm = {
         this.connect(this.url, orm.connectCb);
       }
 
-      this._posts.get('connected').length = 0;
+      if (this._posts.get('connected')) this._posts.get('connected').length = 0;
       this.post('connected', (err) => {
         if (err) return reject(err);
         resolve();
