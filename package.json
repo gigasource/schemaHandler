@@ -21,6 +21,7 @@
     "extend": "^3.0.2",
     "kareem": "^2.3.1",
     "lodash": "^4.17.20",
+    "mongoose-legacy-pluralize": "^1.0.2",
     "mquery": "^3.2.2",
     "node-cache": "^5.1.2",
     "traverse": "^0.6.6"

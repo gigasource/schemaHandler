@@ -2,21 +2,22 @@
 
 * [x] registerSchema(collectionName, dbName, schema, options)
 * [x] getCollection(db, name, config)
-    * [x] supports TTL (Cache)
-    * [_] supports regex for dbName
+    * [x] supports TTL (Cache) setTTL
+    * [x] supports test pattern for dbName
 * [x] Populate
     * [x] populate doc
     * [x] populate array
     * [x] auto populate
 * [_] hooks
-    * [_] create/insert (pre, post) (many)
-    * [_] update (pre, post) (many)
-    * [_] mutate (pre, post) (many)
-        * [_] c/r/u/d
-        * [_] isMany
+    * [x] create/insert (pre, post) (many)
+    * [x] update (pre, post) (many)
+    * [x] mutate (pre, post) (many)
+        * [x] c/r/u/d
+        * [x] isMany
         * [_] isPre/isPost
         * [_] condition
-    * [_] delete (pre, post)
+    * [x] delete (pre, post)
+    * [x] find (pre, post)
 * [_] debug : get mongo query     
 * [_] convert collectionName : Person -> person
 * [x] multidb  

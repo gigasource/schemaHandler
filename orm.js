@@ -9,6 +9,7 @@ const orm = {
     this.cache.options.stdTTL = ttl;
   },
   cache,
+  pluralize: true,
   connected: false,
   closed: false,
   mode: 'single',
@@ -48,6 +49,7 @@ const orm = {
 }
 _.extend(orm, new Kareem());
 const mquery = require('mquery');
+const pluralize = require("mongoose-legacy-pluralize");
 
 function builder(resolver) {
   return new Proxy({}, {
@@ -285,7 +287,7 @@ function _getCollection(collectionName, dbName) {
 
   collection = orm.cache.get(`collection:${collectionName}@${dbName}`)
   if (!collection) {
-    collection = db.collection(collectionName);
+    collection = db.collection(pluralize(collectionName));
     orm.cache.set(`collection:${collectionName}@${dbName}`, collection);
   }
 
