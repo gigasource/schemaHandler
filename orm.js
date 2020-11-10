@@ -10,6 +10,7 @@ const orm = {
   },
   cache,
   pluralize: true,
+  connecting: false,
   connected: false,
   closed: false,
   mode: 'single',
@@ -36,7 +37,7 @@ const orm = {
   },
   waitForConnected() {
     return new Promise((resolve, reject) => {
-      if (this.connected && this.closed) {
+      if (!orm.connecting && this.connected && this.closed) {
         this.connect(this.url, orm.connectCb);
       }
 
@@ -94,7 +95,7 @@ let models = builder(async function (resolve, reject) {
     return result;
   }, false);
   if (!orm.cache.get('client')) {
-    if (!orm.connected || orm.closed) {
+    if (!orm.connected || orm.closed || orm.connecting) {
       await orm.waitForConnected();
     }
   }
@@ -273,7 +274,6 @@ function getCollection(collectionName, dbName) {
 }
 
 function _getCollection(collectionName, dbName) {
-  //todo: wait for client
   if (!orm.cache.get('client')) return;
 
   let db, collection;
@@ -308,21 +308,25 @@ function connect(url) {
     cb = arguments[1];
   }
   orm.connectCb = cb;
+  orm.connecting = true;
   MongoClient.connect(url, async (err, client) => {
-    console.log('db connected');
-    orm.cache.set('client', client);
-    orm.cache.on("expired", function (key, value) {
-      if (key === 'client') {
-        orm.closed = true;
-        client.close();
-        console.log('db disconnected');
+    if (!err) {
+      orm.connecting = false;
+      console.log('db connected');
+      orm.cache.set('client', client);
+      orm.cache.on("expired", function (key, value) {
+        if (key === 'client') {
+          orm.closed = true;
+          client.close();
+          console.log('db disconnected');
+        }
+      });
+      if (dbName) {
+        orm.db = client.db(dbName);
       }
-    });
-    if (dbName) {
-      orm.db = client.db(dbName);
+      orm.connected = true;
+      await orm.execPostAsync('connected', err);
     }
-    orm.connected = true;
-    await orm.execPostAsync('connected', err);
     if (cb) cb(err);
   });
 }
