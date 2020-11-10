@@ -19,7 +19,7 @@
     * [x] delete (pre, post)
     * [x] find (pre, post)
 * [_] debug : get mongo query     
-* [_] convert collectionName : Person -> person
+* [x] convert collectionName : Person -> person
 * [x] multidb  
 * [_] multiconnection 
 * [x] findOneAndUpdate parse $set -> ... 

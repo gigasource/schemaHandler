@@ -165,6 +165,7 @@ function createCollectionQuery(collectionName, useNative) {
       }
 
       const result = {ok: false, value: null};
+      orm.execPostSync('preQueryHandler', null, [{target, key, proxy, defaultFn}, result]);
       orm.execPostSync('proxyQueryHandler', null, [{target, key, proxy, defaultFn}, result]);
       if (result.ok) return result.value;
 
