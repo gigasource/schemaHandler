@@ -40,6 +40,7 @@ const orm = {
         this.connect(this.url, orm.connectCb);
       }
 
+      this._posts.get('connected').length = 0;
       this.post('connected', (err) => {
         if (err) return reject(err);
         resolve();
@@ -47,6 +48,8 @@ const orm = {
     });
   }
 }
+
+
 _.extend(orm, new Kareem());
 const mquery = require('mquery');
 const pluralize = require("mongoose-legacy-pluralize");
