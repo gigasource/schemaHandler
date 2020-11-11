@@ -219,7 +219,11 @@ function initDefaultValue(node, pathSchema, _path) {
 function convertPathSchema(node, pathSchema, _path) {
   const value = _.get(node, _path);
   if (value && pathSchema.$type === 'ObjectID') {
-    _.set(node, _path, new ObjectID(node[_path]));
+    if (ObjectID.isValid(value)) {
+      _.set(node, _path, new ObjectID(value));
+    } else if (pathSchema.$options.autopopulate && value._id) {
+      _.set(node, _path, new ObjectID(value._id));
+    }
   } else if (value && typeof value !== 'string' && pathSchema.$type === 'String') {
     _.set(node, _path, value.toString());
   } else if (value && typeof value !== 'number' && pathSchema.$type === 'Number') {

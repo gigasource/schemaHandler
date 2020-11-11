@@ -8,6 +8,7 @@
     * [x] populate doc
     * [x] populate array
     * [x] auto populate
+    * [_] obj.author = {_id} -> parse to object id before update
 * [_] hooks
     * [x] create/insert (pre, post) (many)
     * [x] update (pre, post) (many)
