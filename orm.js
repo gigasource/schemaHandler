@@ -161,8 +161,8 @@ function createCollectionQuery(collectionName, useNative) {
       if (key === 'create') {
         target.isCreateCmd = true;
         defaultFn = function (obj) {
-          console.log('fn : ', key);
-          console.log(arguments);
+          // console.log('fn : ', key);
+          // console.log(arguments);
           target.cursor = target.cursor['insertOne'](obj);
           return proxy;
         }
