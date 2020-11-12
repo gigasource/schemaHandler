@@ -11,6 +11,9 @@ const orm = {
   get client() {
     return orm.cache.get('client');
   },
+  get connection() {
+    return orm.cache.get('client');
+  },
   cache,
   pluralize: true,
   connecting: false,

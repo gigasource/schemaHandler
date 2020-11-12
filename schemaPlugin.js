@@ -3,7 +3,7 @@ const _ = require('lodash');
 const traverse = require("traverse");
 const {convertNameToTestFunction} = require("./utils");
 
-const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require("../schemaHandler")
+const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require("./schemaHandler")
 
 module.exports = function (orm) {
   const defaultSchema = convertSchemaToPaths({});
