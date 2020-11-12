@@ -8,6 +8,9 @@ const orm = {
   setTtl(ttl) {
     this.cache.options.stdTTL = ttl;
   },
+  get client() {
+    return orm.cache.get('client');
+  },
   cache,
   pluralize: true,
   connecting: false,
