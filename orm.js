@@ -62,8 +62,9 @@ const orm = {
   }
 }
 
-
 _.extend(orm, new Kareem());
+_.extend(orm, new EventEmitter());
+
 const mquery = require('mquery');
 const pluralize = require("mongoose-legacy-pluralize");
 
@@ -348,10 +349,12 @@ function connect(connectionInfo) {
       }
       orm.connected = true;
       await orm.execPostAsync('connected', err);
+      orm.emit('open');
     }
     if (cb) cb(err);
   });
 }
+
 orm.plugin(require('./collectionPlugin'));
 orm.plugin(require('./schemaPlugin'));
 module.exports = orm;
