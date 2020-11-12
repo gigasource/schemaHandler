@@ -39,7 +39,7 @@ async function run() {
   const test = await Model.updateOne({a: 1}, {b: 3}, {new: true});
   const result4 = await Model.find({a: 1});
   console.log(_model0);
-  console.log(result2.toJSON());
+  console.log(result2);
   console.log(result4);
   console.log(await Model.findById(new ObjectID().toString()));
 }

@@ -40,7 +40,7 @@ module.exports = function (orm) {
     if (returnResult.ok) return;
     if (key === 'remove') key = 'deleteMany'
 
-    if (key.includes('One') || key === 'create' || key === 'findById') target.returnSingleDocument = true;
+    if (key.includes('One') || key === 'create' || key === 'findById' || key === 'count') target.returnSingleDocument = true;
 
     if (key === 'insertMany') {
       target.isInsertManyCmd = true;
@@ -88,7 +88,11 @@ module.exports = function (orm) {
           args.unshift(updateValue);
         }
         args.unshift(_parseCondition);
-        target.cursor = target.cursor[key](...args);
+        try {
+          target.cursor = target.cursor[key](...args);
+        } catch (e) {
+          console.error(e);
+        }
         return proxy;
       }
     } else if (key === 'create' || key === 'insertOne') {
@@ -182,7 +186,11 @@ module.exports = function (orm) {
         const refCollection = orm.getCollection(refCollectionName, target.dbName);
         const paths = genPaths(path, result);
         for (const _path of paths) {
-          const refDoc = await refCollection['findById'](_.get(result, _path)).select(select).lean();
+          let cursor = refCollection['findById'](_.get(result, _path));
+          if (select !== true) {
+            cursor = cursor.select(select)
+          }
+          const refDoc = await cursor.lean();
           if (refDoc) _.set(result, _path, refDoc);
         }
       }

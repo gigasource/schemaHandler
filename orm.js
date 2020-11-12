@@ -14,6 +14,9 @@ const orm = {
   get connection() {
     return orm.cache.get('client');
   },
+  useProxyForResult() {
+    this._useProxyForResult = true;
+  },
   cache,
   pluralize: true,
   connecting: false,
@@ -167,7 +170,11 @@ function createCollectionQuery(collectionName, useNative) {
       let defaultFn = function () {
         //console.log('fn : ', key);
         //console.log(arguments);
-        target.cursor = target.cursor[key](...arguments);
+        try {
+          target.cursor = target.cursor[key](...arguments);
+        } catch (e) {
+          console.warn(e);
+        }
         return proxy;
       }
 
@@ -248,7 +255,7 @@ async function resultPostProcess(result, target) {
     _result = docs;
   }
 
-  if (target.lean) return _result;
+  if (orm._useProxyForResult || target.lean) return _result;
 
   function convertProxy(doc) {
     return new Proxy(doc, {
