@@ -1,36 +1,38 @@
 const ObjectID = require('bson').ObjectID;
 const _ = require('lodash');
 const traverse = require("traverse");
+const {convertNameToTestFunction} = require("./utils");
 
 const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require("../schemaHandler")
 
 module.exports = function (orm) {
   const defaultSchema = convertSchemaToPaths({});
-  orm.schemas = orm.schemas || {};
+  orm.schemas = orm.schemas || [];
   orm.registerSchema = function (collectionName, dbName, schema) {
     if (orm.mode === 'single') {
       schema = dbName;
-      orm.schemas[`schema:${collectionName}`] = convertSchemaToPaths(schema);
-    } else {
-      if (typeof dbName === 'string') {
-        orm.schemas[`schema:${collectionName}@${dbName}`] = convertSchemaToPaths(schema);
-      } else if (typeof dbName === 'function') {
-        orm.schemas[`schemaMatch:${collectionName}`] = orm.schemas[`schemaMatch:${collectionName}`] || [];
-        orm.schemas[`schemaMatch:${collectionName}`].push({test: dbName, schema: convertSchemaToPaths(schema)});
-      }
+      dbName = null;
     }
+
+    schema = convertSchemaToPaths(schema);
+
+    orm.schemas.push({
+      testCollection: convertNameToTestFunction(collectionName),
+      schema,
+      ...(orm.mode !== 'single' && {
+        testDb: convertNameToTestFunction(dbName)
+      })
+    })
   }
   orm.getSchema = function (collectionName, dbName) {
-    if (orm.mode === 'single') {
-      return orm.schemas[`schema:${collectionName}`];
-    } else {
-      if (orm.schemas[`schema:${collectionName}@${dbName}`]) return orm.schemas[`schema:${collectionName}@${dbName}`];
-      if (orm.schemas[`schemaMatch:${collectionName}`]) {
-        for (const {schema, test} of orm.schemas[`schemaMatch:${collectionName}`]) {
-          if (test(dbName)) return schema;
-        }
+    let match = orm.schemas.find(match => {
+      if (orm.mode === 'single') {
+        if (match.testCollection(collectionName)) return true
+      } else {
+        if (match.testCollection(collectionName) && match.testDb(dbName)) return true;
       }
-    }
+    });
+    if (match) return match.schema;
   }
 
   //parse condition

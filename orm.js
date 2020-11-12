@@ -32,13 +32,19 @@ const orm = {
   //mock
   getSchema(collectionName, dbName) {
   },
+  //mock
+  registerCollectionOptions(collectionName, dbName, options) {
+  },
+  //mock
+  getOptions(collectionName, dbName) {
+  },
   plugin(plugin) {
     plugin(orm);
   },
   waitForConnected() {
     return new Promise((resolve, reject) => {
       if (!orm.connecting && this.connected && this.closed) {
-        this.connect(this.url, orm.connectCb);
+        this.connect(this.connectionInfo, orm.connectCb);
       }
 
       if (this._posts.get('connected')) this._posts.get('connected').length = 0;
@@ -298,8 +304,18 @@ function _getCollection(collectionName, dbName) {
   return collection
 }
 
-function connect(url) {
-  orm.url = url;
+/**
+ * @param connectionInfo: {options, uri} || uri
+ * example: connect('localhost:27017') || connect({uri: 'localhost:27017'})
+ */
+function connect(connectionInfo) {
+  orm.connectionInfo = connectionInfo;
+  let firstArgs = [];
+  if (typeof connectionInfo === 'object') {
+    firstArgs.push(connectionInfo.uri, connectionInfo.options);
+  } else {
+    firstArgs.push(connectionInfo)
+  }
   let dbName, cb;
   if (arguments.length === 3) {
     dbName = arguments[1];
@@ -309,7 +325,7 @@ function connect(url) {
   }
   orm.connectCb = cb;
   orm.connecting = true;
-  MongoClient.connect(url, async (err, client) => {
+  MongoClient.connect(...firstArgs, async (err, client) => {
     if (!err) {
       orm.connecting = false;
       console.log('db connected');
@@ -330,7 +346,7 @@ function connect(url) {
     if (cb) cb(err);
   });
 }
-
+orm.plugin(require('./collectionPlugin'));
 orm.plugin(require('./schemaPlugin'));
 module.exports = orm;
 

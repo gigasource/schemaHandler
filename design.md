@@ -36,6 +36,12 @@
 * [x] sync system
 * [x] await for connected
 
+* [x] connection/client options
+
+* [x] collection options : use for get collection
+    * [x] supports read/write concern
+    * http://mongodb.github.io/node-mongodb-native/3.6/api/Db.html#collection
+
 // Cache
 orm._getCollection(collection, dbName) -> Collection
 orm.getCollection(collection, dbName) -> Proxy
