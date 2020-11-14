@@ -152,7 +152,7 @@ function parseCondition(paths, obj) {
     let _node = node;
 
     for (const _path of pathsInLevel) {
-      if (_path.split('.').length === 1 && _path === last && isLeaf) {
+      if (_path.split('.').length === 1 && _path === last && isLeaf && !Array.isArray(_node)) {
         const pathSchema = paths[pathFilter.concat(_path.split('.')).join('.')];
         _node = convertPathParentSchema(_node, pathSchema, _path);
         this.update(_node);
@@ -199,7 +199,9 @@ function filterMongoOperators(paths) {
 function convertPathParentSchema(node, pathSchema, _path) {
   const value = node;
   if (value && pathSchema.$type === 'ObjectID') {
-    return new ObjectID(node);
+    if (ObjectID.isValid(node)) {
+      return new ObjectID(node);
+    }
   } else if (value && typeof value !== 'string' && pathSchema.$type === 'String') {
     return value.toString;
   } else if (value && typeof value !== 'number' && pathSchema.$type === 'Number') {
