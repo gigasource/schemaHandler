@@ -56,8 +56,7 @@ const orm = {
         this.connect(this.connectionInfo, orm.connectCb);
       }
 
-      if (this._posts.get('connected')) this._posts.get('connected').length = 0;
-      this.post('connected', (err) => {
+      this.once('open', (err) => {
         if (err) return reject(err);
         resolve();
       })
@@ -355,7 +354,6 @@ function connect(connectionInfo) {
         orm.db = client.db(dbName);
       }
       orm.connected = true;
-      await orm.execPostAsync('connected', err);
       orm.emit('open');
     }
     if (cb) cb(err);

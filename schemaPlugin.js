@@ -120,7 +120,8 @@ module.exports = function (orm) {
 
   function checkMainCmd(key) {
     if (key.includes('find') || key.includes('create') || key.includes('update')
-      || key.includes('insert') || key.includes('delete') || key.includes('remove')) return true;
+      || key.includes('insert') || key.includes('delete') || key.includes('remove')
+      || key.includes('count')) return true;
 
     return false;
   }
