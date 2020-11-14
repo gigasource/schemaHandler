@@ -154,8 +154,11 @@ function createCollectionQuery(collectionName, useNative) {
       if (key === 'then') {
         return async (resolve, reject) => {
           try {
-            const returnResult = {ok: false, value: null};
+            let returnResult = {ok: false, value: null};
             orm.execPostSync('proxyPostQueryHandler', null, [{target, proxy}, returnResult]);
+            returnResult = {ok: false, value: null};
+            await orm.execPostSync('debug', null, [{target, proxy}, returnResult]);
+            if (returnResult.ok) return returnResult.value;
 
             const result = await target.cursor;
             const returnValue = await resultPostProcess(result, target);
@@ -254,7 +257,7 @@ async function resultPostProcess(result, target) {
     _result = docs;
   }
 
-  if (orm._useProxyForResult || target.lean) return _result;
+  if (!orm._useProxyForResult || target.lean) return _result;
 
   function convertProxy(doc) {
     return new Proxy(doc, {
