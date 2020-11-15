@@ -79,13 +79,17 @@ function builder(resolver) {
             return target[key];
           }
           return function () {
-            return new Proxy({modelName: this.modelName, chain: [{fn: key, args: [...arguments]}]}, {
+            const _target = new Promise(resolver({
+              modelName: this.modelName,
+              chain: [{fn: key, args: [...arguments]}]
+            }));
+            return new Proxy(_target, {
               get(target, key) {
                 if (['chain', 'modelName'].includes(key)) {
                   return target[key];
                 }
                 if (key === 'then') {
-                  return resolver;
+                  return target[key].bind(target);
                 }
                 return function () {
                   target.chain = target.chain || [];
@@ -101,8 +105,8 @@ function builder(resolver) {
   });
 }
 
-let models = builder(async function (resolve, reject) {
-  const query = {name: this.modelName, chain: this.chain};
+let models = builder(_this => async function (resolve, reject) {
+  const query = {name: _this.modelName, chain: _this.chain};
   const useNative = query.chain.reduce((result, {fn}) => {
     if (!result) {
       if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
