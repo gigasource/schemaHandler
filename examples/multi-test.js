@@ -28,6 +28,7 @@ async function run() {
   const _parseCondition = parseCondition(schema, {_id: new ObjectID()});
   await Model.remove();
   await Model.updateMany({_id: {$in: []}}, {b: 100});
+  const model11 =  new Model({a: 10});
   const _model0 = await Model.create({a: 10, date: new Date().toISOString()});
   const objs = await Model.insertMany([
     {a: 2, b: {c: 2, d: 4}}, {a: 3}, {a: 1}, {a: 1}, {a: 4}

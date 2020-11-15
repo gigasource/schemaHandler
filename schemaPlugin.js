@@ -243,4 +243,9 @@ module.exports = function (orm) {
     }
   })
 
+  orm.post('construct', null, async function ({target, args}, returnResult) {
+    let [collectionName, dbName] = target.modelName.split('@');
+    const schema = orm.getSchema(collectionName, dbName);
+    returnResult.value = parseSchema(schema, args[0]);
+  })
 }

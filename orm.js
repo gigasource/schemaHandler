@@ -73,7 +73,17 @@ const pluralize = require("mongoose-legacy-pluralize");
 function builder(resolver) {
   return new Proxy({}, {
     get(target, key) {
-      return new Proxy({modelName: key}, {
+      const construct = function () {
+      }
+      construct.modelName = key;
+      return new Proxy(construct, {
+        construct(target, args) {
+          console.log('monster1 constructor called');
+          // expected output: "monster1 constructor called"
+          const returnResult = {ok: false, value: null};
+          orm.execPostSync('construct', null, [{target, args}, returnResult]);
+          return returnResult.value;
+        },
         get(target, key) {
           if (['modelName'].includes(key)) {
             return target[key];
