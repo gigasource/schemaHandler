@@ -105,7 +105,8 @@ let models = builder(async function (resolve, reject) {
   const query = {name: this.modelName, chain: this.chain};
   const useNative = query.chain.reduce((result, {fn}) => {
     if (!result) {
-      if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/) result = true;
+      if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
+        || fn.includes('countDocuments') || fn.includes('aggregate')) result = true;
     }
     return result;
   }, false);
@@ -158,7 +159,7 @@ function createCollectionQuery(collectionName, useNative) {
             orm.execPostSync('proxyPostQueryHandler', null, [{target, proxy}, returnResult]);
             returnResult = {ok: false, value: null};
             await orm.execPostSync('debug', null, [{target, proxy}, returnResult]);
-            if (returnResult.ok) return returnResult.value;
+            if (returnResult.ok) return resolve(returnResult.value);
 
             const result = await target.cursor;
             const returnValue = await resultPostProcess(result, target);
@@ -231,6 +232,10 @@ async function resultPostProcess(result, target) {
     return result.result;
   }
 
+  if (result.toArray) {
+    _result = await _result.toArray();
+  }
+
   /*if (_result === result) {
     debugger
     return _result;
@@ -246,14 +251,20 @@ async function resultPostProcess(result, target) {
   } else {
     const returnResult = {ok: false, value: null}
     let docs = []
-    for (const doc of _result) {
-      await orm.execPostAsync('proxyResultPostProcess', null, [{target, result: doc}, returnResult]);
-      if (returnResult.ok) {
-        docs.push(returnResult.value);
-      } else {
-        docs.push(doc);
+
+    try {
+      for (const doc of _result) {
+        await orm.execPostAsync('proxyResultPostProcess', null, [{target, result: doc}, returnResult]);
+        if (returnResult.ok) {
+          docs.push(returnResult.value);
+        } else {
+          docs.push(doc);
+        }
       }
+    } catch (e) {
+      console.warn(e);
     }
+
     _result = docs;
   }
 

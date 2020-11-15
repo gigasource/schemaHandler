@@ -125,7 +125,7 @@ const logicOperators = ['$or', '$nor', '$and', '$in' /*'$where', '$not'*/];
 function parseCondition(paths, obj) {
   return traverse(obj).map(function (node) {
     const {key, path, isRoot, parent, isLeaf} = this;
-    if (node instanceof ObjectID) {
+    if (this.node_ instanceof ObjectID || (typeof this.node_ === 'object' && ObjectID.isValid(this.node_))) {
       this.update(this.node_, true);
       return this.block();
     }
@@ -166,7 +166,9 @@ function parseCondition(paths, obj) {
       for (const {relative: _path, absolute} of pathsInLevel2) {
         if (_path.split('.').length === 1 && _path === last && isLeaf) {
           const pathSchema = paths[_path];
-          _node = convertPathParentSchema(_node, pathSchema, absolute);
+          if (pathSchema) {
+            _node = convertPathParentSchema(_node, pathSchema, absolute);
+          }
           this.update(_node);
           this.block();
         }
@@ -199,7 +201,7 @@ function filterMongoOperators(paths) {
 function convertPathParentSchema(node, pathSchema, _path) {
   const value = node;
   if (value && pathSchema.$type === 'ObjectID') {
-    if (ObjectID.isValid(node)) {
+    if (typeof node === 'string' && ObjectID.isValid(node)) {
       return new ObjectID(node);
     }
   } else if (value && typeof value !== 'string' && pathSchema.$type === 'String') {

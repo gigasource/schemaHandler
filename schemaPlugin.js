@@ -47,13 +47,19 @@ module.exports = function (orm) {
       //todo: parseSchema
     }
     if (key === 'updateOne') key = 'findOneAndUpdate';
+    if (key === 'countDocuments') key = 'count';
 
     if (key === 'findOneAndUpdate') {
       target.new = true;
     }
 
-    if (key.includes('delete')) {
-      target.isDeleteCmd = true;
+    if (key.includes('delete') || key === 'count') {
+      if (key.includes('delete')) {
+        target.isDeleteCmd = true;
+      }
+      if (key === 'count') {
+        target.returnSingleDocument = true;
+      }
       returnResult.ok = true;
       returnResult.value = function () {
         const args = [...arguments];
@@ -84,7 +90,11 @@ module.exports = function (orm) {
         const _parseCondition = parseCondition(schema, condition);
         if (key.includes('Update') || key.includes('Modify') || key === 'updateMany') {
           let updateValue = args.shift();
-          updateValue = parseCondition(schema, updateValue);
+          try {
+            updateValue = parseCondition(schema, updateValue);
+          } catch (e) {
+            console.warn(e);
+          }
           args.unshift(updateValue);
         }
         args.unshift(_parseCondition);
@@ -121,7 +131,7 @@ module.exports = function (orm) {
   function checkMainCmd(key) {
     if (key.includes('find') || key.includes('create') || key.includes('update')
       || key.includes('insert') || key.includes('delete') || key.includes('remove')
-      || key.includes('count')) return true;
+      || key.includes('count') || key.includes('aggregate')) return true;
 
     return false;
   }
