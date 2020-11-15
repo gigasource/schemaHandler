@@ -2,6 +2,7 @@ const traverse = require('traverse');
 const ObjectID = require('bson').ObjectID;
 const _ = require('lodash');
 const _merge = require('extend');
+const iso8061 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/;
 
 function merge() {
   return _merge(true, ...arguments);
@@ -60,7 +61,7 @@ function convertSchemaToPaths(schema) {
       if (parent) {
         paths[_path] = convertType(parent.node);
       }
-    } else if (isLeaf && key === '$type' && node && node.name === 'ObjectId') {
+    } else if (isLeaf && key === '$type' && node && (node.name === 'ObjectId' || node.name === 'Date')) {
       if (parent) {
         paths[_path] = convertType(parent.node);
       }
@@ -90,7 +91,7 @@ function parseSchema(paths, obj) {
       this.update(this.node_, true);
       return this.block();
     }
-    if (!isRoot && isLeaf && typeof node !== 'object') return;
+    if (!isRoot && isLeaf && isPrimitive(node)) return;
     /*if (isRoot) {
       return;
     }*/
@@ -232,6 +233,10 @@ function convertPathSchema(node, pathSchema, _path) {
     _.set(node, _path, value.toString());
   } else if (value && typeof value !== 'number' && pathSchema.$type === 'Number') {
     _.set(node, _path, Number(value));
+  } else if (value && typeof value === 'string' && pathSchema.$type === 'Date') {
+    if (value.match(iso8061)){
+      _.set(node, _path, new Date(value));
+    }
   }
 }
 
@@ -314,7 +319,7 @@ function hasTypeDefined(node) {
 }
 
 function isSchemaType(key, node, isRoot) {
-  if ([String, Number, Boolean, ObjectID].includes(node)) return true;
+  if ([String, Number, Boolean, ObjectID, Date].includes(node)) return true;
   if (typeof node === 'object' && node.hasOwnProperty('type')) {
     return false;
   }
@@ -326,6 +331,7 @@ function isSchemaType(key, node, isRoot) {
 }
 
 function isPrimitive(test) {
+  if ([String, Number, Boolean, ObjectID, Date].find(_class => test instanceof _class)) return true;
   return (test !== Object(test));
 }
 
