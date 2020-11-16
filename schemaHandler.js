@@ -99,9 +99,9 @@ function parseSchema(paths, obj) {
     const pathsInLevel = findAllPathsInLevel(paths, path);
     let _node = Array.isArray(node) ? [...node] : {...node};
 
-    for (const _path of pathsInLevel) {
+    for (const {relative: _path, absolute} of pathsInLevel) {
       if (_path.split('.').length === 1) {
-        const pathSchema = paths[path.concat(_path.split('.')).join('.')];
+        const pathSchema = paths[absolute];
         if (_path === '0' && Array.isArray(_node)) {
           for (let i = 0; i < _node.length; i++) {
             initDefaultValue(_node, pathSchema, i + '');
@@ -249,7 +249,7 @@ function findAllPathsInLevelArrHandler(paths, path) {
     if (path.length + 1 === _path2.split('.').length) {
       const __path2 = _path2.split('.');
       const __beginPath = __path2.splice(0, path.length);
-      if (checkEqual(path, __beginPath)) {
+      if (checkEqual(__beginPath, path)) {
         if (changed) {
           const __path = _path.split('.');
           __path.splice(0, path.length + 1);
@@ -269,8 +269,8 @@ function findAllPathsInLevel(paths, path) {
     if (path.length + 1 === _path.split('.').length) {
       const __path = _path.split('.');
       const __beginPath = __path.splice(0, path.length);
-      if (checkEqual(path, __beginPath)) {
-        _paths.push(__path.join('.'));
+      if (checkEqual(__beginPath, path)) {
+        _paths.push({relative: __path.join('.'), absolute: _path});
       }
     }
   }
