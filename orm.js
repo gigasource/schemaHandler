@@ -73,38 +73,36 @@ const pluralize = require("mongoose-legacy-pluralize");
 function builder(resolver) {
   return new Proxy({}, {
     get(target, key) {
-      const construct = function () {
+      const construct = class Anonymous {
       }
       construct.modelName = key;
       return new Proxy(construct, {
         construct(target, args) {
-          console.log('monster1 constructor called');
-          // expected output: "monster1 constructor called"
           const returnResult = {ok: false, value: null};
           orm.execPostSync('construct', null, [{target, args}, returnResult]);
           return returnResult.value;
         },
-        get(target, key) {
+        get(targetLayer1, key) {
           if (['modelName'].includes(key)) {
-            return target[key];
+            return targetLayer1[key];
           }
           return function () {
-            const _target = new Promise(resolver({
-              modelName: this.modelName,
+            return new Proxy({
+              modelName: construct.modelName,
               chain: [{fn: key, args: [...arguments]}]
-            }));
-            return new Proxy(_target, {
-              get(target, key) {
+            }, {
+              get(targetLayer2, key, queryProxy) {
                 if (['chain', 'modelName'].includes(key)) {
-                  return target[key];
+                  return targetLayer2[key];
                 }
                 if (key === 'then') {
-                  return target[key].bind(target);
+                  const promise = new Promise(resolver(targetLayer2));
+                  return promise.then.bind(promise);
                 }
                 return function () {
-                  target.chain = target.chain || [];
-                  target.chain.push({fn: key, args: [...arguments]});
-                  return this;
+                  targetLayer2.chain = targetLayer2.chain || [];
+                  targetLayer2.chain.push({fn: key, args: [...arguments]});
+                  return queryProxy;
                 };
               }
             });
@@ -115,26 +113,28 @@ function builder(resolver) {
   });
 }
 
-let models = builder(_this => async function (resolve, reject) {
-  const query = {name: _this.modelName, chain: _this.chain};
-  const useNative = query.chain.reduce((result, {fn}) => {
-    if (!result) {
-      if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
-        || fn.includes('countDocuments') || fn.includes('aggregate')) result = true;
+let models = builder(function (_this) {
+  return async function (resolve, reject) {
+    const query = {name: _this.modelName, chain: _this.chain};
+    const useNative = query.chain.reduce((result, {fn}) => {
+      if (!result) {
+        if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
+          || fn.includes('countDocuments') || fn.includes('aggregate')) result = true;
+      }
+      return result;
+    }, false);
+    if (!orm.cache.get('client')) {
+      if (!orm.connected || orm.closed || orm.connecting) {
+        await orm.waitForConnected();
+      }
     }
-    return result;
-  }, false);
-  if (!orm.cache.get('client')) {
-    if (!orm.connected || orm.closed || orm.connecting) {
-      await orm.waitForConnected();
-    }
-  }
 
-  let cursor = createCollectionQuery(query.name, useNative);
-  for (const {fn, args} of query.chain) {
-    cursor = cursor[fn](...args);
-  }
-  cursor.then(resolve, reject);
+    let cursor = createCollectionQuery(query.name, useNative);
+    for (const {fn, args} of query.chain) {
+      cursor = cursor[fn](...args);
+    }
+    cursor.then(resolve, reject);
+  };
 });
 
 function createCollectionQuery(collectionName, useNative) {

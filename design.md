@@ -42,6 +42,11 @@
     * [x] supports read/write concern
     * http://mongodb.github.io/node-mongodb-native/3.6/api/Db.html#collection
 
+
+* [x] supports case .find().count(); -> chain query
+* [_] supports $and for case .find({a: 1}).find({a: 2})
+
+
 // Cache
 orm._getCollection(collection, dbName) -> Collection
 orm.getCollection(collection, dbName) -> Proxy
