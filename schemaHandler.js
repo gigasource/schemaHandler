@@ -152,9 +152,9 @@ function parseCondition(paths, obj) {
     if (!parent) return;
     let _node = node;
 
-    for (const _path of pathsInLevel) {
+    for (const {relative: _path, absolute} of pathsInLevel) {
       if (_path.split('.').length === 1 && _path === last && isLeaf && !Array.isArray(_node)) {
-        const pathSchema = paths[pathFilter.concat(_path.split('.')).join('.')];
+        const pathSchema = paths[absolute];
         _node = convertPathParentSchema(_node, pathSchema, _path);
         this.update(_node);
         this.block();
