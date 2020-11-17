@@ -8,6 +8,9 @@ const orm = {
   setTtl(ttl) {
     this.cache.options.stdTTL = ttl;
   },
+  get readyState() {
+    if (this.connected && !this.closed) return 1;
+  },
   get client() {
     return orm.cache.get('client');
   },
@@ -223,13 +226,23 @@ async function resultPostProcess(result, target) {
   let _result;
   if (global.USE_MONGO_EMBEDDED) {
     _result = result;
-    if (_.get(result,'result.message.documents')) {
-      _result = _.get(result,'result.message.documents');
+    if (target.isDeleteCmd) {
+      if (target.returnSingleDocument) {
+        _result = result.result.message.documents[0];
+      } else {
+        _result = result.result.message.documents;
+      }
+    }
+    if (_.get(result, 'result.message.documents')) {
+      _result = _.get(result, 'result.message.documents');
     }
     if (target.cmd === 'insertMany') {
       _result = result.ops;
     }
     if (result && result.ok === 1 && result.value) {
+      _result = result.value;
+    }
+    if (_result && _result.ok === 1 && _result.value) {
       _result = result.value;
     }
   } else {
