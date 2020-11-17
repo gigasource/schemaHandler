@@ -205,7 +205,11 @@ function createCollectionQuery(collectionName, useNative, chain) {
         defaultFn = function (obj) {
           // console.log('fn : ', key);
           // console.log(arguments);
-          target.cursor = target.cursor['insertOne'](obj);
+          if (Array.isArray(obj)) {
+            target.cursor = target.cursor['insertMany'](obj);
+          } else {
+            target.cursor = target.cursor['insertOne'](obj);
+          }
           return proxy;
         }
       }
