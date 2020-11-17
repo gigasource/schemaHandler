@@ -173,6 +173,10 @@ function createCollectionQuery(collectionName, useNative, chain) {
       if (key === 'then') {
         const promise = new Promise(async (resolve, reject) => {
           try {
+            if (target.ignore) {
+              return resolve(target.returnValueWhenIgnore);
+            }
+
             let returnResult = {ok: false, value: null};
             orm.execPostSync('proxyPostQueryHandler', null, [{target, proxy}, returnResult]);
             returnResult = {ok: false, value: null};
