@@ -179,6 +179,7 @@ module.exports = function (orm) {
 
   //populate
   orm.post('proxyResultPostProcess', null, async function ({target, result}, returnResult) {
+    if (!result) return;
     if (returnResult.ok) return;
     if (result.n && result.ok) return;
 

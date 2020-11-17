@@ -129,7 +129,7 @@ let models = builder(function (_this) {
       }
     }
 
-    let cursor = createCollectionQuery(query.name, useNative);
+    let cursor = createCollectionQuery(query.name, useNative, query.chain);
     for (const {fn, args} of query.chain) {
       cursor = cursor[fn](...args);
     }
@@ -137,7 +137,7 @@ let models = builder(function (_this) {
   };
 });
 
-function createCollectionQuery(collectionName, useNative) {
+function createCollectionQuery(collectionName, useNative, chain) {
   //const _mongoCollection = orm.db.collection(collectionName)
   //const _collection = mquery().collection(orm.collection1);
 
@@ -149,7 +149,8 @@ function createCollectionQuery(collectionName, useNative) {
     dbName: collectionName.split('@')[1],
     isCreateCmd: false,
     lean: false,
-    useNative
+    useNative,
+    chain
   }, {
     get(target, key, proxy) {
       //target here is mongo db collection
@@ -167,7 +168,7 @@ function createCollectionQuery(collectionName, useNative) {
       }
 
       if (key === 'then') {
-        return async (resolve, reject) => {
+        const promise = new Promise(async (resolve, reject) => {
           try {
             let returnResult = {ok: false, value: null};
             orm.execPostSync('proxyPostQueryHandler', null, [{target, proxy}, returnResult]);
@@ -181,7 +182,8 @@ function createCollectionQuery(collectionName, useNative) {
           } catch (e) {
             reject(e);
           }
-        }
+        })
+        return promise.then.bind(promise);
       }
 
       let defaultFn = function () {
@@ -218,37 +220,49 @@ function createCollectionQuery(collectionName, useNative) {
 }
 
 async function resultPostProcess(result, target) {
-  let _result = result;
-  if (target.isCreateCmd) {
-    _result = result.ops[0];
-  }
+  let _result;
+  if (global.USE_MONGO_EMBEDDED) {
+    _result = result;
+    if (_.get(result,'result.message.documents')) {
+      _result = _.get(result,'result.message.documents');
+    }
+    if (target.cmd === 'insertMany') {
+      _result = result.ops;
+    }
+  } else {
+    _result = result;
+    if (target.isCreateCmd) {
+      _result = result.ops[0];
+    }
 
-  if (result && result.ok === 1 && result.value) {
-    _result = result.value;
-  }
+    if (result && result.ok === 1 && result.value) {
+      _result = result.value;
+    }
 
-  if (target.isDeleteCmd) {
-    if (target.returnSingleDocument) {
-      _result = result.message.documents[0];
-    } else {
-      _result = result.message.documents;
+    if (target.isDeleteCmd) {
+      if (target.returnSingleDocument) {
+        _result = result.message.documents[0];
+      } else {
+        _result = result.message.documents;
+      }
+    }
+    if (target.isInsertManyCmd) {
+      _result = result.ops;
+    }
+
+    if (_result === null) {
+      return null;
+    }
+
+    if (result.result && result === _result) {
+      return result.result;
+    }
+
+    if (result.toArray) {
+      _result = await _result.toArray();
     }
   }
-  if (target.isInsertManyCmd) {
-    _result = result.ops;
-  }
 
-  if (_result === null) {
-    return null;
-  }
-
-  if (result.result && result === _result) {
-    return result.result;
-  }
-
-  if (result.toArray) {
-    _result = await _result.toArray();
-  }
 
   /*if (_result === result) {
     debugger
