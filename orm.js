@@ -213,6 +213,7 @@ function createCollectionQuery(collectionName, useNative, chain) {
 }
 
 async function resultPostProcess(result, target) {
+  if (target.ignore) return target.returnValueWhenIgnore;
   let _result;
   if (global.USE_MONGO_EMBEDDED) {
     _result = result;

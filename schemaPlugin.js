@@ -115,14 +115,16 @@ module.exports = function (orm) {
         if (Array.isArray(obj)) {
           let objs = obj;
           objs = objs.map(obj => parseSchema(schema, obj));
-          args.unshift(objs);
-
-          target.cursor = target.cursor['insertMany'](...args);
+          if (objs.length !== 0) {
+            args.unshift(objs);
+            target.cursor = target.cursor['insertMany'](...args);
+          } else {
+            target.ignore = true;
+            target.returnValueWhenIgnore = [];
+          }
         } else {
           args.unshift(parseSchema(schema, obj));
-
           target.cursor = target.cursor['insertOne'](...args);
-
         }
         return proxy;
       }
