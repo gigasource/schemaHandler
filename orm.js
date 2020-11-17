@@ -232,17 +232,13 @@ async function resultPostProcess(result, target) {
       } else {
         _result = result.result.message.documents;
       }
-    }
-    if (_.get(result, 'result.message.documents')) {
+    } else if (_.get(result, 'result.message.documents')) {
       _result = _.get(result, 'result.message.documents');
-    }
-    if (target.cmd === 'insertMany') {
+    } else if (target.cmd === 'insertMany') {
       _result = result.ops;
-    }
-    if (result && result.ok === 1 && result.value) {
+    } else if (result && result.ok === 1 && result.value) {
       _result = result.value;
-    }
-    if (_result && _result.ok === 1 && _result.value) {
+    } else if (_result && _result.ok === 1 && _result.value) {
       _result = result.value;
     }
   } else {
