@@ -105,7 +105,28 @@ module.exports = function (orm) {
         }
         return proxy;
       }
-    } else if (key === 'create' || key === 'insertOne') {
+    } else if (key === 'create') {
+      target.isCreateCmd = true;
+      returnResult.ok = true;
+      returnResult.value = function () {
+        const args = [...arguments];
+        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
+        const obj = args.shift();
+        if (Array.isArray(obj)) {
+          let objs = obj;
+          objs = objs.map(obj => parseSchema(schema, obj));
+          args.unshift(objs);
+
+          target.cursor = target.cursor['insertMany'](...args);
+        } else {
+          args.unshift(parseSchema(schema, obj));
+
+          target.cursor = target.cursor['insertOne'](...args);
+
+        }
+        return proxy;
+      }
+    } else if (key === 'insertOne') {
       returnResult.ok = true;
       returnResult.value = function () {
         const args = [...arguments];

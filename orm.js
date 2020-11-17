@@ -200,20 +200,6 @@ function createCollectionQuery(collectionName, useNative, chain) {
         return proxy;
       }
 
-      if (key === 'create') {
-        target.isCreateCmd = true;
-        defaultFn = function (obj) {
-          // console.log('fn : ', key);
-          // console.log(arguments);
-          if (Array.isArray(obj)) {
-            target.cursor = target.cursor['insertMany'](obj);
-          } else {
-            target.cursor = target.cursor['insertOne'](obj);
-          }
-          return proxy;
-        }
-      }
-
       const result = {ok: false, value: null};
       orm.execPostSync('preQueryHandler', null, [{target, key, proxy, defaultFn}, result]);
       orm.execPostSync('proxyQueryHandler', null, [{target, key, proxy, defaultFn}, result]);
