@@ -144,8 +144,14 @@ module.exports = function (orm) {
         let objs = args.shift();
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         objs = objs.map(obj => parseSchema(schema, obj));
-        args.unshift(objs);
-        return defaultFn(...args)
+        if (objs.length !== 0) {
+          args.unshift(objs);
+          return defaultFn(...args)
+        } else {
+          target.ignore = true;
+          target.returnValueWhenIgnore = [];
+          return proxy;
+        }
       }
     }
   })
