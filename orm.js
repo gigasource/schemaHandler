@@ -229,6 +229,9 @@ async function resultPostProcess(result, target) {
     if (target.cmd === 'insertMany') {
       _result = result.ops;
     }
+    if (result.value) {
+      _result = result.value;
+    }
   } else {
     _result = result;
     if (target.isCreateCmd) {
