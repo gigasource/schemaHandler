@@ -66,7 +66,8 @@ const orm = {
         resolve();
       })
     });
-  }
+  },
+  execChain
 }
 
 _.extend(orm, new Kareem());
@@ -121,30 +122,40 @@ function builder(resolver) {
 let models = builder(function (_this) {
   return async function (resolve, reject) {
     const query = {name: _this.modelName, chain: _this.chain};
-    const useNative = query.chain.reduce((result, {fn}) => {
-      if (!result) {
-        if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
-          || fn.includes('countDocuments') || fn.includes('aggregate')) result = true;
-      }
-      return result;
-    }, false);
     if (!orm.cache.get('client')) {
       if (!orm.connected || orm.closed || orm.connecting) {
         await orm.waitForConnected();
       }
     }
 
-    let cursor = createCollectionQuery(query.name, useNative, query.chain);
-    for (const {fn, args} of query.chain) {
-      cursor = cursor[fn](...args);
-    }
+    let returnResult = {ok: false, value: null};
+    await orm.execPostAsync('debug', null, [query, returnResult]);
+    if (returnResult.ok) return resolve(returnResult.value);
+
+    let cursor = execChain(query);
     cursor.then(resolve, reject);
   };
 });
 
-function createCollectionQuery(collectionName, useNative, chain) {
+function execChain(query) {
+  let cursor = createCollectionQuery(query.name, query.chain);
+  for (const {fn, args} of query.chain) {
+    cursor = cursor[fn](...args);
+  }
+  return cursor;
+}
+
+function createCollectionQuery(collectionName, chain) {
   //const _mongoCollection = orm.db.collection(collectionName)
   //const _collection = mquery().collection(orm.collection1);
+
+  const useNative = chain.reduce((result, {fn}) => {
+    if (!result) {
+      if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
+        || fn.includes('countDocuments') || fn.includes('aggregate')) result = true;
+    }
+    return result;
+  }, false);
 
   let _nativeCollection = _getCollection(...collectionName.split('@'));
   const _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
@@ -173,6 +184,7 @@ function createCollectionQuery(collectionName, useNative, chain) {
       }
 
       if (key === 'then') {
+        const e0 = new Error();
         const promise = new Promise(async (resolve, reject) => {
           try {
             if (target.ignore) {
@@ -181,14 +193,12 @@ function createCollectionQuery(collectionName, useNative, chain) {
 
             let returnResult = {ok: false, value: null};
             orm.execPostSync('proxyPostQueryHandler', null, [{target, proxy}, returnResult]);
-            returnResult = {ok: false, value: null};
-            await orm.execPostAsync('debug', null, [{target, proxy}, returnResult]);
-            if (returnResult.ok) return resolve(returnResult.value);
 
             const result = await target.cursor;
             const returnValue = await resultPostProcess(result, target);
             resolve(returnValue);
           } catch (e) {
+            console.error(e0);
             reject(e);
           }
         })
