@@ -30,10 +30,17 @@ async function run() {
   await Model.updateMany({_id: {$in: []}}, {b: 100});
   const model11 = new Model({a: 10});
   const _model0 = await Model.create({a: 10, date: new Date().toISOString()});
-  await Model.insertMany([{a: 1}, {a: 10}]);
+  //const a = await Model.insertOne({$init: true});
 
   const models12 = await Model.where({b:1}).find({a:10}).count();
   console.log(models12)
+  orm.post('debug', async (query, returnResult) => {
+    returnResult.ok = true;
+    returnResult.value = await orm.execChain(query);
+  });
+
+  const obj = await Model.insertOne({a: 2, b: {c: 2, d: 4}});
+
   const objs = await Model.insertMany([
     {a: 2, b: {c: 2, d: 4}}, {a: 3}, {a: 1}, {a: 1}, {a: 4}
   ], {new: true});
@@ -57,6 +64,6 @@ async function run() {
 run();
 
 setTimeout(() => {
-  orm.connect(url, async (err) => {
+  orm.connect({uri: url, options: {path: 'dbpath=/Users/anhoev/IdeaProjects/schemaHandler/test'}}, async (err) => {
   });
 }, 1000);
