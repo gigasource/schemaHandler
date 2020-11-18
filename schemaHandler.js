@@ -153,7 +153,7 @@ function parseCondition(paths, obj) {
     let _node = node;
 
     for (const {relative: _path, absolute} of pathsInLevel) {
-      if (_path.split('.').length === 1 && _path === last && isLeaf && !Array.isArray(_node)) {
+      if (_path.split('.').length === 1 && checkEqual([_path], [last]) && isLeaf && !Array.isArray(_node)) {
         const pathSchema = paths[absolute];
         _node = convertPathParentSchema(_node, pathSchema, _path);
         this.update(_node);
@@ -184,8 +184,8 @@ function parseCondition(paths, obj) {
 
 function filterMongoOperators(paths) {
   let rememberPrevent = false;
-  return paths.reduce((list, item, k) => {
-    if (logicOperators.includes(item)) {
+  return paths.reduce((list, item, index) => {
+    /*if (logicOperators.includes(item)) {
       rememberPrevent = true;
     } else {
       if (!rememberPrevent) {
@@ -194,6 +194,9 @@ function filterMongoOperators(paths) {
         }
       }
       rememberPrevent = false;
+    }*/
+    if (!item.includes('$') || index === paths.length - 1) {
+      list.push(item);
     }
     return list;
   }, [])
@@ -283,7 +286,7 @@ function checkEqual(arr1, arr2) {
   for (let i = 0; i < arr1.length; i++) {
     const e = arr1[i];
     if (arr1[i] !== arr2[i]) {
-      if (arr1[i] === '0' && isNormalInteger(arr2[i])) {
+      if (arr1[i] === '0' && (isNormalInteger(arr2[i]) || arr2[i].includes('$'))) {
       } else {
         equal = false;
         break;
