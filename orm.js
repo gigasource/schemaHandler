@@ -4,6 +4,7 @@ const Kareem = require('kareem');
 const MongoClient = require('mongodb').MongoClient;
 const _ = require('lodash');
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
+const ObjectID = require('bson').ObjectID;
 const orm = {
   setTtl(ttl) {
     this.cache.options.stdTTL = ttl;
@@ -20,6 +21,7 @@ const orm = {
   useProxyForResult() {
     this._useProxyForResult = true;
   },
+  ObjectId: ObjectID,
   cache,
   pluralize: true,
   connecting: false,
@@ -180,7 +182,7 @@ function createCollectionQuery(collectionName, useNative, chain) {
             let returnResult = {ok: false, value: null};
             orm.execPostSync('proxyPostQueryHandler', null, [{target, proxy}, returnResult]);
             returnResult = {ok: false, value: null};
-            await orm.execPostSync('debug', null, [{target, proxy}, returnResult]);
+            await orm.execPostAsync('debug', null, [{target, proxy}, returnResult]);
             if (returnResult.ok) return resolve(returnResult.value);
 
             const result = await target.cursor;
