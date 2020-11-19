@@ -8,7 +8,7 @@ function merge() {
   return _merge(true, ...arguments);
 }
 
-function convertSchemaToPaths(schema) {
+function convertSchemaToPaths(schema, collectionName) {
   const schema2 = traverse(schema).map(function (node) {
     const {key, path, isRoot, parent} = this;
     if (isRoot) {
@@ -32,7 +32,7 @@ function convertSchemaToPaths(schema) {
       _node.$options = _.omit(node, ['type', '$type']);
       _node.$type = node.type;
       this.update(_node)
-    } else if (key !== '$type' && typeof node === 'object' && !node.hasOwnProperty('type')) {
+    } else if (key !== '$type' && typeof node === 'object' && (!node.hasOwnProperty('type') || hasTypeDefined(node.type))) {
       //embedded
       this.after(function (_node) {
         this.update({$type: node})

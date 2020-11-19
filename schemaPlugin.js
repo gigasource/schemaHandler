@@ -14,7 +14,7 @@ module.exports = function (orm) {
       dbName = null;
     }
 
-    schema = convertSchemaToPaths(schema);
+    schema = convertSchemaToPaths(schema, collectionName);
 
     orm.schemas.push({
       testCollection: convertNameToTestFunction(collectionName),
