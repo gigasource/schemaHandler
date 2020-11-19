@@ -300,11 +300,11 @@ async function resultPostProcess(result, target) {
       _result = returnResult.value;
     }
   } else {
-    const returnResult = {ok: false, value: null}
     let docs = []
 
     try {
       for (const doc of _result) {
+        const returnResult = {ok: false, value: null}
         await orm.execPostAsync('proxyResultPostProcess', null, [{target, result: doc}, returnResult]);
         if (returnResult.ok) {
           docs.push(returnResult.value);
