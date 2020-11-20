@@ -164,7 +164,10 @@ function parseCondition(paths, obj) {
     if (arrHandler) {
       const pathsInLevel2 = findAllPathsInLevelArrHandler(paths, pathFilter);
 
-      for (const {relative: _path, absolute} of pathsInLevel2) {
+      for (let {relative: _path, absolute} of pathsInLevel2) {
+        if (_path.split('.').length === 2 && _path.split('.')[0] === '0' && _path.split('.')[1] === last && isLeaf) {
+          _path = _path.split('.')[1];
+        }
         if (_path.split('.').length === 1 && _path === last && isLeaf) {
           const pathSchema = paths[_path];
           if (pathSchema) {

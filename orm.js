@@ -398,8 +398,10 @@ function connect(connectionInfo) {
   if (arguments.length === 3) {
     dbName = arguments[1];
     cb = arguments[2];
-  } else {
+  } else if (typeof arguments[1] === 'function') {
     cb = arguments[1];
+  } else if (typeof arguments[1] === 'string') {
+    dbName = arguments[1]
   }
   orm.connectCb = cb;
   orm.connecting = true;
