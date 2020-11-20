@@ -17,7 +17,15 @@ async function run() {
     },
     items: [{}],
     date: Date,
-    strArr: [String]
+    strArr: [String],
+    groups: [{
+      type: ObjectID
+    }],
+    categories: [{
+      products: [{
+        items: [{}]
+      }]
+    }]
   });
 
   orm.post('update:Model@myproject:c', null, function (result, target) {
@@ -25,14 +33,29 @@ async function run() {
 
   const Model = orm.getCollection('Model', dbName);
   const schema = orm.getSchema('Model', dbName);
-  const _parseCondition = parseCondition(schema, {_id: new ObjectID()});
+  /*const _parseCondition = parseCondition(schema, {_id: new ObjectID(), groups: {
+    $elemMatch: {$in : [new ObjectID().toString(), new ObjectID().toString()]}
+    }});*/
+  const _parseCondition = parseCondition(schema, {
+    //'categories.0.products._id': new ObjectID().toString(),
+    categories: {
+      products: {
+        _id: {
+          $elemMatch: {
+            $in: [new ObjectID().toString(), new ObjectID().toString()]
+          }
+        }
+      }
+    }
+  });
   await Model.remove();
   await Model.updateMany({_id: {$in: []}}, {b: 100});
   const model11 = new Model({a: 10});
-  const _model0 = await Model.create({a: 10, date: new Date().toISOString()});
+  const _model0 = await Model.create({a: 10/*, date: new Date()*/});
   //const a = await Model.insertOne({$init: true});
 
-  const models12 = await Model.where({b:1}).find({a:10}).count();
+
+  const models12 = await Model.where({b: 1}).find({a: 10}).count();
   console.log(models12)
   orm.post('debug', async (query, returnResult) => {
     returnResult.ok = true;
@@ -64,6 +87,5 @@ async function run() {
 run();
 
 setTimeout(() => {
-  orm.connect({uri: url, options: {path: 'dbpath=/Users/anhoev/IdeaProjects/schemaHandler/test'}}, async (err) => {
-  });
+  orm.connect({uri: url, options: {path: 'dbpath=/Users/anhoev/IdeaProjects/schemaHandler/test'}});
 }, 1000);

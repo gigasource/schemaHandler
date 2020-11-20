@@ -121,7 +121,7 @@ function parseSchema(paths, obj) {
   })
 }
 
-const logicOperators = ['$or', '$nor', '$and', '$in' /*'$where', '$not'*/];
+const logicArrayOperators = ['$or', '$nor', '$and', '$in' /*'$where', '$not'*/];
 
 function parseCondition(paths, obj) {
   return traverse(obj).map(function (node) {
@@ -130,62 +130,29 @@ function parseCondition(paths, obj) {
       this.update(this.node_, true);
       return this.block();
     }
-    //if (!isRoot && isLeaf && typeof node !== 'object') return;
-    /*if (isRoot) {
-      return;
-    }*/
-
-    let arrHandler = false;
 
     let pathFilter = filterMongoOperators(path);
-    const _pathFilter = pathFilter.join('.').split('.');
-    if (_pathFilter.length !== pathFilter.length) arrHandler = true;
-
-    pathFilter = _pathFilter;
-    const last = _.last(pathFilter);
-    if (pathFilter.length >= 1) {
-      pathFilter.pop();
-    }
-    if (paths[pathFilter.join('.')] && paths[pathFilter.join('.')].$type === 'Array') arrHandler = true;
-
-    let pathsInLevel = findAllPathsInLevel(paths, pathFilter);
+    pathFilter = pathFilter.join('.').split('.');
     if (!parent) return;
     let _node = node;
-
-    for (const {relative: _path, absolute} of pathsInLevel) {
-      if (_path.split('.').length === 1 && checkEqual([_path], [last]) && isLeaf && !Array.isArray(_node)) {
-        const pathSchema = paths[absolute];
-        _node = convertPathParentSchema(_node, pathSchema, _path);
-        this.update(_node);
-        this.block();
-      }
-    }
-
-    if (arrHandler) {
-      const pathsInLevel2 = findAllPathsInLevelArrHandler(paths, pathFilter);
+    {
+      const pathsInLevel2 = findAllPathsInLevelArrHandler2(paths, pathFilter);
 
       for (let {relative: _path, absolute} of pathsInLevel2) {
-        if (_path.split('.').length === 2 && _path.split('.')[0] === '0' && _path.split('.')[1] === last && isLeaf) {
-          _path = _path.split('.')[1];
-        }
-        if (_path.split('.').length === 1 && _path === last && isLeaf) {
-          const pathSchema = paths[_path];
+        if (isLeaf) {
+          const pathSchema = paths[absolute];
           if (pathSchema) {
-            _node = convertPathParentSchema(_node, pathSchema, absolute);
+            _node = convertPathParentSchema(_node, pathSchema);
           }
           this.update(_node);
           this.block();
         }
       }
     }
-    //if (!this.parent || !Array.isArray(this.parent.node)) {
-    //this.before(() => {
-    //})
-    //}
   })
 }
 
-function filterMongoOperators(paths) {
+function filterMongoOperators2(paths, keepLast = true) {
   let rememberPrevent = false;
   return paths.reduce((list, item, index) => {
     /*if (logicOperators.includes(item)) {
@@ -198,14 +165,33 @@ function filterMongoOperators(paths) {
       }
       rememberPrevent = false;
     }*/
-    if (!item.includes('$') || index === paths.length - 1) {
+    if (!item.includes('$')) {
+      list.push(item);
+    } else if (keepLast && index === paths.length - 1) {
       list.push(item);
     }
     return list;
   }, [])
 }
 
-function convertPathParentSchema(node, pathSchema, _path) {
+function filterMongoOperators(paths, keepLast = true) {
+  let rememberPrevent = false;
+  return paths.reduce((list, item, index) => {
+    if (logicArrayOperators.includes(item)) {
+      rememberPrevent = true;
+    } else {
+      if (!rememberPrevent) {
+        if (!item.includes('$')) {
+          list.push(item);
+        }
+      }
+      rememberPrevent = false;
+    }
+    return list;
+  }, [])
+}
+
+function convertPathParentSchema(node, pathSchema) {
   const value = node;
   if (value && pathSchema.$type === 'ObjectID') {
     if (typeof node === 'string' && ObjectID.isValid(node)) {
@@ -240,7 +226,7 @@ function convertPathSchema(node, pathSchema, _path) {
   } else if (value && typeof value !== 'number' && pathSchema.$type === 'Number') {
     _.set(node, _path, Number(value));
   } else if (value && typeof value === 'string' && pathSchema.$type === 'Date') {
-    if (value.match(iso8061)){
+    if (value.match(iso8061)) {
       _.set(node, _path, new Date(value));
     }
   }
@@ -264,6 +250,17 @@ function findAllPathsInLevelArrHandler(paths, path) {
           _paths.push({relative: __path2.join('.'), absolute: _path});
         }
       }
+    }
+  }
+  return _paths;
+}
+
+function findAllPathsInLevelArrHandler2(paths, path) {
+  const _paths = [];
+  for (let _path of Object.keys(paths)) {
+    const {isEqual, relative, match} = checkEqual2(_path.split('.'), path);
+    if (match) {
+      _paths.push({relative, absolute: _path});
     }
   }
   return _paths;
@@ -297,6 +294,60 @@ function checkEqual(arr1, arr2) {
     }
   }
   return equal;
+}
+
+function checkEqual2(_arr1, _arr2) {
+  const arr1 = [..._arr1];
+  const arr2 = filterMongoOperators(_arr2, false);
+  const {isEqual, relative} = arr1.reduce((result, item1, index1) => {
+    arr1;
+    const {relative, isEqual, index2} = result;
+    if (!result.isEqual) return result;
+    if (index2 >= arr2.length) {
+      relative.push(item1);
+      return result;
+    }
+    const item2 = arr2[index2];
+    const before = () => {
+      if (index1 === arr1.length - 1) {
+        const restLength = arr2.length - result.index2;
+        if (restLength === 1 && isNormalInteger(_.last(arr2))) {
+        } else if (restLength !== 0) {
+          if (process.env.NODE_ENV === 'test') {
+            console.log('arr2 has too much items')
+            console.log('restLength : ', restLength);
+          }
+          result.isEqual = false;
+        }
+      }
+      result.prevent = false;
+    }
+    if (item1 === item2) {
+      result.isEqual = true;
+      result.index2++;
+      before();
+      return result;
+    } else if (item1 === '0') {
+      if (isNormalInteger(item2) || item2.includes('$')) {
+        result.isEqual = true;
+        result.index2++;
+        before();
+        return result;
+      } else if (!result.prevent) {
+        result.prevent = true;
+        before();
+        return result;
+      } else {
+        before();
+        return result;
+      }
+    } else {
+      result.isEqual = false;
+      return result;
+    }
+  }, {relative: [], isEqual: true, index2: 0});
+  let match = isEqual && relative.filter(r => r !== '0').length === 0;
+  return {isEqual, relative: relative.join('.'), match};
 }
 
 function isNormalInteger(str) {
@@ -345,6 +396,9 @@ module.exports = {
   convertSchemaToPaths,
   parseCondition,
   parseSchema,
-  checkEqual
+  checkEqual,
+  checkEqual2,
+  findAllPathsInLevelArrHandler2,
+  filterMongoOperators2
 }
 
