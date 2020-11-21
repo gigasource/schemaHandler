@@ -23,6 +23,7 @@ module.exports = function (orm) {
         testDb: convertNameToTestFunction(dbName)
       })
     })
+    return orm.getCollection(collectionName, dbName);
   }
   orm.getSchema = function (collectionName, dbName) {
     let match = orm.schemas.find(match => {
@@ -90,8 +91,12 @@ module.exports = function (orm) {
         const _parseCondition = parseCondition(schema, condition);
         if (key.includes('Update') || key.includes('Modify') || key === 'updateMany') {
           let updateValue = args.shift();
+          let arrayFilters;
+          if (args.length > 0 && args[0].arrayFilters) {
+            arrayFilters = args[0].arrayFilters;
+          }
           try {
-            updateValue = parseCondition(schema, updateValue);
+            updateValue = parseCondition(schema, updateValue, {arrayFilters});
           } catch (e) {
             console.warn(e);
           }

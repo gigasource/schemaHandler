@@ -74,7 +74,7 @@ function convertSchemaToPaths(schema, collectionName) {
           _$options = {default: {}}
         }
         paths[_path] = merge({}, {$options: _$options}, parent.node, {$type: 'Object'});
-        paths[`${_path}._id`] = {$type: 'ObjectID'};
+        paths[`${_path}._id`] = {$type: 'ObjectID', $options: {default: () => new ObjectID()}};
       }
     }
   })
@@ -87,7 +87,8 @@ function convertSchemaToPaths(schema, collectionName) {
 function parseSchema(paths, obj) {
   return traverse(obj).map(function (node) {
     const {key, path, isRoot, parent, isLeaf} = this;
-    if (node instanceof ObjectID) {
+    if (this.node_ instanceof ObjectID || (typeof this.node_ === 'object' && ObjectID.isValid(this.node_))) {
+      delete this.node_['__id'];
       this.update(this.node_, true);
       return this.block();
     }
@@ -123,33 +124,86 @@ function parseSchema(paths, obj) {
 
 const logicArrayOperators = ['$or', '$nor', '$and', '$in' /*'$where', '$not'*/];
 
-function parseCondition(paths, obj) {
+function parseCondition(paths, obj, {arrayFilters, prefixPath, identifier} = {}) {
   return traverse(obj).map(function (node) {
     const {key, path, isRoot, parent, isLeaf} = this;
     if (this.node_ instanceof ObjectID || (typeof this.node_ === 'object' && ObjectID.isValid(this.node_))) {
       this.update(this.node_, true);
       return this.block();
     }
+    if (!parent || !isLeaf) return;
 
-    let pathFilter = filterMongoOperators(path);
+    let pathFilter = path;
     pathFilter = pathFilter.join('.').split('.');
-    if (!parent) return;
-    let _node = node;
-    {
-      const pathsInLevel2 = findAllPathsInLevelArrHandler2(paths, pathFilter);
+    if (identifier) {
+      pathFilter = pathFilter.filter(p => p !== identifier);
+    }
+    if (prefixPath) {
+      pathFilter.unshift(...prefixPath);
+    }
 
-      for (let {relative: _path, absolute} of pathsInLevel2) {
-        if (isLeaf) {
-          const pathSchema = paths[absolute];
-          if (pathSchema) {
-            _node = convertPathParentSchema(_node, pathSchema);
-          }
-          this.update(_node);
-          this.block();
-        }
+    if (path.join('.').split('.').find(p => /^\$\[\w*\]$/i.test(p))) {
+      const _filters = convertArrayFilters(path.join('.').split('.'), arrayFilters, paths);
+      arrayFilters.splice(0, arrayFilters.length, ..._filters);
+    }
+
+    let _node = node;
+    const pathsInLevel2 = findAllPathsInLevelArrHandler2(paths, pathFilter);
+    for (let {relative: _path, absolute} of pathsInLevel2) {
+      const pathSchema = paths[absolute];
+      if (pathSchema) {
+        _node = convertPathParentSchema(_node, pathSchema);
       }
+      this.update(_node);
+      this.block();
     }
   })
+}
+
+function convertArrayFilters(path, arrayFilters, paths) {
+  const identifierRegex = /^\$\[(\w*)\]$/i;
+  const identifiers = path.filter(p => identifierRegex.test(p));
+  let _arrayFilters = [];
+  for (let filter of arrayFilters) {
+    for (const identifier of identifiers) {
+      let _path = [...path];
+      _path.splice(_path.indexOf(identifier));
+      _path = _path.filter(p => !identifierRegex.test(p));
+      const _identifier = identifierRegex.exec(identifier)[1];
+      let shouldPush = false;
+      if (!filter[_identifier]) {
+        let _filter = traverse(filter).map(function (node) {
+          const {key, path, isRoot, parent, isLeaf} = this;
+          if (this.node_ instanceof ObjectID || (typeof this.node_ === 'object' && ObjectID.isValid(this.node_))) {
+            this.update(this.node_, true);
+            return this.block();
+          }
+          if (!parent || !isLeaf) return;
+
+          let pathFilter = key;
+          pathFilter = pathFilter.split('.');
+          if (pathFilter[0] === _identifier) {
+            shouldPush = true;
+            this.parent.after(function _parentNode(_node) {
+              delete _node[key]
+              pathFilter.shift();
+              const _key = pathFilter.join('.');
+              _node[_key] = node;
+              this.update(_node);
+            })
+          }
+        });
+        _filter = parseCondition(paths, filter, {prefixPath: _path, identifier: _identifier})
+        //_filter = {[_identifier]: _filter};
+        if (shouldPush) _arrayFilters.push(_filter);
+      } else {
+        const _filter = parseCondition(paths, filter[_identifier], {prefixPath: _path})
+        _arrayFilters.push(_filter);
+      }
+
+    }
+  }
+  return _arrayFilters;
 }
 
 function filterMongoOperators2(paths, keepLast = true) {
@@ -206,9 +260,15 @@ function convertPathParentSchema(node, pathSchema) {
 }
 
 function initDefaultValue(node, pathSchema, _path) {
-  if (pathSchema.$options && pathSchema.$options.default) {
+  /*if (pathSchema.$type === 'ObjectID') {
     if (!_.get(node, _path)) {
-      _.set(node, _path, pathSchema.$options.default);
+      _.set(node, _path, new ObjectID());
+    }
+  } else */if (pathSchema.$options && pathSchema.$options.default) {
+    let _default = pathSchema.$options.default;
+    _default = typeof _default === 'function' ? _default() : _default
+    if (!_.get(node, _path)) {
+      _.set(node, _path, _default);
     }
   }
 }
@@ -313,10 +373,10 @@ function checkEqual2(_arr1, _arr2) {
         const restLength = arr2.length - result.index2;
         if (restLength === 1 && isNormalInteger(_.last(arr2))) {
         } else if (restLength !== 0) {
-          if (process.env.NODE_ENV === 'test') {
+          /*if (process.env.NODE_ENV === 'test') {
             console.log('arr2 has too much items')
             console.log('restLength : ', restLength);
-          }
+          }*/
           result.isEqual = false;
         }
       }

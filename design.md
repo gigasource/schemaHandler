@@ -45,7 +45,7 @@
 
 * [x] supports case .find().count(); -> chain query
 * [_] supports $and for case .find({a: 1}).find({a: 2})
-
+* [x] supports array filter
 
 // Cache
 orm._getCollection(collection, dbName) -> Collection
