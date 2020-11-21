@@ -5,7 +5,7 @@ const MongoClient = require('mongodb').MongoClient;
 const _ = require('lodash');
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const ObjectID = require('bson').ObjectID;
-const orm = {
+const _orm = {
   setTtl(ttl) {
     this.cache.options.stdTTL = ttl;
   },
@@ -13,10 +13,10 @@ const orm = {
     if (this.connected && !this.closed) return 1;
   },
   get client() {
-    return orm.cache.get('client');
+    return this.cache.get('client');
   },
   get connection() {
-    return orm.cache.get('client');
+    return this.cache.get('client');
   },
   useProxyForResult() {
     this._useProxyForResult = true;
@@ -57,7 +57,7 @@ const orm = {
   },
   waitForConnected() {
     return new Promise((resolve, reject) => {
-      if (!orm.connecting && this.connected && this.closed) {
+      if (!this.connecting && this.connected && this.closed) {
         this.connect(this.connectionInfo, orm.connectCb);
       }
 
@@ -69,7 +69,18 @@ const orm = {
   },
   execChain
 }
+function orm() {
+  if (arguments.length === 0) {
+    return orm;
+  } else {
+    return orm.getCollection(...arguments);
+  }
+}
 
+for (const key of Object.keys(_orm)) {
+  orm[key] = _orm[key];
+}
+//_.extend(orm, _orm);
 _.extend(orm, new Kareem());
 _.extend(orm, new EventEmitter());
 
