@@ -459,6 +459,6 @@ module.exports = {
   checkEqual,
   checkEqual2,
   findAllPathsInLevelArrHandler2,
-  filterMongoOperators2
+  filterMongoOperators
 }
 

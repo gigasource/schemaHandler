@@ -1,4 +1,4 @@
-const { checkEqual2, filterMongoOperators2 } = require("../schemaHandler");
+const { checkEqual2, filterMongoOperators } = require("../schemaHandler");
 describe("checkEqual categories.0.products.0._id", function() {
   it("categories.products._id.test", async function() {
     const { isEqual, relative, match } = checkEqual2(
@@ -98,7 +98,7 @@ describe("checkEqual categories.0.products.0._id", function() {
   });
 
   it("filterMongoOperators2: $and.0._id.$in.1", async function() {
-    const arr = filterMongoOperators2("$and.0._id.$in.1".split("."));
+    const arr = filterMongoOperators("$and.0._id.$in.1".split("."));
     expect(arr).toMatchInlineSnapshot(`
       Array [
         "_id",
@@ -107,7 +107,7 @@ describe("checkEqual categories.0.products.0._id", function() {
   });
 
   it("filterMongoOperators2: $and.0.categories.products.3._id.$elemMatch.$in.1", async function() {
-    const arr = filterMongoOperators2(
+    const arr = filterMongoOperators(
       "$and.0.categories.products.3._id.$elemMatch.$in.1".split(".")
     );
     expect(arr).toMatchInlineSnapshot(`
@@ -121,7 +121,7 @@ describe("checkEqual categories.0.products.0._id", function() {
   });
 
   it("filterMongoOperators2: groups.$elemMatch.$in.1", async function() {
-    const arr = filterMongoOperators2("groups.$elemMatch.$in.1".split("."));
+    const arr = filterMongoOperators("groups.$elemMatch.$in.1".split("."));
     expect(arr).toMatchInlineSnapshot(`
       Array [
         "groups",

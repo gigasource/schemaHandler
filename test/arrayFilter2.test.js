@@ -60,7 +60,7 @@ describe("checkEqual", function() {
         }
       ]
     };
-    paths = convertSchemaToPaths(schema);
+    //paths = convertSchemaToPaths(schema);
     Model = orm.registerSchema("Model", schema);
     await Model.remove();
     model = await Model.create({
