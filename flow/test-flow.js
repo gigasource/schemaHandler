@@ -12,8 +12,11 @@ async function run() {
   flow.hooks.post(':openTable', async function ({fn, args, index, chain, scope, query}, returnResult) {
     const order = reactive({table: args[0], items: []})
     query.scope = order;
-    watchEffect( function () {
+    watchEffect(function () {
       order.vSum = _.sumBy(order.items, i => i.price * i.quantity);
+    }, {
+      onTrack({type, key}) {
+      }
     })
 
     watch(() => stringify(order.items), function () {
@@ -80,7 +83,7 @@ async function run() {
   await flow.shorthand(':createOrder').create('@').end();
   await flow.timeout(10).login('0000').openTable('10')
     .addItem({name: 'Cola', price: 1, quantity: 10})
-    .addItem({name: 'Fanta', price: 2, quantity: 12})
+    .addItem({name: 'Fanta', price: 2, quantity: 20})
     .addItem({name: 'Cola', price: 0, quantity: 1})
     .changeQuantity()
     .discount('30%')

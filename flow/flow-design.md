@@ -38,6 +38,7 @@
 * [_] expect:
     * [_] https://www.chaijs.com/
 
+* [_] warning if has more than 1 hook
 
 ``` javascript
 hooks.post(':scope', async function ({fn, args, index, chain, scope}, returnResult) {

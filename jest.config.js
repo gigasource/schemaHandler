@@ -1,7 +1,11 @@
+process.env.VUE_CLI_BABEL_TARGET_NODE = true;
+process.env.VUE_CLI_BABEL_TRANSPILE_MODULES = true;
+
 module.exports = {
-  roots: [
+/*  roots: [
     '<rootDir>/test',
-  ],
+    '<rootDir>/flow-test',
+  ],*/
   moduleFileExtensions: [
     'js', 'vue', 'json'
   ],
@@ -14,9 +18,9 @@ module.exports = {
   testMatch: [
     '**/*.test.js',
   ],
-  /*transform: {
+  transform: {
     '^.+\\.js$': "<rootDir>/node_modules/babel-jest",
-  },*/
+  },
   transformIgnorePatterns: ['<rootDir>/node_modules'],
-  //snapshotSerializers: ["jest-serializer-html"]
+  snapshotSerializers: ["jest-serializer-html"]
 }
