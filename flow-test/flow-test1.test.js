@@ -1,10 +1,17 @@
+const {reactive, computed, watch, watchEffect, h} = require('vue');
 const orm = require("../orm");
 const {ObjectID} = require("bson");
-const {reactive, computed, watch, watchEffect, toRaw, h} = require('vue');
-const {hooks, flow} = require('../flow/flow');
+const {hooks, flow, getRestChain, execChain} = require('../flow/flow');
+const http = require('http');
+const socketIO = require('socket.io');
+const p2pServerPlugin = require('@gigasource/socket.io-p2p-plugin').p2pServerPlugin;
+const socketClient = require('socket.io-client');
+const p2pClientPlugin = require('@gigasource/socket.io-p2p-plugin').p2pClientPlugin;
 const _ = require('lodash');
+const {fork} = require('child_process');
 let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model;
+let server, clientSocket;
 
 function stringify() {
   return JSON.parse(
@@ -25,6 +32,10 @@ function stringify() {
 }
 
 async function run() {
+  hooks.post('flow-interface', async function ({args: [to], query}, returnResult) {
+    if (to[0] === ':') clientSocket.emitTo(to.slice(1), 'flow-interface', query);
+  })
+
   flow.hooks.post(':openTable', async function ({fn, args, index, chain, scope, query}, returnResult) {
     const order = reactive({table: args[0], items: []})
     query.scope = order;
@@ -83,6 +94,23 @@ async function run() {
   await flow.orm('Order').count({}).end().log();*/
 }
 
+async function initSocket() {
+  const httpServer = http.createServer((req, res) => res.end()).listen(9000);
+  const io = socketIO(httpServer, {})
+  server = p2pServerPlugin(io);
+  io.on('connect', function () {
+    console.log('connect')
+  })
+}
+
+async function initClient() {
+  const clientId = 'source';
+
+  const rawSocket = socketClient.connect(`http://localhost:9000?clientId=${clientId}`);
+  clientSocket = p2pClientPlugin(rawSocket, clientId);
+  //duplex1 = await socket.addP2pStream('target', {});
+}
+
 describe("test flow 1", function () {
   beforeAll(async done => {
     orm.connect({uri: "mongodb://localhost:27017"}, "myproject");
@@ -131,7 +159,17 @@ describe("test flow 1", function () {
       ]
     });
     await run();
-    done();
+    await initSocket();
+    await initClient();
+    clientSocket.on('flow-interface', async function (query) {
+      await execChain(query);
+    })
+
+    fork(`${__dirname}/target-client.js`);
+    setTimeout(() => {
+      clientSocket.emitTo('target', 'test-event', '1234');
+      done();
+    }, 300)
   });
 
   it("case1", async function () {
@@ -150,16 +188,45 @@ describe("test flow 1", function () {
     await flow.orm('Order').count({}).end().log();
   });
 
+  it('test io', async function (done) {
+    hooks.post('flow-interface', async function ({args: [{clientId}], query}, returnResult) {
+      clientSocket.emitTo(clientId, 'flow-interface', query);
+    })
+
+    await flow.to({clientId: 'target'}).test('').to({clientId: 'source'}).test();
+    setTimeout(done, 100)
+  })
+
+  it('register stream on io', async function (done) {
+    hooks.post('useStream', async function ({fn, args, index, chain, scope, query}, returnResult) {
+    })
+
+    const stream = await clientSocket.addP2pStream('target');
+    //await flow.require(duplex, {name: 'duplex'});
+
+    //to complex
+    await flow
+      .socket().addP2pStream('target').end()
+      .to(`:target`)
+      .onAddP2pStream().pipeToFile('@last', 'new File');
+
+
+    await flow.to(`:target`).test('').to(`:source`).test();
+    setTimeout(done, 100)
+  })
+
   it("update file", async function () {
-    await flow.to({domain: 'online-order'}).registerDialog('placeId',<dialog></dialog>);
+    await flow.to({domain: 'online-order'}).registerDialog('placeId', <dialog></dialog>);
 
     await flow
       .buildpkg().zipfile().makeMd5()
-      .checkExistsVersion().uploadToServer('server')
+      .checkExistsVersion()
+      .to({domain: 'online-order'})
+      .io().on('stream').end()
+      .to('begin')
+      .emitBinaryTo({domain: 'online-order'})
       .showNotification('upload finished')
       .to({domain: 'online-order'})
       .showNotification()
-
-
   });
 });

@@ -47,6 +47,12 @@
 * [_] supports $and for case .find({a: 1}).find({a: 2})
 * [x] supports array filter
 * [_] default db name 
+* [_] orm run on frontend
+    * [_] frontend: -> without mongodb driver :
+    * split code, truyen mongodb driver tu ngoai vao 
+    * make one test
+
+* [_] incremental id : -> get highest
 
 // Cache
 orm._getCollection(collection, dbName) -> Collection

@@ -27,6 +27,9 @@
     "traverse": "^0.6.6"
   },
   "devDependencies": {
+    "@gigasource/socket.io-p2p-plugin": "^1.10.4",
+    "@testing-library/vue": "^5.4.1",
+    "@vue/babel-plugin-jsx": "^1.0.0-rc.3",
     "@vue/babel-preset-app": "^4.5.9",
     "@vue/runtime-core": "^3.0.2",
     "babel-jest": "^24.9.0",
@@ -35,9 +38,26 @@
     "jest-serializer-html": "^7.0.0",
     "mongodb": "github:gigasource/node-mongodb-native#v3.5.8-1",
     "prettier": "^1.18.2",
+    "socket.io": "^2.2.0",
+    "socket.io-client": "^2.2.0",
     "vue": "^3.0.2"
   },
   "peerDependencies": {
     "mongodb": "github:gigasource/node-mongodb-native#v3.5.8-1"
+  },
+  "babel": {
+    "plugins": [
+      "@vue/babel-plugin-jsx"
+    ],
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "esmodules": true
+          }
+        }
+      ]
+    ]
   }
 }

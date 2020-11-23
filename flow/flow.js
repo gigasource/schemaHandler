@@ -201,6 +201,17 @@ hooks.post(`:end`, async function ({fn, args, index, chain, scope, query}, retur
   delete query.moduleScope;
 });
 
+hooks.post(':to', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  const _chain = getRestChain(chain, index);
+  const _query = {chain: _chain, scope};
+  const [{clientId}] = args;
+  let returnValue = {break: false}
+  await hooks.execPostAsync('flow-interface', null, [{query: _query, args}, returnValue]);
+
+  //await hooks.execPostAsync('emitBE', null, [_query]);
+  returnResult.break = true;
+})
+
 async function run() {
   await flow.on('event').send('_default.table');
   await flow({table: 10}).test('abc').emit('event', {a: 1});
@@ -213,5 +224,5 @@ async function run() {
 //run();
 
 module.exports = {
-  hooks, flow, Flow: flow
+  hooks, flow, Flow: flow, getRestChain, execChain
 }
