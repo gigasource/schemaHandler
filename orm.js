@@ -84,6 +84,20 @@ for (const key of Object.keys(_orm)) {
 _.extend(orm, new Kareem());
 _.extend(orm, new EventEmitter());
 
+const _orm = new Proxy(function () {
+}, {
+  apply(target, thisArg, argArray) {
+    if (argArray.length === 0) {
+      return orm;
+    } else {
+      return orm.getCollection(...argArray);
+    }
+  },
+  get(target, p, receiver) {
+    return Reflect.get(orm, p , receiver);
+  }
+});
+
 const mquery = require('mquery');
 const pluralize = require("mongoose-legacy-pluralize");
 
@@ -440,7 +454,7 @@ function connect(connectionInfo) {
 
 orm.plugin(require('./collectionPlugin'));
 orm.plugin(require('./schemaPlugin'));
-module.exports = orm;
+module.exports = _orm;
 
 orm.execPostAsync = async function (name, context, args) {
   const posts = this._posts.get(name) || [];
