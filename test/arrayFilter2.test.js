@@ -62,6 +62,7 @@ describe("checkEqual", function() {
     };
     //paths = convertSchemaToPaths(schema);
     Model = orm.registerSchema("Model", schema);
+    //Model = orm.getCollection('Model')
     await Model.remove();
     model = await Model.create({
       categories: [
@@ -148,6 +149,53 @@ describe("checkEqual", function() {
         "groups": Array [],
         "items": Array [],
         "strArr": Array [],
+      }
+    `);
+  });
+
+  it("case5: without schema", async function() {
+    const filter1 = { "cate._id": new ObjectID() };
+    const filter2 = {
+      "product._id": new ObjectID()
+    };
+    const condition = {
+      $set: { "categories.$[cate].products.$[product].name": "D2" }
+    };
+    /*const condition = {
+      $set: { "categories.$[cate].name": "catB2" }
+    };*/
+    //const condition = {'categories.$[cate].name': 'test'}
+    let arrayFilters = [filter1, filter2];
+    /*parseCondition(paths, condition, {arrayFilters});
+    expect(stringify(arrayFilters)).toMatchInlineSnapshot(
+      `"[{\\"_id\\":\\"ObjectID\\"},{\\"product\\":{\\"_id\\":\\"ObjectID\\"}}]"`
+    );*/
+    const Model2 = orm.getCollection("Model2");
+    const _model = await Model2.findOneAndUpdate(
+      { _id: model._id },
+      condition,
+      {
+        arrayFilters
+      }
+    );
+    expect(stringify(arrayFilters)).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "cate._id": "ObjectID",
+        },
+        Object {
+          "product._id": "ObjectID",
+        },
+      ]
+    `);
+    expect(stringify(_model)).toMatchInlineSnapshot(`
+      Object {
+        "lastErrorObject": Object {
+          "n": 0,
+          "updatedExisting": false,
+        },
+        "ok": 1,
+        "value": null,
       }
     `);
   });

@@ -5,7 +5,7 @@ const MongoClient = require('mongodb').MongoClient;
 const _ = require('lodash');
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const ObjectID = require('bson').ObjectID;
-const _orm = {
+const orm = {
   setTtl(ttl) {
     this.cache.options.stdTTL = ttl;
   },
@@ -69,7 +69,7 @@ const _orm = {
   },
   execChain
 }
-function orm() {
+/*function orm() {
   if (arguments.length === 0) {
     return orm;
   } else {
@@ -79,7 +79,7 @@ function orm() {
 
 for (const key of Object.keys(_orm)) {
   orm[key] = _orm[key];
-}
+}*/
 //_.extend(orm, _orm);
 _.extend(orm, new Kareem());
 _.extend(orm, new EventEmitter());
