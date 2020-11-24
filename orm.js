@@ -95,6 +95,9 @@ const _orm = new Proxy(function () {
   },
   get(target, p, receiver) {
     return Reflect.get(orm, p , receiver);
+  },
+  set(target, p, value, receiver) {
+    return Reflect.set(orm, p , receiver);
   }
 });
 

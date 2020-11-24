@@ -237,7 +237,7 @@ module.exports = function (orm) {
             cursor = cursor.select(select)
           }
           const refDoc = await cursor.lean();
-          if (refDoc) _.set(result, _path, refDoc);
+          _.set(result, _path, refDoc);
         }
       }
 
