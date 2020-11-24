@@ -165,6 +165,7 @@ function convertArrayFilters(path, arrayFilters, paths) {
   const identifiers = path.filter(p => identifierRegex.test(p));
   let _arrayFilters = [];
   for (let filter of arrayFilters) {
+    let pushed;
     for (const identifier of identifiers) {
       let _path = [...path];
       _path.splice(_path.indexOf(identifier));
@@ -195,13 +196,17 @@ function convertArrayFilters(path, arrayFilters, paths) {
         });
         _filter = parseCondition(paths, filter, {prefixPath: _path, identifier: _identifier})
         //_filter = {[_identifier]: _filter};
-        if (shouldPush) _arrayFilters.push(_filter);
+        if (shouldPush) {
+          _arrayFilters.push(_filter);
+          pushed = true;
+        }
       } else {
         const _filter = parseCondition(paths, filter[_identifier], {prefixPath: _path})
         _arrayFilters.push(_filter);
+        pushed = true;
       }
-
     }
+    if (!pushed) _arrayFilters.push(filter);
   }
   return _arrayFilters;
 }
