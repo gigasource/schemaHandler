@@ -80,7 +80,7 @@ async function run() {
 
 
   //await flow.scope({order: {table: 1}}).orm('Order').create('@.order').end().log();
-  await flow.shorthand(':createOrder').create('@').end();
+  //await flow.shorthand(':createOrder').create('@').end();
   await flow.timeout(10).login('0000').openTable('10')
     .addItem({name: 'Cola', price: 1, quantity: 10})
     .addItem({name: 'Fanta', price: 2, quantity: 20})

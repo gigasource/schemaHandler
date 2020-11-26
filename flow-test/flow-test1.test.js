@@ -1,4 +1,4 @@
-const {reactive, computed, watch, watchEffect, h} = require('vue');
+const {reactive, computed, watch, watchEffect, h, toRaw} = require('vue');
 const orm = require("../orm");
 const {ObjectID} = require("bson");
 const {hooks, flow, getRestChain, execChain} = require('../flow/flow');
@@ -8,60 +8,17 @@ const p2pServerPlugin = require('@gigasource/socket.io-p2p-plugin').p2pServerPlu
 const socketClient = require('socket.io-client');
 const p2pClientPlugin = require('@gigasource/socket.io-p2p-plugin').p2pClientPlugin;
 const _ = require('lodash');
+const fs = require('fs');
 const {fork} = require('child_process');
 let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model;
 let server, clientSocket;
 
-function stringify() {
-  return JSON.parse(
-    JSON.stringify(
-      arguments[0],
-      function (k, v) {
-        if (
-          this[k] instanceof ObjectID ||
-          (typeof this[k] === "object" && ObjectID.isValid(this[k]))
-        ) {
-          return "ObjectID";
-        }
-        return v;
-      },
-      4
-    )
-  );
-}
-
 async function run() {
+  const {initOrderLogic} = require('./pos-logic');
+  await initOrderLogic()
   hooks.post('flow-interface', async function ({args: [to], query}, returnResult) {
     if (to[0] === ':') clientSocket.emitTo(to.slice(1), 'flow-interface', query);
-  })
-
-  flow.hooks.post(':openTable', async function ({fn, args, index, chain, scope, query}, returnResult) {
-    const order = reactive({table: args[0], items: []})
-    query.scope = order;
-    watchEffect(function () {
-      order.vSum = _.sumBy(order.items, i => i.price * i.quantity);
-    })
-
-    watch(() => stringify(order.items), function () {
-      console.log('trigger items change');
-    })
-
-    /*watch(() => order.items.map(i => _.pick(i, ['price', 'quantity'])), function () {
-      console.log('changeItem');
-    })*/
-
-    /*watch(() => order.vSum, function () {
-      console.log('trigger')
-    })*/
-  })
-
-  hooks.post(':addItem', async function ({fn, args, index, chain, scope, query}, returnResult) {
-    scope.items.push(args[0]);
-  })
-
-  hooks.post(':changeQuantity', async function ({fn, args, index, chain, scope, query}, returnResult) {
-    scope.items[0].quantity = 10;
   })
 
   hooks.post(':print', async function ({fn, args, index, chain, scope}, returnResult) {
@@ -76,22 +33,6 @@ async function run() {
     name: 'orm',
     chainable: true,
   });
-
-
-  //await flow.scope({order: {table: 1}}).orm('Order').create('@.order').end().log();
-  /*await flow.shorthand(':createOrder').create('@').end();
-  await flow.timeout(10).login('0000').openTable('10')
-    .addItem({name: 'Cola', price: 1, quantity: 10})
-    .addItem({name: 'Fanta', price: 2, quantity: 20})
-    .addItem({name: 'Cola', price: 0, quantity: 1})
-    .changeQuantity()
-    .discount('30%')
-    .computed()
-    .toBE()
-    .orm('Order').create('@').end()
-    .log()
-
-  await flow.orm('Order').count({}).end().log();*/
 }
 
 async function initSocket() {
@@ -110,6 +51,10 @@ async function initClient() {
   clientSocket = p2pClientPlugin(rawSocket, clientId);
   //duplex1 = await socket.addP2pStream('target', {});
 }
+
+const {
+  Worker, isMainThread, parentPort, workerData
+} = require('worker_threads')
 
 describe("test flow 1", function () {
   beforeAll(async done => {
@@ -159,64 +104,100 @@ describe("test flow 1", function () {
       ]
     });
     await run();
-    await initSocket();
+    //await initSocket();
     await initClient();
     clientSocket.on('flow-interface', async function (query) {
       await execChain(query);
     })
 
-    fork(`${__dirname}/target-client.js`);
+    //const worker = new Worker(`${__dirname}/target-client.js`);
+    //require('./target-client')
+    //fork(`${__dirname}/target-client.js`);
+
     setTimeout(() => {
       clientSocket.emitTo('target', 'test-event', '1234');
       done();
-    }, 300)
+    }, 100)
+
+    flow.require(clientSocket, {name: 'socket'}).then();
+    flow.require(fs, {name: 'fs'}).then();
   });
 
   it("case1", async function () {
     await flow.shorthand(':createOrder').create('@').end();
-    await flow.timeout(10).login('0000').openTable('10')
-      .addItem({name: 'Cola', price: 1, quantity: 10})
-      .addItem({name: 'Fanta', price: 2, quantity: 20})
-      .addItem({name: 'Cola', price: 0, quantity: 1})
+    const foodTax = {taxes: [5, 10]};
+    const drinkTax = {taxes: [16, 32]};
+
+    let order = await flow.timeout(10).login('0000').openTable('10')
+      .addItem({name: 'Cola', price: 1.3, quantity: 10, tax: 5, ...drinkTax})
+      .addItem({name: 'Fanta', price: 2, quantity: 20, ...drinkTax})
+      .addItem({name: 'Rice', price: 10, quantity: 1, ...foodTax})
+      .addModifiers({name: 'Add Ketchup', price: 3, quantity: 1})
+      .takeAway()
       .changeQuantity()
-      .discount('30%')
+      .discount('33.33%')
       .computed()
       .toBE()
       .orm('Order').create('@').end()
-      .log()
+      .logOrder().v()
 
+    order = toRaw(order);
     await flow.orm('Order').count({}).end().log();
   });
 
   it('test io', async function (done) {
-    hooks.post('flow-interface', async function ({args: [{clientId}], query}, returnResult) {
-      clientSocket.emitTo(clientId, 'flow-interface', query);
-    })
-
     await flow.to({clientId: 'target'}).test('').to({clientId: 'source'}).test();
     setTimeout(done, 100)
   })
 
-  it('register stream on io', async function (done) {
-    hooks.post('useStream', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  it('register stream on io 2', async function (done) {
+    hooks.post(':done', async function ({fn, args, index, chain, scope, query}, returnResult) {
+      done();
     })
 
-    const stream = await clientSocket.addP2pStream('target');
-    //await flow.require(duplex, {name: 'duplex'});
+    //way 3: shorthand : concept multi flow in one
+    //problem: hard to read the order of steps
+    //difficult for debugging
+    //flow sẽ có 2 cơ chế : cursor và callback ->
+    //pre-process -> make callback, stash parent scope
+    //.return() to up from callback :
+    //~ flow.on('A').doA1().doA2().return().doB()
+    //is equal to: _flow = await flow.on('A', async () => await doA1();await doA2()); await _flow.doB()
+    //f0.on->f1->return ->f0->
+    //@next: next will make the next cursor to result before execute function pipe
 
-    //to complex
+    //use case: know when it is finished;
     await flow
-      .socket().addP2pStream('target').end()
+      //.monitor(step => show color log on console)
       .to(`:target`)
-      .onAddP2pStream().pipeToFile('@last', 'new File');
+      .socket().onAddP2pStream('channel1', '@callback').pipe('@next').end()
+      .fs().createWriteStream(__dirname + '/output.txt').end()
+      .use('@last[1]').on('close', '@callback').end().test().to(':source').done().return()
+      //.use('@last[2]').pipe('@last[1]').end()
+      //.use('@last').on('finish', '@callback').to('begin').toFE().showNotification('finished !!!').return()
+      .return()
+      //.to('begin')
+      .to(':source')
+      .socket().addP2pStream('target', 'channel1').end()
+      .fs().createReadStream(__dirname + '/input.txt').pipe('@last').end()
+      .use('@last').on('close', '@callback').destroy().end().return()
+      //.use('@last').destroy().end()
+    //.done()
 
 
-    await flow.to(`:target`).test('').to(`:source`).test();
-    setTimeout(done, 100)
-  })
+    //vấn đề là ngay cả khi dùng flow như này thì cũng ko thể nào bỏ cách code truyền thống đc ???
+
+    //nếu cái on chưa tồn tại  thì queue đợi cho đến khi on của sự kiện đó tồn tại !!!
+    //như vậy sẽ ko cần phải để ý đến timing nhiều
+    //setTimeout(done, 500)
+  }, 90000)
+
+  it('case 2', async function (done) {
+
+  }, 90000)
 
   it("update file", async function () {
-    await flow.to({domain: 'online-order'}).registerDialog('placeId', <dialog></dialog>);
+    //await flow.to({domain: 'online-order'}).registerDialog('placeId', <dialog></dialog>);
 
     await flow
       .buildpkg().zipfile().makeMd5()

@@ -1,8 +1,10 @@
 * [x] reduce hooks
+
 * [_] emit, on
     * [_] on -> stack lai scope hien tai
-    * [_] flow.on().doA().on().doB() 
-    * [_] flow.on().doA().doB.end().on().doB()
+    * [_] flow.on().doA().on().doB()
+    * [_] return: -> breakCallback: flow.on().doA().doB().return().doC()
+    
 * [_] make shorthand concept
     * flow.shorthand(':doA').doB().doC()    
 * [_] order({}) -> scope(args).toBE()
@@ -11,8 +13,9 @@
 * [_] transport
     * [_] make example 
     * [_] concept hub : -> neu nhu emit den hub
-    * [_] register socket node -> support 'server', 'begin', 'back'
-    * syntax: to (':clientId') , ('@domain')   
+    * [_] register socket node 
+    * syntax: 'server', 'begin', 'back', 'cloud'
+    * syntax: to (':clientId') , ('::cloud')
     
    
 * [_] plugin concept 
@@ -38,8 +41,21 @@
     * 'stash[@last]' -> last scope 
     * lastScope() -> use last scope
     * [_] query layer for scope : query.convertArgs(args) -> _args
-    * getScope: scope();     
-
+    * [_] getScope: scope();
+    
+* [_] end: end('@stream') : save to stores[stream] the variable
+* [_] cursor concept
+    * $ is delegate for end/new flow : flow.doA().doB().$.doC().doD()
+    * có mấy vấn đề : 1 là chain mà ko dùng tiếp flow , dùng 1 module cụ thể,
+        * [_] type 1 : chain 
+        * [_] type 2 : return result -> use result for next command (problem: break if it is end result)
+        * [_] how to declare in api : chainable ? true : false
+    * [_] current cursor : like current module (begin -> end)
+    * [_] end -> end one cursor
+    * [_] @callback : use callback for next chain: flow.onAddP2pStream('channel', '@callback[indexOfObject]').pipe()
+    * [_] flow.createFileStream().pipe('@next')
+            f('socket').socket().end()
+            
 * [_] define reactive layer with flow
     * [_] computed: order.vSum = ''; apply to all hooks: dong bo giua backend, frontend
     * [_] onEffect() -> better to use because of easier
@@ -81,6 +97,10 @@ Example :
     * [_] flow.scope({order, toTable}).orm('Order').updateOne({_id: '@.order._id'},{$set : {table: '@.toTable'}}).commit('update').end();
     
 * [_] save Product: 
+
+Test:
+* [_] thread worker
+
     
 ### simulate a new app :
 * test: env 

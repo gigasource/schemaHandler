@@ -64,7 +64,7 @@ orm.connect(url, async (err) => {
 
   await Model.create({
     a: 10,
-    author: {_id: person._id.toString()},
+    author: {_id: new ObjectID().toString()},
     author2: person._id.toString(),
     author3: [person._id.toString(), person._id.toString()],
     obj: {person: person._id.toString()},
