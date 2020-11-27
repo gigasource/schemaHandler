@@ -62,9 +62,9 @@ orm.connect(url, async (err) => {
     name: 'me', age: 20
   });
 
-  await Model.create({
+  await Model.findOneAndUpdate({}, {
     a: 10,
-    author: {_id: new ObjectID().toString()},
+    author: {_id: person._id.toString()},
     author2: person._id.toString(),
     author3: [person._id.toString(), person._id.toString()],
     obj: {person: person._id.toString()},
@@ -72,7 +72,7 @@ orm.connect(url, async (err) => {
       name: 'test',
       author: person._id.toString()
     }]
-  });
+  }, {upsert: true});
 
   const models = await Model.find().populate('author2', 'age').lean();
   console.log(models);

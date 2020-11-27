@@ -131,7 +131,7 @@ function parseCondition(paths, obj, {arrayFilters, prefixPath, identifier} = {})
       this.update(this.node_, true);
       return this.block();
     }
-    if (!parent || !isLeaf) return;
+    if (!parent) return;
 
     let pathFilter = path;
     pathFilter = pathFilter.join('.').split('.');
@@ -151,11 +151,13 @@ function parseCondition(paths, obj, {arrayFilters, prefixPath, identifier} = {})
     const pathsInLevel2 = findAllPathsInLevelArrHandler2(paths, pathFilter);
     for (let {relative: _path, absolute} of pathsInLevel2) {
       const pathSchema = paths[absolute];
-      if (pathSchema) {
-        _node = convertPathParentSchema(_node, pathSchema);
+      if (isLeaf || (pathSchema.$options && pathSchema.$options.autopopulate)) {
+        if (pathSchema) {
+          _node = convertPathParentSchema(_node, pathSchema);
+        }
+        this.update(_node);
+        this.block();
       }
-      this.update(_node);
-      this.block();
     }
   })
 }
@@ -255,6 +257,12 @@ function convertPathParentSchema(node, pathSchema) {
   if (value && pathSchema.$type === 'ObjectID') {
     if (typeof node === 'string' && ObjectID.isValid(node)) {
       return new ObjectID(node);
+    } else if (typeof node === 'object' && node._id) {
+      if (typeof node._id === 'string' && ObjectID.isValid(node._id)) {
+        return new ObjectID(node._id);
+      } else if (node._id instanceof ObjectID) {
+        return node._id;
+      }
     }
   } else if (value && typeof value !== 'string' && pathSchema.$type === 'String') {
     return value.toString;
@@ -269,7 +277,8 @@ function initDefaultValue(node, pathSchema, _path) {
     if (!_.get(node, _path)) {
       _.set(node, _path, new ObjectID());
     }
-  } else */if (pathSchema.$options && pathSchema.$options.default) {
+  } else */
+  if (pathSchema.$options && pathSchema.$options.default) {
     let _default = pathSchema.$options.default;
     _default = typeof _default === 'function' ? _default() : _default
     if (!_.get(node, _path)) {
