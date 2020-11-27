@@ -239,6 +239,13 @@ module.exports = function (orm) {
           const refDoc = await cursor.lean();
           _.set(result, _path, refDoc);
         }
+        if (paths.length > 1) {
+          let arrPath = [...path.split('.')]
+          arrPath.pop();
+          arrPath = arrPath.join('.');
+          const arr = _.get(result, arrPath);
+          _.set(result, arrPath, arr.filter(a => a !== null));
+        }
       }
 
       returnResult.ok = true;
