@@ -10,6 +10,8 @@ module.exports = function (orm) {
     if (orm.mode === 'single') {
       options = dbName;
       dbName = null;
+    } else if (!options && orm.dbName) {
+      [dbName, options] = [orm.dbName, dbName]
     }
 
     orm.collectionOptions.push({
@@ -26,9 +28,20 @@ module.exports = function (orm) {
       if (orm.mode === 'single') {
         if (match.testCollection(collectionName)) return true
       } else {
+        if (!dbName) {
+          dbName = orm.dbName;
+        }
         if (match.testCollection(collectionName) && match.testDb(dbName)) return true;
       }
     }).map(m => m.options);
     return _.merge({}, ...matches)
   }
+
+  /*const _idIndexArr = [];
+  orm.post('pre:execChain', async (query) => {
+    if (_idIndexArr.includes(query.name)) return;
+    _idIndexArr.push(query.name);
+    let cursor = orm._getCollection(...query.name.split('@'));
+    await cursor.createIndex('_id', {unique: true});
+  })*/
 }

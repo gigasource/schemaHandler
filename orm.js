@@ -77,7 +77,8 @@ const orm = {
     }
     return Promise.resolve();
   },
-  execChain
+  execChain,
+  createCollectionQuery
 }
 /*function orm() {
   if (arguments.length === 0) {
@@ -162,6 +163,8 @@ let models = builder(function (_this) {
     const query = {name: _this.modelName, chain: _this.chain};
     await orm.waitForConnected();
 
+    await orm.execPostAsync('pre:execChain', null, [query]);
+
     let returnResult = {ok: false, value: null};
     await orm.execPostAsync('debug', null, [query, returnResult]);
     if (returnResult.ok) return resolve(returnResult.value);
@@ -186,7 +189,8 @@ function createCollectionQuery(collectionName, chain) {
   const useNative = chain.reduce((result, {fn}) => {
     if (!result) {
       if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
-        || fn.includes('countDocuments') || fn.includes('aggregate')) result = true;
+        || fn.includes('countDocuments') || fn.includes('aggregate')
+        || fn.includes('Index') || fn.includes('indexes')) result = true;
     }
     return result;
   }, false);
