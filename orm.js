@@ -21,6 +21,11 @@ const orm = {
   useProxyForResult() {
     this._useProxyForResult = true;
   },
+  async setDefaultDb(dbName) {
+    this.dbName = dbName;
+    await this.waitForConnected();
+    this.db = this.client.db(dbName);
+  },
   ObjectId: ObjectID,
   cache,
   pluralize: true,
@@ -56,16 +61,21 @@ const orm = {
     plugin(orm);
   },
   waitForConnected() {
-    return new Promise((resolve, reject) => {
-      if (!this.connecting && this.connected && this.closed) {
-        this.connect(this.connectionInfo, orm.connectCb);
-      }
+    if (!orm.cache.get('client')) {
+      if (!orm.connected || orm.closed || orm.connecting) {
+        return new Promise((resolve, reject) => {
+          if (!this.connecting && this.connected && this.closed) {
+            this.connect(this.connectionInfo, orm.connectCb);
+          }
 
-      this.once('open', (err) => {
-        if (err) return reject(err);
-        resolve();
-      })
-    });
+          this.once('open', (err) => {
+            if (err) return reject(err);
+            resolve();
+          })
+        });
+      }
+    }
+    return Promise.resolve();
   },
   execChain
 }
@@ -94,10 +104,10 @@ const _orm = new Proxy(function () {
     }
   },
   get(target, p, receiver) {
-    return Reflect.get(orm, p , receiver);
+    return Reflect.get(orm, p, receiver);
   },
   set(target, p, value, receiver) {
-    return Reflect.set(orm, p , receiver);
+    return Reflect.set(orm, p, receiver);
   }
 });
 
@@ -150,11 +160,7 @@ function builder(resolver) {
 let models = builder(function (_this) {
   return async function (resolve, reject) {
     const query = {name: _this.modelName, chain: _this.chain};
-    if (!orm.cache.get('client')) {
-      if (!orm.connected || orm.closed || orm.connecting) {
-        await orm.waitForConnected();
-      }
-    }
+    await orm.waitForConnected();
 
     let returnResult = {ok: false, value: null};
     await orm.execPostAsync('debug', null, [query, returnResult]);
@@ -376,6 +382,9 @@ function getCollection(collectionName, dbName) {
   if (orm.mode === 'single') {
     return models[collectionName];
   } else {
+    if (!dbName && orm.dbName) {
+      dbName = orm.dbName;
+    }
     let collection;
     collection = orm.cache.get(`model:${collectionName}@${dbName}`);
     if (!collection) {
@@ -393,6 +402,9 @@ function _getCollection(collectionName, dbName) {
     db = orm.db;
     dbName = db.databaseName;
   } else {
+    if (!dbName && orm.dbName) {
+      dbName = orm.dbName;
+    }
     db = orm.cache.get(`db:${dbName}`);
     if (!db) {
       const client = orm.cache.get('client');
@@ -433,6 +445,9 @@ function connect(connectionInfo) {
   }
   orm.connectCb = cb;
   orm.connecting = true;
+  if (dbName) {
+    orm.dbName = dbName;
+  }
   MongoClient.connect(...firstArgs, async (err, client) => {
     if (!err) {
       orm.connecting = false;

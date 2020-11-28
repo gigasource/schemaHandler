@@ -8,10 +8,16 @@ const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require(
 module.exports = function (orm) {
   const defaultSchema = convertSchemaToPaths({});
   orm.schemas = orm.schemas || [];
+
   orm.registerSchema = function (collectionName, dbName, schema) {
     if (orm.mode === 'single') {
       schema = dbName;
       dbName = null;
+    } else {
+      if (!schema && orm.dbName) {
+        schema = dbName;
+        dbName = orm.dbName;
+      }
     }
 
     schema = convertSchemaToPaths(schema, collectionName);
@@ -30,6 +36,9 @@ module.exports = function (orm) {
       if (orm.mode === 'single') {
         if (match.testCollection(collectionName)) return true
       } else {
+        if (!dbName && orm.dbName) {
+          dbName = orm.dbName;
+        }
         if (match.testCollection(collectionName) && match.testDb(dbName)) return true;
       }
     });

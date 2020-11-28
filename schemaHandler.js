@@ -65,7 +65,12 @@ function convertSchemaToPaths(schema, collectionName) {
       if (parent) {
         paths[_path] = convertType(parent.node);
       }
-    } else if (key === '$type') {
+    } else if (isLeaf && key === '$type' && node && isSchemaTypePrimitive(node)) {
+      if (parent) {
+        paths[_path] = convertType(parent.node);
+      }
+    }
+    else if (key === '$type') {
       if (Array.isArray(node)) {
         paths[_path] = merge({}, {$options: {default: []}}, parent.node, {$type: 'Array'});
       } else if (typeof node === 'object') {
@@ -447,6 +452,10 @@ function hasTypeDefined(node) {
       return false;
     }
   }
+}
+
+function isSchemaTypePrimitive(node) {
+  if ([String, Number, Boolean, ObjectID, Date].includes(node)) return true;
 }
 
 function isSchemaType(key, node, isRoot) {
