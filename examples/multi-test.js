@@ -52,6 +52,7 @@ async function run() {
   await Model.updateMany({_id: {$in: []}}, {b: 100});
   const model11 = new Model({a: 10});
   const _model0 = await Model.create({a: 10/*, date: new Date()*/});
+  //const _model1 = await Model.findOneAndUpdate({a: 1000}, {b: 100}, {upsert: true});
   //const a = await Model.insertOne({$init: true});
 
 

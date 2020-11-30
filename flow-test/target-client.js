@@ -1,3 +1,4 @@
+console.group();
 const clientId = 'target';
 const socketClient = require('socket.io-client');
 const p2pServerPlugin = require('@gigasource/socket.io-p2p-plugin').p2pServerPlugin;

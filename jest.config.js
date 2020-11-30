@@ -25,6 +25,7 @@ module.exports = {
   transformIgnorePatterns: [
     '<rootDir>/node_modules',
     '<rootDir>/flow-test',
+    '<rootDir>/test',
   ],
   //snapshotSerializers: ["jest-serializer-html"],
   slowTestThreshold: 20

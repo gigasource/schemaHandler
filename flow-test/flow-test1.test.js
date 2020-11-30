@@ -14,6 +14,7 @@ let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model;
 let server, clientSocket;
 
+
 async function run() {
   const {initOrderLogic} = require('./pos-logic');
   await initOrderLogic()
@@ -56,73 +57,79 @@ const {
   Worker, isMainThread, parentPort, workerData
 } = require('worker_threads')
 
-describe("test flow 1", function () {
-  beforeAll(async done => {
-    orm.connect({uri: "mongodb://localhost:27017"}, "myproject");
-    const schema = {
-      a: Number,
-      b: {
-        type: Number,
-        default: 100
-      },
-      items: [{}],
-      date: Date,
-      strArr: [String],
-      groups: [
-        {
-          type: ObjectID
-        }
-      ],
-      author: {
+const _beforeAll = global.beforeAll || before;
+
+_beforeAll(async () => {
+  orm.connect({uri: "mongodb://localhost:27017"}, "myproject");
+  const schema = {
+    a: Number,
+    b: {
+      type: Number,
+      default: 100
+    },
+    items: [{}],
+    date: Date,
+    strArr: [String],
+    groups: [
+      {
         type: ObjectID
+      }
+    ],
+    author: {
+      type: ObjectID
+    },
+    categories: [
+      {
+        name: String,
+        products: [
+          {
+            name: String,
+            items: [{}]
+          }
+        ]
+      }
+    ]
+  };
+  //paths = convertSchemaToPaths(schema);
+  Model = orm.registerSchema("Model", schema);
+  await Model.remove();
+  model = await Model.create({
+    categories: [
+      {
+        name: "catA",
+        products: [{name: "A"}, {name: "B"}]
       },
-      categories: [
-        {
-          name: String,
-          products: [
-            {
-              name: String,
-              items: [{}]
-            }
-          ]
-        }
-      ]
-    };
-    //paths = convertSchemaToPaths(schema);
-    Model = orm.registerSchema("Model", schema);
-    await Model.remove();
-    model = await Model.create({
-      categories: [
-        {
-          name: "catA",
-          products: [{name: "A"}, {name: "B"}]
-        },
-        {
-          name: "catB",
-          products: [{name: "C"}, {name: "D"}]
-        }
-      ]
-    });
-    await run();
-    //await initSocket();
-    await initClient();
-    clientSocket.on('flow-interface', async function (query) {
-      await execChain(query);
-    })
+      {
+        name: "catB",
+        products: [{name: "C"}, {name: "D"}]
+      }
+    ]
+  });
+  await run();
+  //await initSocket();
+  await initClient();
+  clientSocket.on('flow-interface', async function (query) {
+    await execChain(query);
+  })
 
-    //const worker = new Worker(`${__dirname}/target-client.js`);
-    //require('./target-client')
-    //fork(`${__dirname}/target-client.js`);
+  //const worker = new Worker(`${__dirname}/target-client.js`);
+  //require('./target-client')
+  fork(`${__dirname}/target-client.js`);
 
+  flow.require(clientSocket, {name: 'socket'}).then();
+  flow.require(fs, {name: 'fs'}).then();
+
+  await new Promise((resolve, reject) => {
     setTimeout(() => {
       clientSocket.emitTo('target', 'test-event', '1234');
-      done();
+      resolve();
     }, 100)
+  })
 
-    flow.require(clientSocket, {name: 'socket'}).then();
-    flow.require(fs, {name: 'fs'}).then();
-  });
+  console.log('before finish')
+});
 
+describe("test flow 1", function () {
   it("case1", async function () {
     await flow.shorthand(':createOrder').create('@').end();
     const foodTax = {taxes: [5, 10]};
@@ -134,9 +141,8 @@ describe("test flow 1", function () {
       .addItem({name: 'Rice', price: 10, quantity: 1, ...foodTax})
       .addModifiers({name: 'Add Ketchup', price: 3, quantity: 1})
       .takeAway()
-      .changeQuantity()
+      //.changeQuantity()
       .discount('33.33%')
-      .computed()
       .toBE()
       .orm('Order').create('@').end()
       .logOrder().v()
@@ -145,14 +151,24 @@ describe("test flow 1", function () {
     await flow.orm('Order').count({}).end().log();
   });
 
+  it('test sandbox code', async function () {
+    let a = 10;
+    const cb = () => {
+      a = 11;
+    }
+    console.log('done !');
+    console.log('b')
+  })
+
   it('test io', async function (done) {
     await flow.to({clientId: 'target'}).test('').to({clientId: 'source'}).test();
     setTimeout(done, 100)
   })
 
-  it('register stream on io 2', async function (done) {
+  it('register stream on io 2', () => new Promise(async (resolve, reject) => {
+    console.log('abc')
     hooks.post(':done', async function ({fn, args, index, chain, scope, query}, returnResult) {
-      done();
+      //resolve();
     })
 
     //way 3: shorthand : concept multi flow in one
@@ -168,33 +184,27 @@ describe("test flow 1", function () {
 
     //use case: know when it is finished;
     await flow
-      //.monitor(step => show color log on console)
       .to(`:target`)
       .socket().onAddP2pStream('channel1', '@callback').pipe('@next').end()
       .fs().createWriteStream(__dirname + '/output.txt').end()
       .use('@last[1]').on('close', '@callback').end().test().to(':source').done().return()
-      //.use('@last[2]').pipe('@last[1]').end()
-      //.use('@last').on('finish', '@callback').to('begin').toFE().showNotification('finished !!!').return()
       .return()
-      //.to('begin')
       .to(':source')
       .socket().addP2pStream('target', 'channel1').end()
       .fs().createReadStream(__dirname + '/input.txt').pipe('@last').end()
       .use('@last').on('close', '@callback').destroy().end().return()
-      //.use('@last').destroy().end()
-    //.done()
 
 
     //vấn đề là ngay cả khi dùng flow như này thì cũng ko thể nào bỏ cách code truyền thống đc ???
-
     //nếu cái on chưa tồn tại  thì queue đợi cho đến khi on của sự kiện đó tồn tại !!!
     //như vậy sẽ ko cần phải để ý đến timing nhiều
     //setTimeout(done, 500)
-  }, 90000)
+
+  }))
 
   it('case 2', async function (done) {
 
-  }, 90000)
+  })
 
   it("update file", async function () {
     //await flow.to({domain: 'online-order'}).registerDialog('placeId', <dialog></dialog>);

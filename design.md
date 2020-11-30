@@ -32,6 +32,8 @@
     * [_] find/findOne 
     
 * [_] index
+    * [_] _id: unique
+
 * [x] support migrate data
 * [x] sync system
 * [x] await for connected
@@ -53,6 +55,8 @@
     * make one test
 
 * [_] incremental id : -> get highest
+* [_] index, majority cac kieu
+* [_] cache for high speed, case frontend ??
 
 // Cache
 orm._getCollection(collection, dbName) -> Collection

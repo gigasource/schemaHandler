@@ -163,7 +163,11 @@ let models = builder(function (_this) {
     const query = {name: _this.modelName, chain: _this.chain};
     await orm.waitForConnected();
 
-    await orm.execPostAsync('pre:execChain', null, [query]);
+    {
+      let returnResult = {ok: false, value: null};
+      await orm.execPostAsync('pre:execChain', null, [query, returnResult]);
+      if (returnResult.ok) return resolve(returnResult.value);
+    }
 
     let returnResult = {ok: false, value: null};
     await orm.execPostAsync('debug', null, [query, returnResult]);
@@ -175,14 +179,15 @@ let models = builder(function (_this) {
 });
 
 function execChain(query) {
-  let cursor = createCollectionQuery(query.name, query.chain);
+  let cursor = createCollectionQuery(query);
   for (const {fn, args} of query.chain) {
     cursor = cursor[fn](...args);
   }
   return cursor;
 }
 
-function createCollectionQuery(collectionName, chain) {
+function createCollectionQuery(query) {
+  const {name: collectionName, chain} = query;
   //const _mongoCollection = orm.db.collection(collectionName)
   //const _collection = mquery().collection(orm.collection1);
 
@@ -204,7 +209,8 @@ function createCollectionQuery(collectionName, chain) {
     isCreateCmd: false,
     lean: false,
     useNative,
-    chain
+    chain,
+    query
   }, {
     get(target, key, proxy) {
       //target here is mongo db collection

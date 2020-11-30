@@ -63,15 +63,15 @@ orm.connect(url, async (err) => {
   });
 
   await Model.findOneAndUpdate({}, {
-    a: 10,
+    /*a: 10,
     author: {_id: person._id.toString()},
-    author2: person._id.toString(),
-    author3: [person._id.toString(), person._id.toString()],
-    obj: {person: person._id.toString()},
+    author2: person._id.toString(),*/
+    author3: [new ObjectID().toString(),person._id.toString(), person._id.toString()],
+    /*obj: {person: person._id.toString()},
     arr: [{
       name: 'test',
-      author: person._id.toString()
-    }]
+      author: new ObjectID().toString()
+    }]*/
   }, {upsert: true});
 
   const models = await Model.find().populate('author2', 'age').lean();

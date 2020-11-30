@@ -180,4 +180,21 @@ describe("checkEqual", function() {
       }
     `);
   });
+
+  it("case4", async function() {
+    await orm.setDefaultDb("myproject");
+    orm.registerCollectionOptions("Model", { w: 1 });
+    const options = orm.getOptions("Model");
+    expect(options).toMatchInlineSnapshot(`
+      Object {
+        "w": 1,
+      }
+    `);
+  });
+
+  it("case5", async function() {
+
+  });
+
+
 });
