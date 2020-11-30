@@ -88,7 +88,7 @@ describe("commit-sync", function() {
           "tags": Array [
             "update",
           ],
-          "uuid": "f4508080-330d-11eb-84ad-d15e388b5cd9",
+          "uuid": "uuid-v1",
         }
       `);
       //socket io layer here
