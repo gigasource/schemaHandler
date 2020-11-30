@@ -28,7 +28,8 @@ async function run() {
     }]
   });
 
-  orm.post('update:Model@myproject:c', null, function (result, target) {
+  orm.on('update:Model@myproject:c', function (result, target) {
+    console.log(result);
   });
 
   const Model = orm.getCollection('Model', dbName);
@@ -58,7 +59,7 @@ async function run() {
 
   const models12 = await Model.where({b: 1}).find({a: 10}).count();
   console.log(models12)
-  orm.post('debug', async (query, returnResult) => {
+  orm.on('debug', async (query, returnResult) => {
     returnResult.ok = true;
     returnResult.value = await orm.execChain(query);
   });

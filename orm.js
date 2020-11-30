@@ -1,4 +1,4 @@
-const EventEmitter = require('events');
+const EventEmitter = require('./hooks/hooks');
 const NodeCache = require('node-cache');
 const Kareem = require('kareem');
 const MongoClient = require('mongodb').MongoClient;
@@ -123,8 +123,7 @@ function builder(resolver) {
       construct.modelName = key;
       return new Proxy(construct, {
         construct(target, args) {
-          const returnResult = {ok: false, value: null};
-          orm.execPostSync('construct', null, [{target, args}, returnResult]);
+          const returnResult = orm.emit('construct', {target, args});
           return returnResult.value;
         },
         get(targetLayer1, key) {
@@ -164,13 +163,11 @@ let models = builder(function (_this) {
     await orm.waitForConnected();
 
     {
-      let returnResult = {ok: false, value: null};
-      await orm.execPostAsync('pre:execChain', null, [query, returnResult]);
+      let returnResult = await orm.emit('pre:execChain', query);
       if (returnResult.ok) return resolve(returnResult.value);
     }
 
-    let returnResult = {ok: false, value: null};
-    await orm.execPostAsync('debug', null, [query, returnResult]);
+    let returnResult = await orm.emit('debug', query);
     if (returnResult.ok) return resolve(returnResult.value);
 
     let cursor = execChain(query);
@@ -235,8 +232,7 @@ function createCollectionQuery(query) {
               return resolve(target.returnValueWhenIgnore);
             }
 
-            let returnResult = {ok: false, value: null};
-            orm.execPostSync('proxyPostQueryHandler', null, [{target, proxy}, returnResult]);
+            orm.emit('proxyPostQueryHandler', {target, proxy});
 
             const result = await target.cursor;
             const returnValue = await resultPostProcess(result, target);
@@ -260,9 +256,8 @@ function createCollectionQuery(query) {
         return proxy;
       }
 
-      const result = {ok: false, value: null};
-      orm.execPostSync('preQueryHandler', null, [{target, key, proxy, defaultFn}, result]);
-      orm.execPostSync('proxyQueryHandler', null, [{target, key, proxy, defaultFn}, result]);
+      orm.emit('preQueryHandler', {target, key, proxy, defaultFn});
+      const result = orm.emit('proxyQueryHandler', {target, key, proxy, defaultFn});
       if (result.ok) return result.value;
 
       return defaultFn;
@@ -337,9 +332,7 @@ async function resultPostProcess(result, target) {
   }*/
 
   if (target.returnSingleDocument) {
-    const returnResult = {ok: false, value: null}
-
-    await orm.execPostAsync('proxyResultPostProcess', null, [{target, result: _result}, returnResult]);
+    const returnResult = await orm.emit('proxyResultPostProcess', {target, result: _result});
     if (returnResult.ok) {
       _result = returnResult.value;
     }
@@ -348,8 +341,7 @@ async function resultPostProcess(result, target) {
 
     try {
       for (const doc of _result) {
-        const returnResult = {ok: false, value: null}
-        await orm.execPostAsync('proxyResultPostProcess', null, [{target, result: doc}, returnResult]);
+        const returnResult = await orm.emit('proxyResultPostProcess', {target, result: doc});
         if (returnResult.ok) {
           docs.push(returnResult.value);
         } else {
@@ -483,12 +475,3 @@ function connect(connectionInfo) {
 orm.plugin(require('./collectionPlugin'));
 orm.plugin(require('./schemaPlugin'));
 module.exports = _orm;
-
-orm.execPostAsync = async function (name, context, args) {
-  const posts = this._posts.get(name) || [];
-  const numPosts = posts.length;
-
-  for (let i = 0; i < numPosts; ++i) {
-    await posts[i].fn.bind(context)(...(args || []));
-  }
-};

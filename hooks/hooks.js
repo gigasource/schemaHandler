@@ -21,7 +21,7 @@ class Hooks extends EE {
     this._defaultEe.on(...arguments);
   }
 
-  async emit(event, ...args) {
+  emitPrepare(event, ...args) {
     let handler = _.get(this._events, event);
     if (_.isEmpty(handler) && !_.isFunction(handler) && this._defaultEe) {
       if (!handler) handler = [];
@@ -38,6 +38,7 @@ class Hooks extends EE {
 
     //pre
     if (this._preEe) {
+      if (!handler) handler = [];
       if (!Array.isArray(handler)) {
         handler = [handler]
       }
@@ -48,6 +49,11 @@ class Hooks extends EE {
         handler.unshift(preHandler);
       }
     }
+    return handler;
+  }
+
+  emitSync(event, ...args) {
+    const handler = this.emitPrepare(...arguments);
 
     if (_.isEmpty(handler) && !_.isFunction(handler)) {
       return false;
@@ -55,50 +61,51 @@ class Hooks extends EE {
 
     const _this = {}
     if (typeof handler === 'function') {
-      await Reflect.apply(handler, _this, args);
+      Reflect.apply(handler, _this, args);
     } else {
       for (let i = 0; i < handler.length; i += 1) {
-        await Reflect.apply(handler[i], _this, args);
+        Reflect.apply(handler[i], _this, args);
       }
+    }
+
+    return _this;
+  }
+
+  emit(event, ...args) {
+    const handler = this.emitPrepare(...arguments);
+
+    if (_.isEmpty(handler) && !_.isFunction(handler)) {
+      return false;
+    }
+
+    const _this = {}
+    const promises = []
+    if (typeof handler === 'function') {
+      const p = Reflect.apply(handler, _this, args);
+      if (p instanceof Promise) promises.push(p);
+    } else {
+      for (let i = 0; i < handler.length; i += 1) {
+        const p = Reflect.apply(handler[i], _this, args);
+        if (p instanceof Promise) promises.push(p);
+      }
+    }
+
+    if (promises.length > 0) {
+      return new Promise(async (resolve, reject) => {
+        for (const promise of promises) {
+          await promise;
+          resolve(_this);
+        }
+      });
     }
 
     return _this;
   }
 }
 
-const hooks = new Hooks();
+['getPreHandler', 'preEe', 'pre', 'default', 'emit', 'emitSync', 'emitPrepare'].forEach(
+  p => Object.defineProperty(Hooks.prototype, p, {enumerable: true})
+)
 
-hooks.default('test', async function () {
-  console.log('default')
-})
-
-/*hooks.on('test', async function ({arg}, e) {
-  this.value = '11';
-  //this.ok = true;
-  console.log('haz')
-  e(`arg = '100'`)
-})
-
-hooks.pre('test', async function () {
-  console.log('pre')
-})*/
-
-/*hooks.on('test', async (arg) => {
-  await new Promise(resolve => {
-    setTimeout(() => {
-      console.log('test : ', arg);
-      resolve();
-    },1000)
-  })
-})*/
-
-async function run() {
-  let arg, _return;
-  const a = await hooks.emit('test', {arg}, e => eval(e));
-  //if (a.ok) return;
-  console.log(arg);
-}
-
-run();
 
 module.exports = Hooks;
