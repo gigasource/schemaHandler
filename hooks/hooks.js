@@ -49,15 +49,19 @@ class Hooks extends EE {
 
 const hooks = new Hooks();
 
-hooks.pre('test', async function () {
-  console.log('pre')
+hooks.default('test', async function () {
+  console.log('default')
 })
 
 hooks.on('test', async function ({arg}, e) {
   this.value = '11';
+  //this.ok = true;
   console.log('haz')
-  e(`_return = true`)
-  e(`arg = 11`);
+  e(`arg = '100'`)
+})
+
+hooks.pre('test', async function () {
+  console.log('pre')
 })
 
 /*hooks.on('test', async (arg) => {
@@ -72,8 +76,8 @@ hooks.on('test', async function ({arg}, e) {
 async function run() {
   let arg, _return;
   const a = await hooks.emit('test', {arg}, e => eval(e));
-  if (a.ok) return;
-  console.log(a);
+  //if (a.ok) return;
+  console.log(arg);
 }
 
 run();

@@ -7,6 +7,7 @@
 
 * [_] multi layer: on/pre/post
     * [_] support async 
+    
 * [_] support persistent : 
     * [_] vd vua khoi dong lai thi tu dong gan callback
     
