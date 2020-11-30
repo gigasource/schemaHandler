@@ -5,36 +5,36 @@ const {
   parseCondition
 } = require("../schemaHandler");
 const orm = require("../orm");
-const { ObjectID } = require("bson");
-const { stringify } = require("../utils");
+const {ObjectID} = require("bson");
+const {stringify} = require("../utils");
 const _ = require("lodash");
 let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model, schema;
 const uuid = require("uuid").v1;
 
-describe("commit-sync", function() {
+describe("commit-sync", function () {
   beforeAll(async () => {
-    orm.connect({ uri: "mongodb://localhost:27017" }, "myproject");
+    orm.connect({uri: "mongodb://localhost:27017"}, "myproject");
     schema = {
       table: String
     };
   });
 
-  it("case1", async function(done) {
+  it("case1", async function (done) {
     const Model = orm("Model");
-    //await Model.remove({})
+    await Model.remove({})
 
-    orm.pre("pre:execChain", async function(query) {
+    orm.pre("pre:execChain", async function (query) {
       query.uuid = uuid();
     });
 
-    orm.on("pre:execChain", async function(query) {
+    orm.on("pre:execChain", async function (query) {
       const last = _.last(query.chain);
       if (last.fn === "commit") {
         query.chain.pop();
         query.mockCollection = true;
         let _chain = [...query.chain];
-        const { args } = last;
+        const {args} = last;
         const commit = {
           uuid: uuid(),
           tags: args.filter(arg => typeof arg === "string"),
@@ -51,7 +51,7 @@ describe("commit-sync", function() {
         //remove later:
         query.commit = true;
 
-        orm.once(`proxyPreReturnValue:${query.uuid}`, async function(
+        orm.once(`proxyPreReturnValue:${query.uuid}`, async function (
           _query,
           target
         ) {
@@ -67,16 +67,27 @@ describe("commit-sync", function() {
     //Làm sao để assign duoc _id cho doc vua duoc tao ra
     //gen ra uuid cho mỗi câu lệnh query, từ đó hooks vào kết quả sau khi tạo ra
     //cần once : -> ko bị leak memory
-    orm.default("commit:Model", async function(commit, query) {
-      await orm.emit("toMaster", commit, query);
+    orm.default("commit:Model", async function (commit, query) {
       await orm.emit("commit:build-fake:Model", commit, query);
+      await orm.emit("toMaster", commit, query);
     });
 
-    orm.on("commit:build-fake:Model", async function(commit, query) {
-      debugger;
+    //should persistent
+    orm.on("commit:build-fake:Model", async function (commit, query) {
+      const doc = await orm.execChain(query);
+      await Model.updateOne({_id: doc._id}, {_fake: true})
+      console.log('aaa')
+      console.log('fake : ', doc);
+    });
+    let commits = []
+
+    orm.on("commit:remove-fake:Model", async function (commit, query) {
+      console.log('remove-fake');
+      const fakeIds = (await Model.find({_fake: true})).map(d => d._id);
+      await Model.remove({_id: {$in: fakeIds}});
     });
 
-    orm.on("toMaster", async function(commit, query) {
+    orm.on("toMaster", async function (commit, query) {
       expect(stringify(commit)).toMatchInlineSnapshot(`
         Object {
           "approved": false,
@@ -92,19 +103,26 @@ describe("commit-sync", function() {
         }
       `);
       //socket io layer here
-      orm.once(`approve:${commit.uuid}`, async function() {
+      orm.once(`approve:${commit.uuid}`, async function () {
         await orm.emit("commit:sync:Model");
         //sync data
       });
-      const CommitCol = orm(`${query.name}Commit`);
-      const _commit = await CommitCol.create(commit);
-      orm.emit(`approve:${commit.uuid}`);
-      done();
+      {
+        //should be in master
+        const CommitCol = orm(`${query.name}Commit`);
+        const _commit = await CommitCol.create(commit);
+        commits.push(_commit);
+      }
+      await orm.emit(`approve:${commit.uuid}`);
     });
 
-    orm.on(`commit:sync:Model`, function() {});
+    orm.on(`commit:sync:Model`, async function () {
+      await orm.emit('commit:remove-fake:Model');
+      done();
+      //rebuild _doc with new commits
+    });
 
-    orm.on("//approve", async function() {
+    orm.on("//approve", async function () {
       //sync data
       //remove fake
       //build model
@@ -117,8 +135,8 @@ describe("commit-sync", function() {
 
     const m1 = await Model.create({
       table: 10,
-      items: [{ name: "cola", price: 10, quantity: 1 }]
-    }).commit("update", { table: "10" });
+      items: [{name: "cola", price: 10, quantity: 1}]
+    }).commit("update", {table: "10"});
 
     //fake chi apply voi cac lenh apply cho one document
 
