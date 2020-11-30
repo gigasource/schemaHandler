@@ -71,6 +71,7 @@ models['collection@db']
 * [ ] Commit flow
     * [ ] Basic flow
     * [ ] Need sync flow
+        * [ ] Transport layer
         * [ ] Approve commit
         * [ ] Reject commit
         * [ ] Batch commit

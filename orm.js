@@ -472,7 +472,7 @@ function connect(connectionInfo) {
   });
 }
 
-orm.plugin(require('./collectionPlugin'));
-orm.plugin(require('./schemaPlugin'));
-orm.plugin(require('./commitPlugin'));
+orm.plugin(require('./plugins/collectionPlugin'));
+orm.plugin(require('./plugins/schemaPlugin'));
+orm.plugin(require('./plugins/commitPlugin'));
 module.exports = _orm;
