@@ -23,7 +23,7 @@ class Hooks extends EE {
 
   emitPrepare(event, ...args) {
     let handler = _.get(this._events, event);
-    if (_.isEmpty(handler) && !_.isFunction(handler) && this._defaultEe) {
+    if (_.isEmpty(handler) && !_.isFunction(handler) && this._defaultEe && _.get(this._defaultEe._events, event)) {
       if (!handler) handler = [];
       if (!Array.isArray(handler)) {
         handler = [handler]
@@ -37,7 +37,7 @@ class Hooks extends EE {
     }
 
     //pre
-    if (this._preEe) {
+    if (this._preEe && _.get(this._preEe._events, event)) {
       if (!handler) handler = [];
       if (!Array.isArray(handler)) {
         handler = [handler]

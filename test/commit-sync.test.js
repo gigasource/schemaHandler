@@ -28,13 +28,6 @@ describe("commit-sync", function() {
       query.uuid = uuid();
     });
 
-    orm.pre("pre:execChain", async function(query) {
-      if (query.chain.find(c => c.fn === "raw")) {
-        this.value = query;
-        this.ok = true;
-      }
-    });
-
     orm.on("pre:execChain", async function(query) {
       const last = _.last(query.chain);
       if (last.fn === "commit") {
@@ -43,6 +36,7 @@ describe("commit-sync", function() {
         let _chain = [...query.chain];
         const { args } = last;
         const commit = {
+          uuid: uuid(),
           tags: args.filter(arg => typeof arg === "string"),
           data: _.assign({}, ...args.filter(arg => typeof arg === "object")),
           chain: JSON.stringify(_chain),
@@ -73,32 +67,44 @@ describe("commit-sync", function() {
     //Làm sao để assign duoc _id cho doc vua duoc tao ra
     //gen ra uuid cho mỗi câu lệnh query, từ đó hooks vào kết quả sau khi tạo ra
     //cần once : -> ko bị leak memory
-    orm.on("commit:Model", async function(commit, query) {
-      //this.ok = true;
-      //this.value = commit;
+    orm.default("commit:Model", async function(commit, query) {
       await orm.emit("toMaster", commit, query);
-      //returnResult.value = commit;
-      //debugger
+      await orm.emit("commit:build-fake:Model", commit, query);
+    });
+
+    orm.on("commit:build-fake:Model", async function(commit, query) {
+      debugger;
     });
 
     orm.on("toMaster", async function(commit, query) {
-      expect(commit).toMatchInlineSnapshot(`
+      expect(stringify(commit)).toMatchInlineSnapshot(`
         Object {
           "approved": false,
           "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"table\\":10,\\"items\\":[{\\"name\\":\\"cola\\",\\"price\\":10,\\"quantity\\":1}]}]}]",
           "data": Object {
-            "docId": "5fc4ea00807a2c60624876d1",
+            "docId": "ObjectID",
             "table": "10",
           },
           "tags": Array [
             "update",
           ],
+          "uuid": "f4508080-330d-11eb-84ad-d15e388b5cd9",
         }
       `);
+      //socket io layer here
+      orm.once(`approve:${commit.uuid}`, async function() {
+        await orm.emit("commit:sync:Model");
+        //sync data
+      });
+      const CommitCol = orm(`${query.name}Commit`);
+      const _commit = await CommitCol.create(commit);
+      orm.emit(`approve:${commit.uuid}`);
       done();
     });
 
-    orm.on("approve", async function() {
+    orm.on(`commit:sync:Model`, function() {});
+
+    orm.on("//approve", async function() {
       //sync data
       //remove fake
       //build model
