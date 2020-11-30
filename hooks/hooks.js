@@ -81,10 +81,12 @@ class Hooks extends EE {
     const _this = {}
     const promises = []
     if (typeof handler === 'function') {
+      if (isArrowFn(handler)) console.warn(`don't use arrow function here because of scope`);
       const p = Reflect.apply(handler, _this, args);
       if (p instanceof Promise) promises.push(p);
     } else {
       for (let i = 0; i < handler.length; i += 1) {
+        if (isArrowFn(handler[i])) console.warn(`don't use array fn here`);
         const p = Reflect.apply(handler[i], _this, args);
         if (p instanceof Promise) promises.push(p);
       }
@@ -94,14 +96,16 @@ class Hooks extends EE {
       return new Promise(async (resolve, reject) => {
         for (const promise of promises) {
           await promise;
-          resolve(_this);
         }
+        resolve(_this);
       });
     }
 
     return _this;
   }
 }
+
+const isArrowFn = (fn) => (typeof fn === 'function') && /^[^{]+?=>/.test(fn.toString());
 
 ['getPreHandler', 'preEe', 'pre', 'default', 'emit', 'emitSync', 'emitPrepare'].forEach(
   p => Object.defineProperty(Hooks.prototype, p, {enumerable: true})

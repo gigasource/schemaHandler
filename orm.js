@@ -175,6 +175,13 @@ let models = builder(function (_this) {
   };
 });
 
+let models2 = builder(function (_this) {
+  return async function (resolve, reject) {
+    const query = {name: _this.modelName, chain: _this.chain};
+    resolve(query);
+  };
+});
+
 function execChain(query) {
   let cursor = createCollectionQuery(query);
   for (const {fn, args} of query.chain) {
@@ -197,8 +204,13 @@ function createCollectionQuery(query) {
     return result;
   }, false);
 
-  let _nativeCollection = _getCollection(...collectionName.split('@'));
-  const _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
+  let _collection;
+  if (query.mockCollection) {
+    _collection = models2[collectionName];
+  } else {
+    let _nativeCollection = _getCollection(...collectionName.split('@'));
+    _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
+  }
   const mongoCollection = new Proxy({
     collection: _collection,
     collectionName: collectionName.split('@')[0],
@@ -235,6 +247,10 @@ function createCollectionQuery(query) {
             orm.emit('proxyPostQueryHandler', {target, proxy});
 
             const result = await target.cursor;
+            if (query.mockCollection) {
+              const r = await orm.emit(`proxyPreReturnValue:${query.uuid}`, result, target);
+              return resolve(r.value);
+            }
             const returnValue = await resultPostProcess(result, target);
             resolve(returnValue);
           } catch (e) {

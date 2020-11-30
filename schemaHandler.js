@@ -69,8 +69,7 @@ function convertSchemaToPaths(schema, collectionName) {
       if (parent) {
         paths[_path] = convertType(parent.node);
       }
-    }
-    else if (key === '$type') {
+    } else if (key === '$type') {
       if (Array.isArray(node)) {
         paths[_path] = merge({}, {$options: {default: []}}, parent.node, {$type: 'Array'});
       } else if (typeof node === 'object') {
@@ -278,12 +277,11 @@ function convertPathParentSchema(node, pathSchema) {
 }
 
 function initDefaultValue(node, pathSchema, _path) {
-  /*if (pathSchema.$type === 'ObjectID') {
+  if (pathSchema.$type === 'ObjectID') {
     if (!_.get(node, _path)) {
       _.set(node, _path, new ObjectID());
     }
-  } else */
-  if (pathSchema.$options && pathSchema.$options.default) {
+  } else if (pathSchema.$options && pathSchema.$options.default) {
     let _default = pathSchema.$options.default;
     _default = typeof _default === 'function' ? _default() : _default
     if (!_.get(node, _path)) {
