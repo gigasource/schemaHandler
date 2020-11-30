@@ -16,11 +16,26 @@ class Hooks extends EE {
     this.preEe.on(...arguments);
   }
 
+  default() {
+    this._defaultEe = this._defaultEe || new EE();
+    this._defaultEe.on(...arguments);
+  }
+
   async emit(event, ...args) {
     let handler = _.get(this._events, event);
-    if (_.isEmpty(handler) && !_.isFunction(handler)) {
-      return false;
+    if (_.isEmpty(handler) && !_.isFunction(handler) && this._defaultEe) {
+      if (!handler) handler = [];
+      if (!Array.isArray(handler)) {
+        handler = [handler]
+      }
+      const defaultHandler = _.get(this._defaultEe._events, event);
+      if (Array.isArray(defaultHandler)) {
+        handler.unshift(...defaultHandler);
+      } else {
+        handler.unshift(defaultHandler);
+      }
     }
+
     //pre
     if (this._preEe) {
       if (!Array.isArray(handler)) {
@@ -32,6 +47,10 @@ class Hooks extends EE {
       } else {
         handler.unshift(preHandler);
       }
+    }
+
+    if (_.isEmpty(handler) && !_.isFunction(handler)) {
+      return false;
     }
 
     const _this = {}
@@ -53,7 +72,7 @@ hooks.default('test', async function () {
   console.log('default')
 })
 
-hooks.on('test', async function ({arg}, e) {
+/*hooks.on('test', async function ({arg}, e) {
   this.value = '11';
   //this.ok = true;
   console.log('haz')
@@ -62,7 +81,7 @@ hooks.on('test', async function ({arg}, e) {
 
 hooks.pre('test', async function () {
   console.log('pre')
-})
+})*/
 
 /*hooks.on('test', async (arg) => {
   await new Promise(resolve => {
