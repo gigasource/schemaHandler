@@ -116,7 +116,7 @@ Test:
 * [_] await problem :neu truyen qua nhieu moi truong : await ko dam bao la cau lenh da chay thanh cong !!!
 
 ``` javascript
-hooks.post(':scope', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':scope', async function ({fn, args, index, chain, scope, query}) {
   _.merge(scope, args[0]);
 })
 ```

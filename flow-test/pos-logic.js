@@ -4,7 +4,7 @@ const _ = require('lodash');
 const {stringify, inspect} = require("../utils");
 
 async function initOrderLogic() {
-  flow.hooks.post(':openTable', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  flow.hooks.on(':openTable', async function ({fn, args, index, chain, scope, query}) {
     const order = reactive({table: args[0], items: [], takeAway: false})
     query.scope = order;
 
@@ -75,16 +75,16 @@ async function initOrderLogic() {
     })*/
   })
 
-  hooks.post(':addItem', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  hooks.on(':addItem', async function ({fn, args, index, chain, scope, query}) {
     scope.items.push(args[0]);
   })
 
-  hooks.post(':takeAway', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  hooks.on(':takeAway', async function ({fn, args, index, chain, scope, query}) {
     const [takeAway = true] = args;
     scope.takeAway = takeAway;
   })
 
-  hooks.post(':addModifiers', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  hooks.on(':addModifiers', async function ({fn, args, index, chain, scope, query}) {
     const last = _.last(scope.items);
     if (last) {
       last.modifiers = last.modifiers || [];
@@ -92,15 +92,15 @@ async function initOrderLogic() {
     }
   })
 
-  hooks.post(':changeQuantity', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  hooks.on(':changeQuantity', async function ({fn, args, index, chain, scope, query}) {
     scope.items[0].quantity = 10;
   })
 
-  hooks.post(':discount', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  hooks.on(':discount', async function ({fn, args, index, chain, scope, query}) {
     scope.discount = args[0];
   })
 
-  hooks.post(':logOrder', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  hooks.on(':logOrder', async function ({fn, args, index, chain, scope, query}) {
     console.log(inspect(scope));
     console.table(scope.items);
   })

@@ -18,15 +18,15 @@ let server, clientSocket;
 async function run() {
   const {initOrderLogic} = require('./pos-logic');
   await initOrderLogic()
-  hooks.post('flow-interface', async function ({args: [to], query}, returnResult) {
+  hooks.on('flow-interface', async function ({args: [to], query}) {
     if (to[0] === ':') clientSocket.emitTo(to.slice(1), 'flow-interface', query);
   })
 
-  hooks.post(':print', async function ({fn, args, index, chain, scope}, returnResult) {
+  hooks.on(':print', async function ({fn, args, index, chain, scope}) {
     console.log('print', scope);
   })
 
-  hooks.post(':log', async function ({fn, args, index, chain, scope}, returnResult) {
+  hooks.on(':log', async function ({fn, args, index, chain, scope}) {
     console.log(scope);
   })
 
@@ -167,8 +167,8 @@ describe("test flow 1", function () {
 
   it('register stream on io 2', () => new Promise(async (resolve, reject) => {
     console.log('abc')
-    hooks.post(':done', async function ({fn, args, index, chain, scope, query}, returnResult) {
-      //resolve();
+    hooks.on(':done', async function ({fn, args, index, chain, scope, query}) {
+      resolve();
     })
 
     //way 3: shorthand : concept multi flow in one

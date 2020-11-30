@@ -20,7 +20,7 @@ async function run() {
     strArr: [String]
   });
 
-  orm.post('update:Model@myproject:c', null, function (result, target) {
+  orm.on('update:Model@myproject:c', function (result, target) {
   });
 
   const Model = orm.getCollection('Model', dbName);

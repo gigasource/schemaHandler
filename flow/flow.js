@@ -1,4 +1,4 @@
-const EventEmitter = require('events');
+const EventEmitter = require('../hooks/hooks');
 const NodeCache = require('node-cache');
 const Kareem = require('kareem');
 const _ = require('lodash');
@@ -8,14 +8,6 @@ const inspect = (obj) => util.inspect(obj, {depth: 1});
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 
 const hooks = {}
-_.extend(hooks, new Kareem());
-hooks.execPostAsync = async function (name, context, args) {
-  const posts = this._posts.get(name) || [];
-  const numPosts = posts.length;
-  for (let i = 0; i < numPosts; ++i) {
-    await posts[i].fn.bind(context)(...(args || []));
-  }
-};
 _.extend(hooks, new EventEmitter());
 
 function builder(resolver) {
@@ -86,7 +78,7 @@ let models = builder(function (_this) {
     //console.log(JSON.stringify(query.chain));
 
     //pre-process
-    await hooks.execPostAsync(`chain-preprocess`, null, [query]);
+    await hooks.emit(`chain-preprocess`, query);
     await execChain(query);
 
     if (_.last(query.chain).fn === 'v') {
@@ -96,13 +88,13 @@ let models = builder(function (_this) {
   };
 });
 
-hooks.post(':return', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':return', async function ({fn, args, index, chain, scope, query}) {
   //const _query = query.stashes.pop();
   query.cursors = query.cursors || [];
   query.cursors.push(query.cursor);
   query.cursor = {}
 
-  returnResult.break = true;
+  this.break = true;
 })
 
 async function execChain(query) {
@@ -163,7 +155,7 @@ async function execChain(query) {
             let _args = [...nextFn.args];
             _args = _args.map((item) => item !== '@next' ? item : query.cursor._cursor);
 
-            await hooks.execPostAsync(`pre//**`, null, [_.assign({fn: nextFn.fn, args: _args, index: i, query}, query)]);
+            await hooks.emit(`pre//**`, _.assign({fn: nextFn.fn, args: _args, index: i, query}, query));
             cursor._cursor = cursor._cursor[nextFn.fn](..._args);
             hooks.removeListener(':end', endHanler);
           }
@@ -207,14 +199,13 @@ async function execChain(query) {
         }
       }
     }
-    await hooks.execPostAsync(`pre//**`, null, [_.assign({fn, args: _args, index: i, query}, query)]);
-    let returnResult = {ok: false, break: false, value: null}
-    await hooks.execPostAsync(`:${fn}`, null, [_.assign({fn, args: _args, index: i, query}, query), returnResult]);
+    await hooks.emit(`pre//**`, _.assign({fn, args: _args, index: i, query}, query));
+    let returnResult = await hooks.emit(`:${fn}`, _.assign({fn, args: _args, index: i, query}, query));
     if (returnResult.break) break;
   }
 }
 
-hooks.post('pre//**', async function ({fn, args, index, chain, scope, query}) {
+hooks.on('pre//**', async function ({fn, args, index, chain, scope, query}) {
   console.log('pre : ', inspect({fn, args}));
 })
 
@@ -222,7 +213,7 @@ const flow = models['flow'];
 
 //flow();
 
-/*hooks.post('chain-preprocess', null, function (query) {
+/*hooks.on('chain-preprocess', function (query) {
   query.chain = query.chain.reduce((chainWrapper, {fn, args}) => {
     if (chainWrapper.arr) {
       chainWrapper.arr.push({fn, args})
@@ -239,30 +230,30 @@ const flow = models['flow'];
   }, {chain: []}).chain;
 })*/
 
-hooks.post(':test', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':test', async function ({fn, args, index, chain, scope, query}) {
   console.log('test', {fn, args});
 })
 
-hooks.post(':scope', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':scope', async function ({fn, args, index, chain, scope, query}) {
   query.scope = args[0];
 })
 
-hooks.post(':emit', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':emit', async function ({fn, args, index, chain, scope, query}) {
   const event = args.shift();
-  await hooks.execPostAsync(`${event}`, null, [{args, scope}]);
+  await hooks.emit(`${event}`, {args, scope});
   console.log({fn, args});
 })
 
-hooks.post(':on', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':on', async function ({fn, args, index, chain, scope, query}) {
   const event = args.shift();
   const __chain = args.pop();
-  hooks.post(`${event}`, async function ({args, scope: _scope}) {
+  hooks.on(`${event}`, async function ({args, scope: _scope}) {
     const _query = {chain: __chain, scope: _scope};
     await execChain(_query);
   });
 })
 
-hooks.post(':send', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':send', async function ({fn, args, index, chain, scope, query}) {
 })
 
 function getRestChain(chain, index) {
@@ -271,35 +262,35 @@ function getRestChain(chain, index) {
   return _chain;
 }
 
-hooks.post(':toBE', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':toBE', async function ({fn, args, index, chain, scope, query}) {
   const _chain = getRestChain(chain, index);
   const _query = {chain: _chain, scope};
-  await hooks.execPostAsync('emitBE', null, [_query]);
-  returnResult.break = true;
+  await hooks.emit('emitBE', _query);
+  this.break = true;
 })
 
-hooks.post('emitBE', async function (query) {
+hooks.on('emitBE', async function (query) {
   console.log('backend env');
   await execChain(query);
 })
 
-hooks.post(':toFE', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':toFE', async function ({fn, args, index, chain, scope, query}) {
   const _chain = getRestChain(chain, index);
   const _query = {chain: _chain, scope};
-  await hooks.execPostAsync('emitFE', null, [_query]);
-  returnResult.break = true;
+  await hooks.emit('emitFE', _query);
+  this.break = true;
 })
 
-hooks.post('emitFE', async function (query) {
+hooks.on('emitFE', async function (query) {
   console.log('frontend env');
   await execChain(query);
 })
 
-hooks.post(':require', async function ({fn, args: [_module, {name, wrapping, chainable}], index, chain, scope, query}, returnResult) {
+hooks.on(':require', async function ({fn, args: [_module, {name, wrapping, chainable}], index, chain, scope, query}) {
   const modules = flow.modules;
   if (!wrapping) wrapping = typeof _module === 'function' ? _module : () => _module;
   modules[name] = {wrapping, chainable};
-  hooks.post(`:${name}`, async function ({fn, args, index, chain, scope, query}, returnResult) {
+  hooks.on(`:${name}`, async function ({fn, args, index, chain, scope, query}) {
     query.cursor = {
       module: wrapping(...args),
       scope: {},
@@ -309,7 +300,7 @@ hooks.post(':require', async function ({fn, args: [_module, {name, wrapping, cha
   });
 })
 
-hooks.post(`:end`, async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(`:end`, async function ({fn, args, index, chain, scope, query}) {
   if (query.cursor && query.cursor.chainable) {
     query.cursor.scope = query.scope = await query.cursor._cursor;
   } else {
@@ -324,18 +315,18 @@ hooks.post(`:end`, async function ({fn, args, index, chain, scope, query}, retur
   query.cursor = {}
 });
 
-hooks.post(':to', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':to', async function ({fn, args, index, chain, scope, query}) {
   const _chain = getRestChain(chain, index);
   const _query = {chain: _chain, scope};
   const [{clientId}] = args;
   let returnValue = {break: false}
-  await hooks.execPostAsync('flow-interface', null, [{query: _query, args}, returnValue]);
+  await hooks.emit('flow-interface', {query: _query, args});
 
-  //await hooks.execPostAsync('emitBE', null, [_query]);
-  returnResult.break = true;
+  //await hooks.emit('emitBE', _query);
+  this.break = true;
 })
 
-hooks.post(':use', async function ({fn, args, index, chain, scope, query}, returnResult) {
+hooks.on(':use', async function ({fn, args, index, chain, scope, query}) {
   query.cursor = {
     module: args[0],
     scope: {},

@@ -30,7 +30,7 @@ const {hooks, flow, execChain, getRestChain} = require('../flow/flow');
 const _ = require('lodash');
 const fs = require("fs");
 
-hooks.post('flow-interface', async function ({args: [to], query}, returnResult) {
+hooks.on('flow-interface', async function ({args: [to], query}) {
   if (to[0] === ':') socket.emitTo(to.slice(1), 'flow-interface', query);
 })
 

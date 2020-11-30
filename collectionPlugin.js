@@ -38,7 +38,7 @@ module.exports = function (orm) {
   }
 
   /*const _idIndexArr = [];
-  orm.post('pre:execChain', async (query) => {
+  orm.on('pre:execChain', async (query) => {
     if (_idIndexArr.includes(query.name)) return;
     _idIndexArr.push(query.name);
     let cursor = orm._getCollection(...query.name.split('@'));

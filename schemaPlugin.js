@@ -46,7 +46,8 @@ module.exports = function (orm) {
   }
 
   //parse condition
-  orm.post('proxyQueryHandler', null, function ({target, key, proxy, defaultFn}, returnResult) {
+  orm.on('proxyQueryHandler', function ({target, key, proxy, defaultFn}) {
+    const returnResult = this;
     if (returnResult.ok) return;
     if (key === 'remove') key = 'deleteMany'
 
@@ -180,19 +181,19 @@ module.exports = function (orm) {
     return false;
   }
 
-  orm.post('proxyQueryHandler', null, function ({target, key, proxy, defaultFn}, result) {
+  orm.on('proxyQueryHandler', function ({target, key, proxy, defaultFn}) {
     if (checkMainCmd(key)) {
       target.cmd = key;
     }
   })
 
   //populate
-  orm.post('proxyQueryHandler', null, function ({target, key, proxy, defaultFn}, result) {
-    if (result.ok) return;
+  orm.on('proxyQueryHandler', function ({target, key, proxy, defaultFn}, result) {
+    if (this.ok) return;
 
     if (key === 'populate') {
-      result.ok = true;
-      result.value = function () {
+      this.ok = true;
+      this.value = function () {
         target.populates = target.populates || [];
         target.populates.push([...arguments]);
         return proxy;
@@ -222,7 +223,8 @@ module.exports = function (orm) {
   }
 
   //populate
-  orm.post('proxyResultPostProcess', null, async function ({target, result}, returnResult) {
+  orm.on('proxyResultPostProcess', async function ({target, result}) {
+    const returnResult = this;
     if (!result) return;
     if (returnResult.ok) return;
     if (result.n && result.ok) return;
@@ -263,20 +265,20 @@ module.exports = function (orm) {
     }
   })
 
-  orm.post('proxyResultPostProcess', null, async function ({target, result}, returnResult) {
+  orm.on('proxyResultPostProcess', async function ({target, result}, returnResult) {
     let cmd = target.cmd;
     if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
-      await orm.execPostAsync(`update:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, null, [result, target]);
+      await orm.emit(`update:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, result, target);
       const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
-      await orm.execPostAsync(`update:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}:${type}`, null, [result, target]);
+      await orm.emit(`update:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}:${type}`, result, target);
     } else if (cmd.includes('find')) {
-      await orm.execPostAsync(`find:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, null, [result, target]);
+      await orm.emit(`find:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, result, target);
     } else {
-      await orm.execPostAsync(`delete:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, null, [result, target]);
+      await orm.emit(`delete:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, result, target);
     }
   })
 
-  orm.post('proxyPostQueryHandler', null, function ({target, proxy}, result) {
+  orm.on('proxyPostQueryHandler', function ({target, proxy}, result) {
     const schema = orm.getSchema(target.collectionName, target.dbName);
     if (schema) {
       for (const path of Object.keys(schema)) {
@@ -289,15 +291,15 @@ module.exports = function (orm) {
   })
 
   //add new: true ??
-  orm.post('proxyPostQueryHandler', null, function ({target, proxy}, result) {
+  orm.on('proxyPostQueryHandler', function ({target, proxy}) {
     if (target.new) {
       proxy.setOptions({new: true});
     }
   })
 
-  orm.post('construct', null, async function ({target, args}, returnResult) {
+  orm.on('construct', async function ({target, args}) {
     let [collectionName, dbName] = target.modelName.split('@');
     const schema = orm.getSchema(collectionName, dbName);
-    returnResult.value = parseSchema(schema, args[0]);
+    this.value = parseSchema(schema, args[0]);
   })
 }

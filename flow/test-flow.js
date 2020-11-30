@@ -9,7 +9,7 @@ orm.connect('mongodb://localhost:27017', 'myproject');
 const stringify = JSON.stringify.bind(JSON);
 
 async function run() {
-  flow.hooks.post(':openTable', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  flow.hooks.on(':openTable', async function ({fn, args, index, chain, scope, query}) {
     const order = reactive({table: args[0], items: []})
     query.scope = order;
     watchEffect(function () {
@@ -32,19 +32,19 @@ async function run() {
     })*/
   })
 
-  hooks.post(':addItem', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  hooks.on(':addItem', async function ({fn, args, index, chain, scope, query}) {
     scope.items.push(args[0]);
   })
 
-  hooks.post(':changeQuantity', async function ({fn, args, index, chain, scope, query}, returnResult) {
+  hooks.on(':changeQuantity', async function ({fn, args, index, chain, scope, query}) {
     scope.items[0].quantity = 10;
   })
 
-  hooks.post(':print', async function ({fn, args, index, chain, scope}, returnResult) {
+  hooks.on(':print', async function ({fn, args, index, chain, scope}) {
     console.log('print', scope);
   })
 
-  hooks.post(':log', async function ({fn, args, index, chain, scope}, returnResult) {
+  hooks.on(':log', async function ({fn, args, index, chain, scope}) {
     console.log(scope);
   })
 
