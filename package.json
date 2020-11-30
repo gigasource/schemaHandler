@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/gigasource/schemaHandler#readme",
   "dependencies": {
+    "better-queue": "^3.8.10",
     "bson": "^4.2.0",
     "extend": "^3.0.2",
     "kareem": "^2.3.1",
@@ -43,10 +44,12 @@
     "socket.io": "^2.2.0",
     "socket.io-client": "^2.2.0",
     "uuid": "^8.3.1",
-    "vue": "^3.0.2"
+    "vue": "^3.0.2",
+    "json-fn": "github:gigasource/jsonfn#1.1.1"
   },
   "peerDependencies": {
-    "mongodb": "github:gigasource/node-mongodb-native#v3.5.8-1"
+    "mongodb": "github:gigasource/node-mongodb-native#v3.5.8-1",
+    "json-fn": "github:gigasource/jsonfn#1.1.1"
   },
   "babel": {
     "plugins": [

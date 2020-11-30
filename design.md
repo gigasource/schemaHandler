@@ -67,4 +67,12 @@ orm.cache
 
 models['collection@db']
 
+// Commit sync
+* [ ] Commit flow
+    * [ ] Basic flow
+    * [ ] Need sync flow
+        * [ ] Approve commit
+        * [ ] Reject commit
+        * [ ] Batch commit
+
 

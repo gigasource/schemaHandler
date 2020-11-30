@@ -482,6 +482,7 @@ function connect(connectionInfo) {
 
 orm.plugin(require('./collectionPlugin'));
 orm.plugin(require('./schemaPlugin'));
+orm.plugin(require('./commitPlugin'));
 module.exports = _orm;
 
 orm.execPostAsync = async function (name, context, args) {
