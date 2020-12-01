@@ -4,16 +4,11 @@ const jsonFn = require('json-fn')
 
 const TAG = 'commitLayer'
 const { initTransporterWithOrm } = require('./transporter')
-const TRANSFORM_LAYER_TAG = require('./transform').TAG
+const TRANSFORM_LAYER_TAG = require('./transporter').TAG
 const allowedFn = [] // todo: fill this
 
 module.exports = function (orm) {
   initTransporterWithOrm(orm)
-  orm.isMaster = false
-
-  orm.setMaster = (isMaster) => {
-    orm.isMaster = isMaster
-  }
 
   orm.commitHandler = orm.commitHandler || {
     queue: new Queue(async function (commits) {
@@ -27,6 +22,26 @@ module.exports = function (orm) {
     }),
     commitTypes: {}
   }
+  if (orm.mode === 'single') {
+    orm.commitHandler.setMaster = (isMaster) => {
+      if (orm.commitHandler.isMaster.length) {
+        orm.commitHandler.isMaster.pop()
+      }
+      orm.commitHandler.isMaster = true
+    }
+  } else {
+    orm.commitHandler.isMaster = {}
+    orm.commitHandler.setMaster = (dbName, isMaster) => {
+      orm.commitHandler.isMaster[dbName] = isMaster
+    }
+  }
+  orm.commitHandler.getMaster = (dbName) => {
+    return dbName ? orm.commitHandler.isMaster[dbName] : orm.commitHandler.isMaster
+  }
+
+  orm.default(`${TAG}:sync`, (commits) => {
+    orm.commitHandler.queue.push(commits)
+  })
   orm.commitHandler.queue.pause()
 
   orm.commitHandler.registerCommitCollections = function (groupName, collectionsList) {
@@ -76,10 +91,7 @@ module.exports = function (orm) {
       data = _.assign({}, ...args.filter(arg => typeof arg === 'object'))
     }
     const commit = orm.commitHandler.createCommit(query, tags, data)
-    await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commits)
-    orm.default(`${TAG}:sync`, (commits) => {
-      orm.commitHandler.queue.push(commits)
-    })
+    await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commit)
     if (orm.commitHandler.commitTypes[query.name].needMaster) this.ok = true
   })
 }

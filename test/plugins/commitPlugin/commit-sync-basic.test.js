@@ -3,10 +3,10 @@ const {
   convertSchemaToPaths,
   findAllPathsInLevelArrHandler2,
   parseCondition
-} = require("../schemaHandler");
-const orm = require("../orm");
+} = require("../../../schemaHandler");
+const orm = require("../../../orm");
 const {ObjectID} = require("bson");
-const {stringify} = require("../utils");
+const {stringify} = require("../../../utils");
 const _ = require('lodash');
 let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model, schema;
@@ -15,9 +15,6 @@ const uuid = require('uuid').v1;
 describe("commit-sync", function () {
   beforeAll(async () => {
     orm.connect({uri: "mongodb://localhost:27017"}, 'myproject');
-    schema = {
-      table: String,
-    };
   });
 
   it("case1", async function () {
@@ -94,7 +91,7 @@ describe("commit-sync", function () {
 });
 
 // run when orm.create()
-describe("Commit flow", function() {
+describe("Commit flow basic", function() {
   beforeAll(async () => {
     orm.connect({ uri: "mongodb://localhost:27017" }, "myproject");
     schema = {
