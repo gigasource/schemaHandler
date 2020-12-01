@@ -264,7 +264,7 @@ function createCollectionQuery(query) {
 
   let _collection;
   if (query.mockCollection) {
-    _collection = models2[collectionName];
+    _collection = this.models2[collectionName];
   } else {
     let _nativeCollection = this._getCollection(...collectionName.split('@'));
     _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
