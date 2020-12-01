@@ -145,8 +145,8 @@ describe("commit-sync", function () {
 
     //layer transport implement
 
-    orm.on('initSyncForClient', function (clientSocket) {
-      orm.on('toMaster', async function (commit, query) {
+    orm.on('initSyncForClient', clientSocket => {
+      orm.on('toMaster', async (commit, query) => {
         clientSocket.once(`approve:${commit.uuid}`, async function (_commit) {
           await orm.emit("commit:sync:Model");
         });
@@ -161,8 +161,8 @@ describe("commit-sync", function () {
       })
     })
 
-    orm.on('initSyncForMaster', function (masterIo) {
-      masterIo.on('commitRequest', async function (commit, query) {
+    orm.on('initSyncForMaster', masterIo => {
+      masterIo.on('commitRequest', async (commit, query) => {
         commit.approved = true;
         const _commit = await orm(`${query.name}Commit_Master`).create(commit)
         masterIo.emit(`sync:commit`, _commit);
@@ -170,8 +170,8 @@ describe("commit-sync", function () {
       });
     })
 
-    orm.on('initSyncForCloud', function (masterIo) {
-      cloudIo.on('sync:commit', function (highestId) {
+    orm.on('initSyncForCloud', masterIo => {
+      cloudIo.on('sync:commit', highestId => {
         debugger
       })
     })

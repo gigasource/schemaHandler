@@ -30,6 +30,7 @@ async function run() {
 
   const Store = orm.getCollection('Store');
   const stores = await Store.find({groups: {$elemMatch: {$in: ids}}});
+  console.log(stores)
 }
 
 run();

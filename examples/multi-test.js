@@ -1,6 +1,7 @@
 const ObjectID = require('bson').ObjectID
 
-const orm = require("../orm");
+const _orm = require("../orm");
+const orm = new _orm.Orm();
 const {parseCondition} = require("../schemaHandler");
 
 const url = 'mongodb://localhost:27017';
@@ -29,7 +30,7 @@ async function run() {
   });
 
   orm.on('update:Model@myproject:c', function (result, target) {
-    console.log(result);
+    //console.log(result);
   });
 
   const Model = orm.getCollection('Model', dbName);
@@ -59,10 +60,10 @@ async function run() {
 
   const models12 = await Model.where({b: 1}).find({a: 10}).count();
   console.log(models12)
-  orm.on('debug', async function (query) {
+  /*orm.on('debug', async function (query) {
     this.ok = true;
     this.value = await orm.execChain(query);
-  });
+  });*/
 
   const obj = await Model.insertOne({a: 2, b: {c: 2, d: 4}});
 

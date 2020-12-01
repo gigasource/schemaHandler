@@ -5,67 +5,96 @@ const MongoClient = require('mongodb').MongoClient;
 const _ = require('lodash');
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const ObjectID = require('bson').ObjectID;
-const orm = {
+
+class Orm extends EventEmitter {
+  constructor() {
+    super();
+    const {models, models2} = factory(this);
+    this.models = models;
+    this.models2 = models2
+
+    this.plugin(require('./collectionPlugin'));
+    this.plugin(require('./schemaPlugin'));
+  }
+
   setTtl(ttl) {
     this.cache.options.stdTTL = ttl;
-  },
+  }
+
   get readyState() {
     if (this.connected && !this.closed) return 1;
-  },
+  }
+
   get client() {
     return this.cache.get('client');
-  },
+  }
+
   get connection() {
     return this.cache.get('client');
-  },
+  }
+
   useProxyForResult() {
     this._useProxyForResult = true;
-  },
+  }
+
   async setDefaultDb(dbName) {
     this.dbName = dbName;
     await this.waitForConnected();
     this.db = this.client.db(dbName);
-  },
-  ObjectId: ObjectID,
-  cache,
-  pluralize: true,
-  connecting: false,
-  connected: false,
-  closed: false,
-  mode: 'single',
+  }
+
+  ObjectId = ObjectID
+  cache = new NodeCache({useClones: false/*, checkperiod: 2*/})
+  pluralize = true
+  connecting = false
+  connected = false
+  closed = false
+  mode = 'single'
+
   setSingleDbMode() {
     this.mode = 'single';
-  },
+  }
+
   setMultiDbMode() {
     this.mode = 'multi';
-  },
-  getCollection,
-  _getCollection,
-  connect,
+  }
+
+  getCollection = getCollection
+
+  _getCollection = _getCollection
+
+  connect = connect
+
   close() {
     this.client.close();
-  },
+  }
+
   //mock
   registerSchema(collectionName, dbName, schema) {
-  },
+  }
+
   //mock
   getSchema(collectionName, dbName) {
-  },
+  }
+
   //mock
   registerCollectionOptions(collectionName, dbName, options) {
-  },
+  }
+
   //mock
   getOptions(collectionName, dbName) {
-  },
+  }
+
   plugin(plugin) {
-    plugin(orm);
-  },
+    plugin(this);
+  }
+
   waitForConnected() {
-    if (!orm.cache.get('client')) {
-      if (!orm.connected || orm.closed || orm.connecting) {
+    if (!this.cache.get('client')) {
+      if (!this.connected || this.closed || this.connecting) {
         return new Promise((resolve, reject) => {
           if (!this.connecting && this.connected && this.closed) {
-            this.connect(this.connectionInfo, orm.connectCb);
+            this.connect(this.connectionInfo, this.connectCb);
           }
 
           this.once('open', (err) => {
@@ -76,10 +105,13 @@ const orm = {
       }
     }
     return Promise.resolve();
-  },
-  execChain,
-  createCollectionQuery
+  }
+
+  execChain = execChain
+  createCollectionQuery = createCollectionQuery
+  resultPostProcess = resultPostProcess
 }
+
 /*function orm() {
   if (arguments.length === 0) {
     return orm;
@@ -92,98 +124,123 @@ for (const key of Object.keys(_orm)) {
   orm[key] = _orm[key];
 }*/
 //_.extend(orm, _orm);
-_.extend(orm, new Kareem());
-_.extend(orm, new EventEmitter());
+const __orm = new Orm()
+__orm.Orm = Orm;
+//_.extend(__orm, new EventEmitter());
 
-const _orm = new Proxy(function () {
-}, {
+const _orm = new Proxy(Orm, {
+  construct(target, args) {
+    const orm = new target(...args);
+    const orm2 = new Proxy(function () {
+      },
+      {
+        apply(target, thisArg, argArray) {
+          if (argArray.length === 0) {
+            return orm;
+          } else {
+            return orm.getCollection(...argArray);
+          }
+        },
+        get(target, p, receiver) {
+          return Reflect.get(orm, p);
+        },
+        set(target, p, value, receiver) {
+          return Reflect.set(orm, p, value);
+        }
+      })
+    return orm2;
+  },
   apply(target, thisArg, argArray) {
     if (argArray.length === 0) {
-      return orm;
+      return __orm;
     } else {
-      return orm.getCollection(...argArray);
+      return __orm.getCollection(...argArray);
     }
   },
   get(target, p, receiver) {
-    return Reflect.get(orm, p, receiver);
+    return Reflect.get(__orm, p);
   },
   set(target, p, value, receiver) {
-    return Reflect.set(orm, p, receiver);
+    return Reflect.set(__orm, p, value);
   }
 });
 
 const mquery = require('mquery');
 const pluralize = require("mongoose-legacy-pluralize");
 
-function builder(resolver) {
-  return new Proxy({}, {
-    get(target, key) {
-      const construct = class Anonymous {
-      }
-      construct.modelName = key;
-      return new Proxy(construct, {
-        construct(target, args) {
-          const returnResult = orm.emit('construct', {target, args});
-          return returnResult.value;
-        },
-        get(targetLayer1, key) {
-          if (['modelName'].includes(key)) {
-            return targetLayer1[key];
-          }
-          return function () {
-            return new Proxy({
-              modelName: construct.modelName,
-              chain: [{fn: key, args: [...arguments]}]
-            }, {
-              get(targetLayer2, key, queryProxy) {
-                if (['chain', 'modelName'].includes(key)) {
-                  return targetLayer2[key];
-                }
-                if (key === 'then') {
-                  const promise = new Promise(resolver(targetLayer2));
-                  return promise.then.bind(promise);
-                }
-                return function () {
-                  targetLayer2.chain = targetLayer2.chain || [];
-                  targetLayer2.chain.push({fn: key, args: [...arguments]});
-                  return queryProxy;
-                };
-              }
-            });
-          };
+function factory(orm) {
+  function builder(resolver) {
+    return new Proxy({}, {
+      get(target, key) {
+        const construct = class Anonymous {
         }
-      });
-    }
+        construct.modelName = key;
+        return new Proxy(construct, {
+          construct(target, args) {
+            const returnResult = orm.emit('construct', {target, args});
+            return returnResult.value;
+          },
+          get(targetLayer1, key) {
+            if (['modelName'].includes(key)) {
+              return targetLayer1[key];
+            }
+            return function () {
+              return new Proxy({
+                modelName: construct.modelName,
+                chain: [{fn: key, args: [...arguments]}]
+              }, {
+                get(targetLayer2, key, queryProxy) {
+                  if (['chain', 'modelName'].includes(key)) {
+                    return targetLayer2[key];
+                  }
+                  if (key === 'then') {
+                    const promise = new Promise(resolver(targetLayer2));
+                    return promise.then.bind(promise);
+                  }
+                  return function () {
+                    targetLayer2.chain = targetLayer2.chain || [];
+                    targetLayer2.chain.push({fn: key, args: [...arguments]});
+                    return queryProxy;
+                  };
+                }
+              });
+            };
+          }
+        });
+      }
+    });
+  }
+
+  let models = builder(function (_this) {
+    return async function (resolve, reject) {
+      const query = {name: _this.modelName, chain: _this.chain};
+      await orm.waitForConnected();
+
+      {
+        let returnResult = await orm.emit('pre:execChain', query);
+        if (returnResult.ok) return resolve(returnResult.value);
+      }
+
+      let returnResult = await orm.emit('debug', query);
+      if (returnResult.ok) return resolve(returnResult.value);
+
+      let cursor = orm.execChain(query);
+      cursor.then(resolve, reject);
+    };
   });
+
+  let models2 = builder(function (_this) {
+    return async function (resolve, reject) {
+      const query = {name: _this.modelName, chain: _this.chain};
+      resolve(query);
+    };
+  });
+
+  return {models, models2};
 }
 
-let models = builder(function (_this) {
-  return async function (resolve, reject) {
-    const query = {name: _this.modelName, chain: _this.chain};
-    await orm.waitForConnected();
-
-    {
-      let returnResult = await orm.emit('pre:execChain', query);
-      if (returnResult.ok) return resolve(returnResult.value);
-    }
-
-    let returnResult = await orm.emit('debug', query);
-    if (returnResult.ok) return resolve(returnResult.value);
-
-    let cursor = execChain(query);
-    cursor.then(resolve, reject);
-  };
-});
-
-let models2 = builder(function (_this) {
-  return async function (resolve, reject) {
-    const query = {name: _this.modelName, chain: _this.chain};
-    resolve(query);
-  };
-});
-
 function execChain(query) {
-  let cursor = createCollectionQuery(query);
+  let cursor = this.createCollectionQuery(query);
   for (const {fn, args} of query.chain) {
     cursor = cursor[fn](...args);
   }
@@ -191,6 +248,7 @@ function execChain(query) {
 }
 
 function createCollectionQuery(query) {
+  const orm = this;
   const {name: collectionName, chain} = query;
   //const _mongoCollection = orm.db.collection(collectionName)
   //const _collection = mquery().collection(orm.collection1);
@@ -208,7 +266,7 @@ function createCollectionQuery(query) {
   if (query.mockCollection) {
     _collection = models2[collectionName];
   } else {
-    let _nativeCollection = _getCollection(...collectionName.split('@'));
+    let _nativeCollection = this._getCollection(...collectionName.split('@'));
     _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
   }
   const mongoCollection = new Proxy({
@@ -251,7 +309,7 @@ function createCollectionQuery(query) {
               const r = await orm.emit(`proxyPreReturnValue:${query.uuid}`, result, target);
               return resolve(r.value);
             }
-            const returnValue = await resultPostProcess(result, target);
+            const returnValue = await orm.resultPostProcess(result, target);
             resolve(returnValue);
           } catch (e) {
             console.error(e0);
@@ -348,7 +406,7 @@ async function resultPostProcess(result, target) {
   }*/
 
   if (target.returnSingleDocument) {
-    const returnResult = await orm.emit('proxyResultPostProcess', {target, result: _result});
+    const returnResult = await this.emit('proxyResultPostProcess', {target, result: _result});
     if (returnResult.ok) {
       _result = returnResult.value;
     }
@@ -357,7 +415,7 @@ async function resultPostProcess(result, target) {
 
     try {
       for (const doc of _result) {
-        const returnResult = await orm.emit('proxyResultPostProcess', {target, result: doc});
+        const returnResult = await this.emit('proxyResultPostProcess', {target, result: doc});
         if (returnResult.ok) {
           docs.push(returnResult.value);
         } else {
@@ -371,7 +429,7 @@ async function resultPostProcess(result, target) {
     _result = docs;
   }
 
-  if (!orm._useProxyForResult || target.lean) return _result;
+  if (!this._useProxyForResult || target.lean) return _result;
 
   function convertProxy(doc) {
     return new Proxy(doc, {
@@ -397,44 +455,44 @@ async function resultPostProcess(result, target) {
 }
 
 function getCollection(collectionName, dbName) {
-  if (orm.mode === 'single') {
-    return models[collectionName];
+  if (this.mode === 'single') {
+    return this.models[collectionName];
   } else {
-    if (!dbName && orm.dbName) {
-      dbName = orm.dbName;
+    if (!dbName && this.dbName) {
+      dbName = this.dbName;
     }
     let collection;
-    collection = orm.cache.get(`model:${collectionName}@${dbName}`);
+    collection = this.cache.get(`model:${collectionName}@${dbName}`);
     if (!collection) {
-      collection = models[`${collectionName}@${dbName}`]
+      collection = this.models[`${collectionName}@${dbName}`]
     }
     return collection;
   }
 }
 
 function _getCollection(collectionName, dbName) {
-  if (!orm.cache.get('client')) return;
+  if (!this.cache.get('client')) return;
 
   let db, collection;
-  if (orm.mode === 'single') {
-    db = orm.db;
+  if (this.mode === 'single') {
+    db = this.db;
     dbName = db.databaseName;
   } else {
-    if (!dbName && orm.dbName) {
-      dbName = orm.dbName;
+    if (!dbName && this.dbName) {
+      dbName = this.dbName;
     }
-    db = orm.cache.get(`db:${dbName}`);
+    db = this.cache.get(`db:${dbName}`);
     if (!db) {
-      const client = orm.cache.get('client');
+      const client = this.cache.get('client');
       db = client.db(dbName);
-      orm.cache.set(`db:${dbName}`, db);
+      this.cache.set(`db:${dbName}`, db);
     }
   }
 
-  collection = orm.cache.get(`collection:${collectionName}@${dbName}`)
+  collection = this.cache.get(`collection:${collectionName}@${dbName}`)
   if (!collection) {
     collection = db.collection(pluralize(collectionName));
-    orm.cache.set(`collection:${collectionName}@${dbName}`, collection);
+    this.cache.set(`collection:${collectionName}@${dbName}`, collection);
   }
 
   return collection
@@ -445,6 +503,7 @@ function _getCollection(collectionName, dbName) {
  * example: connect('localhost:27017') || connect({uri: 'localhost:27017'})
  */
 function connect(connectionInfo) {
+  const orm = this;
   orm.connectionInfo = connectionInfo;
   let firstArgs = [];
   if (typeof connectionInfo === 'object') {
@@ -488,6 +547,4 @@ function connect(connectionInfo) {
   });
 }
 
-orm.plugin(require('./collectionPlugin'));
-orm.plugin(require('./schemaPlugin'));
 module.exports = _orm;
