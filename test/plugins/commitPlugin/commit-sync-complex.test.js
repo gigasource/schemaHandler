@@ -6,6 +6,7 @@ let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model, schema;
 const uuid = require('uuid').v1;
 const TRANSPORT_LAYER_TAG = require('../../../plugins/commitPlugin/transporter').TAG
+const SocketMock = require('socket.io-mock')
 
 describe("commit-sync-complex", function () {
 	beforeAll(async () => {
@@ -13,13 +14,9 @@ describe("commit-sync-complex", function () {
 	})
 
 	it('start master single db', async (done) => {
+		let socket = new SocketMock()
 		orm.commitHandler.setMaster(true)
-		http = require('http')
-		const socketIO = require('socket.io')
-		const httpServer = http.createServer((req, res) => res.end()).listen(9000)
-		const server = socketIO.listen(httpServer, {})
-		await orm.emit(`${TRANSPORT_LAYER_TAG}:registerClientSocket`, (_clientSocket, dbName) => {
+		await orm.emit(`${TRANSPORT_LAYER_TAG}:registerClientSocket`, socket)
 
-		})
 	})
 })

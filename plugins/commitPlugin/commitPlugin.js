@@ -2,9 +2,9 @@ const Queue = require('better-queue')
 const ObjectID = require('bson').ObjectID
 const jsonFn = require('json-fn')
 
-const TAG = 'commitLayer'
+const TAG = require('../tags').COMMIT_LAYER_TAG
 const { initTransporterWithOrm } = require('./transporter')
-const TRANSFORM_LAYER_TAG = require('./transporter').TAG
+const TRANSFORM_LAYER_TAG = require('../tags').TRANSPORT_LAYER_TAG
 const allowedFn = [] // todo: fill this
 
 module.exports = function (orm) {
