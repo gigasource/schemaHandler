@@ -156,7 +156,7 @@ function parseCondition(paths, obj, {arrayFilters, prefixPath, identifier} = {})
     const pathsInLevel2 = findAllPathsInLevelArrHandler2(paths, pathFilter);
     for (let {relative: _path, absolute} of pathsInLevel2) {
       const pathSchema = paths[absolute];
-      if (isLeaf || (pathSchema.$options && pathSchema.$options.autopopulate)) {
+      if (isLeaf || (pathSchema.$options && pathSchema.$options.autopopulate && _node._id)) {
         if (pathSchema) {
           _node = convertPathParentSchema(_node, pathSchema);
         }
