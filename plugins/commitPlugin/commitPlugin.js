@@ -1,6 +1,7 @@
 const Queue = require('better-queue')
 const ObjectID = require('bson').ObjectID
 const jsonFn = require('json-fn')
+const _ = require('lodash')
 
 const TAG = require('../tags').COMMIT_LAYER_TAG
 const { initTransporterWithOrm } = require('./transporter')
@@ -13,7 +14,7 @@ module.exports = function (orm) {
   orm.commitHandler = orm.commitHandler || {
     queue: new Queue(async function (commits) {
       if (!Array.isArray(commits)) {
-        await orm.emit(`commit:${orm.commitHandler.commitTypes[commit.collectionName].groupName}`, commits)
+        await orm.emit(`commit:${orm.commitHandler.commitTypes[commits.collectionName].groupName}`, commits)
         return
       }
       for (let commit of commits) {
@@ -23,6 +24,7 @@ module.exports = function (orm) {
     commitTypes: {}
   }
   if (orm.mode === 'single') {
+    orm.commitHandler.isMaster = false
     orm.commitHandler.setMaster = (isMaster) => {
       if (orm.commitHandler.isMaster.length) {
         orm.commitHandler.isMaster.pop()
@@ -78,7 +80,7 @@ module.exports = function (orm) {
     }
   }
 
-  orm.post('pre:execChain', async (query) => {
+  orm.on('pre:execChain', async function (query) {
     if (!orm.commitHandler.commitTypes[query.name]) return
     // todo check allowed fn
     const last = _.last(query.chain)
@@ -91,7 +93,9 @@ module.exports = function (orm) {
       data = _.assign({}, ...args.filter(arg => typeof arg === 'object'))
     }
     const commit = orm.commitHandler.createCommit(query, tags, data)
-    await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commit)
+    const dbName = (orm.mode === 'single' ? null : query.name.split('@')[1])
+    const isMaster = (orm.mode === 'single' ? orm.commitHandler.isMaster : orm.commitHandler.isMaster[dbName])
+    await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commit, dbName, isMaster)
     if (orm.commitHandler.commitTypes[query.name].needMaster) this.ok = true
   })
 }
