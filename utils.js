@@ -8,6 +8,7 @@ function stringify() {
     JSON.stringify(
       arguments[0],
       function (k, v) {
+        if (k === 'uuid') return 'uuid-v1'
         if (
           this[k] instanceof ObjectID ||
           (typeof this[k] === "object" && ObjectID.isValid(this[k]))
