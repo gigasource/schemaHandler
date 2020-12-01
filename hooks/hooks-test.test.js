@@ -12,7 +12,7 @@ describe("test hooks", function() {
 
   it('default should called if don"t have pre or on', async function() {
     let arg;
-    hooks.default("test", async function() {
+    hooks.onDefault("test", async function() {
       log("default");
     });
     await hooks.emit("test", { arg }, e => eval(e));

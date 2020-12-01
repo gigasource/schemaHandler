@@ -16,7 +16,7 @@ class Hooks extends EE {
     this.preEe.on(...arguments);
   }
 
-  default() {
+  onDefault() {
     this._defaultEe = this._defaultEe || new EE();
     this._defaultEe.on(...arguments);
   }
@@ -107,7 +107,7 @@ class Hooks extends EE {
 
 const isArrowFn = (fn) => (typeof fn === 'function') && /^[^{]+?=>/.test(fn.toString());
 
-['getPreHandler', 'preEe', 'pre', 'default', 'emit', 'emitSync', 'emitPrepare'].forEach(
+['getPreHandler', 'preEe', 'pre', 'onDefault', 'emit', 'emitSync', 'emitPrepare'].forEach(
   p => Object.defineProperty(Hooks.prototype, p, {enumerable: true})
 )
 

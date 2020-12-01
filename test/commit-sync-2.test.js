@@ -11,6 +11,11 @@ const _ = require("lodash");
 let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model, schema;
 const uuid = require("uuid").v1;
+const Socket = require('socket.io-mock');
+const masterIo = new Socket();
+const clientSocket = masterIo.socketClient;
+const cloudIo = new Socket();
+const cloudSocket = cloudIo.socketClient;
 
 describe("commit-sync", function () {
   beforeAll(async () => {
@@ -18,7 +23,16 @@ describe("commit-sync", function () {
     schema = {
       table: String
     };
+
   });
+
+  it('test socket', function (done) {
+    masterIo.on('test', function () {
+      console.log('test');
+      done();
+    })
+    clientSocket.emit('test');
+  })
 
   it("case1", async function (done) {
     const Model = orm("Model");
@@ -88,7 +102,7 @@ describe("commit-sync", function () {
     });
 
     orm.onDefault("toMaster", async function (commit, query) {
-      expect(stringify(commit)).toMatchInlineSnapshot(`
+      /*expect(stringify(commit)).toMatchInlineSnapshot(`
         Object {
           "approved": false,
           "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"table\\":10,\\"items\\":[{\\"name\\":\\"cola\\",\\"price\\":10,\\"quantity\\":1}]}]}]",
@@ -101,7 +115,7 @@ describe("commit-sync", function () {
           ],
           "uuid": "uuid-v1",
         }
-      `);
+      `);*/
       //socket io layer here
       orm.once(`approve:${commit.uuid}`, async function () {
         await orm.emit("commit:sync:Model");
@@ -128,6 +142,44 @@ describe("commit-sync", function () {
       //build model
       //do something custom
     });
+
+    //layer transport implement
+
+    orm.on('initSyncForClient', function (clientSocket) {
+      orm.on('toMaster', async function (commit, query) {
+        clientSocket.once(`approve:${commit.uuid}`, async function (_commit) {
+          await orm.emit("commit:sync:Model");
+        });
+        clientSocket.emit('commitRequest', commit, query);
+        /*{
+          //should be in master
+          const CommitCol = orm(`${query.name}Commit`);
+          const _commit = await CommitCol.create(commit);
+          commits.push(_commit);
+        }*/
+        //await orm.emit(`approve:${commit.uuid}`);
+      })
+    })
+
+    orm.on('initSyncForMaster', function (masterIo) {
+      masterIo.on('commitRequest', async function (commit, query) {
+        commit.approved = true;
+        const _commit = await orm(`${query.name}Commit_Master`).create(commit)
+        masterIo.emit(`sync:commit`, _commit);
+        cloudSocket.emit('sync:commit', _commit);
+      });
+    })
+
+    orm.on('initSyncForCloud', function (masterIo) {
+      cloudIo.on('sync:commit', function (highestId) {
+        debugger
+      })
+    })
+
+
+    //layer init
+    orm.emit('initSyncForClient', clientSocket);
+    orm.emit('initSyncForMaster', masterIo);
 
     //gen _id for parseSchema
 
