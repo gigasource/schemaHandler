@@ -166,11 +166,11 @@ describe("commit-sync", function () {
         commit.approved = true;
         const _commit = await orm(`${query.name}Commit_Master`).create(commit)
         masterIo.emit(`sync:commit`, _commit);
-        cloudSocket.emit('sync:commit', _commit);
+        cloudSocket.emit('sync:commit', 100);
       });
     })
 
-    orm.on('initSyncForCloud', masterIo => {
+    orm.on('initSyncForCloud', cloudIo => {
       cloudIo.on('sync:commit', highestId => {
         debugger
       })
@@ -180,6 +180,7 @@ describe("commit-sync", function () {
     //layer init
     orm.emit('initSyncForClient', clientSocket);
     orm.emit('initSyncForMaster', masterIo);
+    orm.emit('initSyncForCloud', cloudIo);
 
     //gen _id for parseSchema
 
