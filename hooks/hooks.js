@@ -115,7 +115,7 @@ const isArrowFn = (fn) => {
   }
 };
 
-['getPreHandler', 'preEe', 'pre', 'onDefault', 'emit', 'emitSync', 'emitPrepare'].forEach(
+['getPreHandler', 'preEe', 'on', 'pre', 'onDefault', 'emit', 'emitSync', 'emitPrepare'].forEach(
   p => Object.defineProperty(Hooks.prototype, p, {enumerable: true})
 )
 
