@@ -12,7 +12,7 @@ describe("test hooks", function() {
 
   it('default should called if don"t have pre or on', async function() {
     let arg;
-    hooks.default("test", async function() {
+    hooks.onDefault("test", async function() {
       log("default");
     });
     await hooks.emit("test", { arg }, e => eval(e));
@@ -74,5 +74,18 @@ describe("test hooks", function() {
         "ok": true,
       }
     `);
+  });
+
+  it("test warning if arrow function", async function() {
+    try {
+      hooks.on("test", () => {
+        this.ok = true;
+        log("on test");
+      });
+    } catch (e) {
+      expect(e.message).toMatchInlineSnapshot(
+        `"don't use arrow function here because of scope"`
+      );
+    }
   });
 });
