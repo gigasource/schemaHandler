@@ -59,9 +59,9 @@ async function run() {
 
   const models12 = await Model.where({b: 1}).find({a: 10}).count();
   console.log(models12)
-  orm.on('debug', async (query, returnResult) => {
-    returnResult.ok = true;
-    returnResult.value = await orm.execChain(query);
+  orm.on('debug', async function (query) {
+    this.ok = true;
+    this.value = await orm.execChain(query);
   });
 
   const obj = await Model.insertOne({a: 2, b: {c: 2, d: 4}});
