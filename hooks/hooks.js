@@ -12,13 +12,19 @@ class Hooks extends EE {
     return this._preEe;
   }
 
-  pre() {
+  pre(event, listener) {
+    if (isArrowFn(listener)) throw new Error(`don't use arrow function here because of scope`);
     this.preEe.on(...arguments);
   }
 
   onDefault() {
     this._defaultEe = this._defaultEe || new EE();
     this._defaultEe.on(...arguments);
+  }
+
+  on(event, listener) {
+    if (isArrowFn(listener)) throw new Error(`don't use arrow function here because of scope`);
+    super.on(...arguments);
   }
 
   emitPrepare(event, ...args) {
@@ -81,12 +87,10 @@ class Hooks extends EE {
     const _this = {}
     const promises = []
     if (typeof handler === 'function') {
-      if (isArrowFn(handler)) console.warn(`don't use arrow function here because of scope`);
       const p = Reflect.apply(handler, _this, args);
       if (p instanceof Promise) promises.push(p);
     } else {
       for (let i = 0; i < handler.length; i += 1) {
-        if (isArrowFn(handler[i])) console.warn(`don't use array fn here`);
         const p = Reflect.apply(handler[i], _this, args);
         if (p instanceof Promise) promises.push(p);
       }
@@ -105,7 +109,11 @@ class Hooks extends EE {
   }
 }
 
-const isArrowFn = (fn) => (typeof fn === 'function') && /^[^{]+?=>/.test(fn.toString());
+const isArrowFn = (fn) => {
+  if (fn.toString().includes('this.')) {
+    return (typeof fn === 'function') && /^[^{]+?=>/.test(fn.toString());
+  }
+};
 
 ['getPreHandler', 'preEe', 'pre', 'onDefault', 'emit', 'emitSync', 'emitPrepare'].forEach(
   p => Object.defineProperty(Hooks.prototype, p, {enumerable: true})

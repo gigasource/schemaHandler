@@ -75,4 +75,17 @@ describe("test hooks", function() {
       }
     `);
   });
+
+  it("test warning if arrow function", async function() {
+    try {
+      hooks.on("test", () => {
+        this.ok = true;
+        log("on test");
+      });
+    } catch (e) {
+      expect(e.message).toMatchInlineSnapshot(
+        `"don't use arrow function here because of scope"`
+      );
+    }
+  });
 });
