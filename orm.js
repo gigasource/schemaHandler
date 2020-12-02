@@ -13,8 +13,10 @@ class Orm extends EventEmitter {
     this.models = models;
     this.models2 = models2
 
-    this.plugin(require('./collectionPlugin'));
-    this.plugin(require('./schemaPlugin'));
+    this.plugin(require('./plugins/collectionPlugin'));
+    this.plugin(require('./plugins/schemaPlugin'));
+    this.plugin(require('./plugins/commitPlugin'));
+    this.plugin(require('./plugins/transporter'));
   }
 
   setTtl(ttl) {

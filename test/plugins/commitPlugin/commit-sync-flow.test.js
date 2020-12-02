@@ -17,60 +17,52 @@ const { TRANSPORT_LAYER_TAG } = require("../../../plugins/tags");
 
 // run when orm.create()
 describe("Commit flow basic", function() {
+  let commitTypes;
   beforeAll(async () => {
     orm.connect({ uri: "mongodb://localhost:27017" }, "myproject");
     schema = {
       table: String
     };
-    orm.commitHandler.registerCommitCollections("Order");
-    orm.commitHandler.registerCommitCollections("Pos", ["Room", "OrderLayout"]);
-    orm.commitHandler.registerCommitCollections("Payment", [
-      { name: "Payment", needMaster: true }
-    ]);
-    orm.commitHandler.startQueue();
+    commitTypes = orm.registerCommitCollections({
+      Order: ["Order"],
+      Pos: ["Room", "OrderLayout"],
+      Payment: [{ name: "Payment" }]
+    });
+    // orm.registerCommitCollections("Order");
+    // orm.commitHandler.registerCommitCollections("Pos", ["Room", "OrderLayout"]);
+    // orm.commitHandler.registerCommitCollections("Payment", [
+    //   { name: "Payment", needMaster: true }
+    // ]);
+    // orm.commitHandler.startQueue();
   });
 
   it("check commitTypes array", () => {
-    expect(orm.commitHandler.commitTypes).toMatchInlineSnapshot(`
+    expect(commitTypes).toMatchInlineSnapshot(`
       Object {
         "Order": Object {
-          "groupName": "Order",
+          "commitType": "Order",
           "name": "Order",
-          "needMaster": true,
         },
         "OrderLayout": Object {
-          "groupName": "Pos",
+          "commitType": "Pos",
           "name": "OrderLayout",
-          "needMaster": true,
-        },
-        "Payment": Object {
-          "name": "Payment",
-          "needMaster": true,
         },
         "Room": Object {
-          "groupName": "Pos",
+          "commitType": "Pos",
           "name": "Room",
-          "needMaster": true,
         },
       }
     `);
   });
 
-  it("check warn when a collection is added twice", () => {
-    console.warn = jest.fn();
-    orm.commitHandler.registerCommitCollections("someType", ["Room"]);
-    expect(console.warn.mock.calls.length).toMatchInlineSnapshot(`1`);
-  });
-
   it("run non allowed method", async function() {});
 
   it("master flow single db", async function(done) {
-    orm.commitHandler.setMaster(true);
+    orm.setMaster(true);
     orm.on("commit:preHandleCommits", commits => {
       expect(commits.length).toMatchInlineSnapshot();
     });
     const commitHandlerFn = jest.fn(commit => {
-      expect(typeof commit._id).toMatchInlineSnapshot(`"object"`);
       expect(commit._id.toString().length).toMatchInlineSnapshot(`24`);
       delete commit._id;
       expect(commit).toMatchInlineSnapshot(`
@@ -83,6 +75,7 @@ describe("Commit flow basic", function() {
       `);
       expect(commitHandlerFn.mock.calls.length).toMatchInlineSnapshot(`1`);
       done();
+      orm.off("commit:Order", commitHandlerFn)
     });
     orm.on("commit:Order", commitHandlerFn);
     const orderModel = orm("Order");
@@ -93,7 +86,7 @@ describe("Commit flow basic", function() {
   });
 
   it("client flow single db", async function(done) {
-    orm.commitHandler.setMaster(false);
+    orm.setMaster(false);
     const socket = new SocketMock();
     socket.on("sync", commits => {
       socket.emit("sync", commits);
@@ -125,19 +118,30 @@ describe("Commit flow basic", function() {
     });
   });
 
-  it("socket disconnected", async function (done) {
-    orm.commitHandler.setMaster(false);
+  // todo move this to transporter test
+  it("socket disconnected", async function(done) {
+    orm.setMaster(false);
     const socket = new SocketMock();
     await orm.emit(
       `${TRANSPORT_LAYER_TAG}:registerMasterSocket`,
       socket.socketClient
     );
-    const preHookArrayLength = !Array.isArray(orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`]) ?
-      (orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`] ? 1: 0) : orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`].length
-    socket.disconnect()
-    const afterHookArrayLength = !Array.isArray(orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`]) ?
-      (orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`] ? 1: 0) : orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`].length
-    expect(afterHookArrayLength).toBe(preHookArrayLength - 1)
-    done()
-  })
+    const preHookArrayLength = !Array.isArray(
+      orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`]
+    )
+      ? orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`]
+        ? 1
+        : 0
+      : orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`].length;
+    socket.disconnect();
+    const afterHookArrayLength = !Array.isArray(
+      orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`]
+    )
+      ? orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`]
+        ? 1
+        : 0
+      : orm._events[`${TRANSPORT_LAYER_TAG}:emitToMaster`].length;
+    expect(afterHookArrayLength).toBe(preHookArrayLength - 1);
+    done();
+  });
 });
