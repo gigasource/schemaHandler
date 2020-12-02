@@ -72,6 +72,7 @@ describe("test hooks", function() {
     expect(r).toMatchInlineSnapshot(`
       Object {
         "ok": true,
+        "update": [Function],
       }
     `);
   });
@@ -87,5 +88,35 @@ describe("test hooks", function() {
         `"don't use arrow function here because of scope"`
       );
     }
+  });
+
+  it("eval", async function() {
+    let arg = 0;
+    hooks.on("test", function({ arg }, e) {
+      this.update("arg", 10);
+    });
+
+    hooks.emit("test", { arg }, e => eval(e));
+    expect(arg).toMatchInlineSnapshot(`10`);
+  });
+
+  it("test default", async function() {
+    const arr = [];
+    hooks.onDefault("test", function() {
+      arr.push("default");
+    });
+
+    hooks.on("test", function() {
+      arr.push("test");
+      hooks.emitDefault("test", ...arguments);
+    });
+
+    hooks.emit("test", {}, e => eval(e));
+    expect(arr).toMatchInlineSnapshot(`
+      Array [
+        "test",
+        "default",
+      ]
+    `);
   });
 });

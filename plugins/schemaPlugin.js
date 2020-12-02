@@ -64,6 +64,12 @@ module.exports = function (orm) {
       target.new = true;
     }
 
+    if (key.includes('Update') || key.includes('Modify') || key.includes('create')
+      || key.includes('update') || key.includes('insert') || key.includes('delete')
+      || key.includes('remove')) {
+      target.isMutateCmd = true;
+    }
+
     if (key.includes('delete') || key === 'count') {
       if (key.includes('delete')) {
         target.isDeleteCmd = true;
@@ -77,6 +83,7 @@ module.exports = function (orm) {
         const condition = args.shift();
         let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const _parseCondition = parseCondition(schema, condition);
+        target.condition = _parseCondition;
         args.unshift(_parseCondition);
         target.cursor = target.cursor[key](...args);
         return proxy;
@@ -89,6 +96,7 @@ module.exports = function (orm) {
         if (typeof objId === 'string') {
           objId = new ObjectID(objId)
         }
+        target.condition = {_id: objId};
         target.cursor = target.cursor['findOne']({_id: objId});
         return proxy;
       }
@@ -99,6 +107,7 @@ module.exports = function (orm) {
         const condition = args.shift();
         let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const _parseCondition = parseCondition(schema, condition);
+        target.condition = _parseCondition;
         if (key.includes('Update') || key.includes('Modify') || key === 'updateMany') {
           let updateValue = args.shift();
           let arrayFilters;
@@ -176,7 +185,7 @@ module.exports = function (orm) {
     if (key.includes('find') || key.includes('create') || key.includes('update')
       || key.includes('insert') || key.includes('delete') || key.includes('remove')
       || key.includes('count') || key.includes('aggregate')
-      || key.includes('indexes') ||key.includes('Index') ) return true;
+      || key.includes('indexes') || key.includes('Index')) return true;
 
     return false;
   }

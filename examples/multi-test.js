@@ -1,7 +1,7 @@
 const ObjectID = require('bson').ObjectID
 
 const _orm = require("../orm");
-const orm = new _orm.Orm();
+const orm = new _orm();
 const {parseCondition} = require("../schemaHandler");
 
 const url = 'mongodb://localhost:27017';

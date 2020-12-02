@@ -16,6 +16,7 @@ const masterIo = new Socket();
 const clientSocket = masterIo.socketClient;
 const cloudIo = new Socket();
 const cloudSocket = cloudIo.socketClient;
+const Queue = require('queue');
 
 describe("commit-sync", function () {
   beforeAll(async () => {
@@ -27,20 +28,20 @@ describe("commit-sync", function () {
   });
 
   it('test socket', function (done) {
-    masterIo.on('test', function () {
+    masterIo.on('test', function (arg) {
       console.log('test');
       done();
     })
-    clientSocket.emit('test');
+    clientSocket.emit('test', 0, () => {
+
+    });
   })
 
-  it("case1", async function (done) {
+  it("commit-sync2", async function (done) {
     const Model = orm("Model");
     await Model.remove({})
-
-    orm.pre("pre:execChain", async function (query) {
-      query.uuid = uuid();
-    });
+    await orm('Commit').remove({});
+    await orm('CommitMaster').remove({});
 
     orm.on("pre:execChain", async function (query) {
       const last = _.last(query.chain);
@@ -50,6 +51,7 @@ describe("commit-sync", function () {
         let _chain = [...query.chain];
         const {args} = last;
         const commit = {
+          collectionName: query.name,
           uuid: uuid(),
           tags: args.filter(arg => typeof arg === "string"),
           data: _.assign({}, ...args.filter(arg => typeof arg === "object")),
@@ -65,10 +67,7 @@ describe("commit-sync", function () {
         //remove later:
         query.commit = true;
 
-        orm.once(`proxyPreReturnValue:${query.uuid}`, async function (
-          _query,
-          target
-        ) {
+        orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target) {
           if (_.get(_query, "chain[0].args[0]._id")) {
             commit.data.docId = _.get(_query, "chain[0].args[0]._id");
           }
@@ -78,104 +77,132 @@ describe("commit-sync", function () {
       }
     });
 
-    //Làm sao để assign duoc _id cho doc vua duoc tao ra
-    //gen ra uuid cho mỗi câu lệnh query, từ đó hooks vào kết quả sau khi tạo ra
-    //cần once : -> ko bị leak memory
-    orm.onDefault("commitProcess", async function (commit, query) {
-      await orm.emit(`commit:build-fake`, commit, query);
-      await orm.emit("toMaster", commit, query);
+    function getQuery(commit) {
+      const chain = JSON.parse(commit.chain);
+      const name = commit.collectionName;
+      return {name, chain}
+    }
+
+    orm.onDefault("commitProcess", async function (commit) {
+      await orm.emit(`commit:build-fake`, commit);
+      await orm.emit("toMaster", commit);
     });
 
-    //should persistent
-    orm.on("commit:build-fake", async function (commit, query) {
-      const doc = await orm.execChain(query);
-      await Model.updateOne({_id: doc._id}, {_fake: true})
-      console.log('aaa')
+    //todo: fake layer
+    orm.on("commit:build-fake", async function (commit) {
+      let doc = await orm.execChain(getQuery(commit));
+      doc = await Model.updateOne({_id: doc._id}, {_fake: true})
       console.log('fake : ', doc);
     });
-    let commits = []
 
-    orm.on("commit:remove-fake", async function (commit, query) {
+    orm.on("commit:remove-fake", async function (commit) {
       console.log('remove-fake');
-      const fakeIds = (await Model.find({_fake: true})).map(d => d._id);
-      await Model.remove({_id: {$in: fakeIds}});
+      const docs = await Model.find({_fake: true});
+      console.log(docs);
+      await Model.remove({_id: {$in: docs.map(d => d._id)}});
     });
 
-    orm.onDefault("toMaster", async function (commit, query) {
-      /*expect(stringify(commit)).toMatchInlineSnapshot(`
-        Object {
-          "approved": false,
-          "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"table\\":10,\\"items\\":[{\\"name\\":\\"cola\\",\\"price\\":10,\\"quantity\\":1}]}]}]",
-          "data": Object {
-            "docId": "ObjectID",
-            "table": "10",
-          },
-          "tags": Array [
-            "update",
-          ],
-          "uuid": "uuid-v1",
-        }
-      `);*/
-      //socket io layer here
-      orm.once(`approve:${commit.uuid}`, async function () {
-        await orm.emit("commit:sync");
-        //sync data
-      });
-      {
-        //should be in master
-        const CommitCol = orm(`${query.name}Commit`);
-        const _commit = await CommitCol.create(commit);
-        commits.push(_commit);
-      }
-      await orm.emit(`approve:${commit.uuid}`);
+    orm.pre(`commit:requireSync`, async function () {
+      const {value: highestId} = await orm.emit('getHighestCommitId');
+      orm.emit('commit:sync', highestId);
     });
 
-    orm.on(`commit:sync`, async function () {
+    orm.pre(`commit:sync`, async function () {
       await orm.emit('commit:remove-fake');
-      done();
-      //rebuild _doc with new commits
-    });
+    })
 
-    orm.on("//approve", async function () {
-      //sync data
-      //remove fake
-      //build model
-      //do something custom
-    });
+    orm.on('createCommit:master', async function (commit) {
+      let {value: highestId} = await orm.emit('getHighestCommitId', 'CommitMaster');
+      highestId++;
+      commit.approved = true;
+      commit.id = highestId;
+      this.value = await orm(`CommitMaster`).create(commit);
+    })
 
-    //layer transport implement
+    orm.on('getHighestCommitId', async function (collectionName = 'Commit') {
+      const {id: highestCommitId} = await orm(collectionName).findOne({}).sort('-id') || {id: 0};
+      this.value = highestCommitId;
+    })
+
+    orm.on('commit:sync:master', async function (clientHighestId, collectionName = 'CommitMaster') {
+      this.value = await orm(collectionName).find({id: {$gt: clientHighestId}});
+    })
+
+    orm.on('commit:sync:callback', async function (commits) {
+      for (const commit of commits) {
+        //replace behaviour here
+        try {
+          await orm('Commit').create(commit);
+          await orm.emit('commit:handler', commit);
+        } catch (e) {
+          if (e.message.slice(0, 6)) {
+            console.log('sync two fast')
+          }
+        }
+      }
+      const models = await orm('Model').find({});
+      console.log('apply commits from master : ');
+      console.log(models);
+    })
+
+    if (process.env.NODE_ENV === 'test') {
+      let called = 0;
+      orm.on('commit:sync:callback', async function (commits) {
+        called ++;
+        if (called === 2) {
+          done();
+        }
+      })
+    }
+
+    orm.on('commit:handler', async commit => {
+      const query = getQuery(commit);
+      await orm.execChain(query);
+    })
+
+    //todo: layer transport implement
 
     orm.on('initSyncForClient', clientSocket => {
-      orm.on('toMaster', async (commit, query) => {
-        clientSocket.once(`approve:${commit.uuid}`, async function (_commit) {
-          await orm.emit(`commit:sync`);
-        });
-        clientSocket.emit('commitRequest', commit, query);
-        /*{
-          //should be in master
-          const CommitCol = orm(`${query.name}Commit`);
-          const _commit = await CommitCol.create(commit);
-          commits.push(_commit);
-        }*/
-        //await orm.emit(`approve:${commit.uuid}`);
+      const q = Queue({autostart: true});
+      orm.on('toMaster', async (commit) => {
+        clientSocket.emit('commitRequest', commit);
+      })
+
+      clientSocket.on('commit:requireSync', async function () {
+        q.push(async function () {
+          orm.emit('commit:requireSync');
+        })
+      })
+
+      orm.on('commit:sync', (highestId) => {
+        clientSocket.emit('commit:sync', highestId, async (commits) => {
+          await orm.emit('commit:sync:callback', commits)
+        })
       })
     })
 
     orm.on('initSyncForMaster', masterIo => {
-      masterIo.on('commitRequest', async (commit, query) => {
-        commit.approved = true;
-        const _commit = await orm(`${query.name}Commit_Master`).create(commit)
-        masterIo.emit(`sync:commit`, _commit);
-        cloudSocket.emit('sync:commit', 100);
+      const q = Queue({autostart: true});
+      masterIo.on('commitRequest', async (commit) => {
+        q.push(async function () {
+          const {value: _commit} = await orm.emit('createCommit:master', commit);
+          masterIo.emit(`commit:requireSync`, _commit);
+          cloudSocket.emit('commit:requireSync', 100);
+        })
       });
-    })
 
-    orm.on('initSyncForCloud', cloudIo => {
-      cloudIo.on('sync:commit', highestId => {
-
+      masterIo.on('commit:sync', async function (clientHighestId = 0, cb) {
+        //q.push(async function () {
+        const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, 'CommitMaster');
+        cb(commits);
+        //})
       })
     })
 
+    orm.on('initSyncForCloud', cloudIo => {
+      cloudIo.on('commit:requireSync', highestId => {
+      })
+    })
 
     //layer init
     orm.emit('initSyncForClient', clientSocket);
@@ -186,10 +213,15 @@ describe("commit-sync", function () {
 
     //order._fake = true;
 
-    const m1 = await Model.create({
+    await Model.create({
       table: 10,
       items: [{name: "cola", price: 10, quantity: 1}]
     }).commit("update", {table: "10"});
+
+    await Model.create({
+      table: 11,
+      items: [{name: "cola", price: 10, quantity: 1}]
+    }).commit("update", {table: "11"});
 
     //fake chi apply voi cac lenh apply cho one document
 

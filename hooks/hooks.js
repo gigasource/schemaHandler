@@ -27,8 +27,12 @@ class Hooks extends EE {
     super.on(...arguments);
   }
 
-  emitPrepare(event, ...args) {
-    let handler = _.get(this._events, event);
+  emitPrepare(channel , event, ...args) {
+    let handler;
+    if (channel !== 'default') {
+      handler = _.get(this._events, event);
+    }
+
     if (_.isEmpty(handler) && !_.isFunction(handler) && this._defaultEe && _.get(this._defaultEe._events, event)) {
       if (!handler) handler = [];
       if (!Array.isArray(handler)) {
@@ -42,42 +46,34 @@ class Hooks extends EE {
       }
     }
 
-    //pre
-    if (this._preEe && _.get(this._preEe._events, event)) {
-      if (!handler) handler = [];
-      if (!Array.isArray(handler)) {
-        handler = [handler]
-      }
-      const preHandler = this.getPreHandler(event);
-      if (Array.isArray(preHandler)) {
-        handler.unshift(...preHandler);
-      } else {
-        handler.unshift(preHandler);
+    if (channel !== 'default') {
+      //pre
+      if (this._preEe && _.get(this._preEe._events, event)) {
+        if (!handler) handler = [];
+        if (!Array.isArray(handler)) {
+          handler = [handler]
+        }
+        const preHandler = this.getPreHandler(event);
+        if (Array.isArray(preHandler)) {
+          handler.unshift(...preHandler);
+        } else {
+          handler.unshift(preHandler);
+        }
       }
     }
+
     return handler;
   }
 
-  emitSync(event, ...args) {
-    const handler = this.emitPrepare(...arguments);
-
-    if (_.isEmpty(handler) && !_.isFunction(handler)) {
-      return false;
-    }
-
-    const _this = {}
-    if (typeof handler === 'function') {
-      Reflect.apply(handler, _this, args);
-    } else {
-      for (let i = 0; i < handler.length; i += 1) {
-        Reflect.apply(handler[i], _this, args);
-      }
-    }
-
-    return _this;
+  emitDefault(event, ...args) {
+    return this._emit('default', event, ...args);
   }
 
   emit(event, ...args) {
+    return this._emit('all', event, ...args);
+  }
+
+  _emit(channel = 'all', event, ...args) {
     const handler = this.emitPrepare(...arguments);
 
     if (_.isEmpty(handler) && !_.isFunction(handler)) {
@@ -85,6 +81,15 @@ class Hooks extends EE {
     }
 
     const _this = {}
+
+    if (typeof _.last(args) === 'function' && _.last(args).toString().includes('eval')) {
+      const _eval = _.last(args);
+      _this.update = function (_var, value) {
+        const _value = JSON.stringify([value]);
+        _eval(`${_var} = ${_value}[0];`)
+      }
+    }
+
     const promises = []
     if (typeof handler === 'function') {
       const p = Reflect.apply(handler, _this, args);
@@ -115,7 +120,7 @@ const isArrowFn = (fn) => {
   }
 };
 
-['getPreHandler', 'preEe', 'on', 'pre', 'onDefault', 'emit', 'emitSync', 'emitPrepare'].forEach(
+['getPreHandler', 'preEe', 'on', 'pre', 'onDefault', 'emit', 'emitPrepare', 'emitDefault'].forEach(
   p => Object.defineProperty(Hooks.prototype, p, {enumerable: true})
 )
 
