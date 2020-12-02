@@ -22,12 +22,21 @@ class Hooks extends EE {
     this._defaultEe.on(...arguments);
   }
 
+  once(event, listener) {
+    const _this = this;
+    function _listener () {
+      _this.removeListener(event, _listener);
+      return listener.bind(this)(...arguments);
+    }
+    this.on(event, _listener);
+  }
+
   on(event, listener) {
     if (isArrowFn(listener)) throw new Error(`don't use arrow function here because of scope`);
     super.on(...arguments);
   }
 
-  emitPrepare(channel , event, ...args) {
+  emitPrepare(channel, event, ...args) {
     let handler;
     if (channel !== 'default') {
       handler = _.get(this._events, event);
