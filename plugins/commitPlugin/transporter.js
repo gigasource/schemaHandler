@@ -30,23 +30,23 @@ function initTransporterWithOrm(orm) {
   })
   // for node socket
   orm.on(`${TAG}:registerMasterSocket`, (_masterSocket, dbName) => {
-    _masterSocket.on('sync', async () => {
+    _masterSocket.on('sync', async function () {
       await orm.emit(`${COMMIT_LAYER_TAG}:sync`, ...arguments, dbName)
     })
-    _masterSocket.on('masterCall', async () => {
+    _masterSocket.on('masterCall', async function () {
       await orm.emit(`${COMMIT_LAYER_TAG}:masterCall`, ...arguments, dbName)
     })
     const syncCb = (commits, _dbName) => {
       if (_dbName !== dbName) return
       _masterSocket.emit('sync', commits, dbName)
     }
-    _masterSocket.on('disconnect', () => {
+    _masterSocket.on('disconnect', function () {
       orm.off(`${TAG}:emitToMaster`, syncCb)
     })
     orm.on(`${TAG}:emitToMaster`, syncCb)
   })
   // for both socket
-  orm.on(`${TAG}:sync`, async (commits, dbName, isMaster) => {
+  orm.on(`${TAG}:sync`, async function (commits, dbName, isMaster) {
     if (typeof dbName === 'boolean') {
       isMaster = dbName
     }

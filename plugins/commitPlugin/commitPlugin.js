@@ -29,7 +29,7 @@ module.exports = function (orm) {
       if (orm.commitHandler.isMaster.length) {
         orm.commitHandler.isMaster.pop()
       }
-      orm.commitHandler.isMaster = true
+      orm.commitHandler.isMaster = isMaster
     }
   } else {
     orm.commitHandler.isMaster = {}
@@ -41,7 +41,7 @@ module.exports = function (orm) {
     return dbName ? orm.commitHandler.isMaster[dbName] : orm.commitHandler.isMaster
   }
 
-  orm.default(`${TAG}:sync`, (commits) => {
+  orm.onDefault(`${TAG}:sync`, (commits) => {
     orm.commitHandler.queue.push(commits)
   })
   orm.commitHandler.queue.pause()
@@ -93,7 +93,7 @@ module.exports = function (orm) {
       data = _.assign({}, ...args.filter(arg => typeof arg === 'object'))
     }
     const commit = orm.commitHandler.createCommit(query, tags, data)
-    const dbName = (orm.mode === 'single' ? null : query.name.split('@')[1])
+    const dbName = (orm.mode === 'single' ? undefined : query.name.split('@')[1])
     const isMaster = (orm.mode === 'single' ? orm.commitHandler.isMaster : orm.commitHandler.isMaster[dbName])
     await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commit, dbName, isMaster)
     if (orm.commitHandler.commitTypes[query.name].needMaster) this.ok = true

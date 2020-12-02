@@ -1,5 +1,0 @@
-describe("transporter", function () {
-  beforeAll()
-
-
-})
