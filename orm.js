@@ -5,6 +5,7 @@ const MongoClient = require('mongodb').MongoClient;
 const _ = require('lodash');
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const ObjectID = require('bson').ObjectID;
+const uuid = require("uuid").v1;
 
 class Orm extends EventEmitter {
   constructor() {
@@ -213,7 +214,7 @@ function factory(orm) {
 
   let models = builder(function (_this) {
     return async function (resolve, reject) {
-      const query = {name: _this.modelName, chain: _this.chain};
+      const query = {name: _this.modelName, chain: _this.chain,uuid : uuid()};
       await orm.waitForConnected();
 
       {
