@@ -145,6 +145,16 @@ describe("commit-sync", function () {
       console.log(models);
     })
 
+    if (process.env.NODE_ENV === 'test') {
+      let called = 0;
+      orm.on('commit:sync:callback', async function (commits) {
+        called ++;
+        if (called === 2) {
+          done();
+        }
+      })
+    }
+
     orm.on('commit:handler', async commit => {
       const query = getQuery(commit);
       await orm.execChain(query);

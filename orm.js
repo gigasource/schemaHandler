@@ -6,6 +6,7 @@ const _ = require('lodash');
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const ObjectID = require('bson').ObjectID;
 const uuid = require("uuid").v1;
+const error = require('combine-errors');
 
 class Orm extends EventEmitter {
   constructor() {
@@ -313,8 +314,7 @@ function createCollectionQuery(query) {
             const returnValue = await orm.resultPostProcess(result, target);
             resolve(returnValue);
           } catch (e) {
-            console.error(e0);
-            reject(e);
+            reject(error([e0,e]));
           }
         })
         return promise.then.bind(promise);
