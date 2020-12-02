@@ -77,6 +77,7 @@ module.exports = function (orm) {
         const condition = args.shift();
         let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const _parseCondition = parseCondition(schema, condition);
+        target.condition = _parseCondition;
         args.unshift(_parseCondition);
         target.cursor = target.cursor[key](...args);
         return proxy;
@@ -89,6 +90,7 @@ module.exports = function (orm) {
         if (typeof objId === 'string') {
           objId = new ObjectID(objId)
         }
+        target.condition = {_id: objId};
         target.cursor = target.cursor['findOne']({_id: objId});
         return proxy;
       }
@@ -99,6 +101,7 @@ module.exports = function (orm) {
         const condition = args.shift();
         let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const _parseCondition = parseCondition(schema, condition);
+        target.condition = _parseCondition;
         if (key.includes('Update') || key.includes('Modify') || key === 'updateMany') {
           let updateValue = args.shift();
           let arrayFilters;
