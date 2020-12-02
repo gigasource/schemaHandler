@@ -72,7 +72,7 @@ describe("commit-sync", function () {
           if (_.get(_query, "chain[0].args[0]._id")) {
             commit.data.docId = _.get(_query, "chain[0].args[0]._id");
           }
-          await orm.emit(`commit:${_query.name}`, commit, _query);
+          await orm.emit(`commitProcess`, commit, _query);
         });
         //test behavior if not create model
       }
@@ -81,13 +81,13 @@ describe("commit-sync", function () {
     //Làm sao để assign duoc _id cho doc vua duoc tao ra
     //gen ra uuid cho mỗi câu lệnh query, từ đó hooks vào kết quả sau khi tạo ra
     //cần once : -> ko bị leak memory
-    orm.onDefault("commit:Model", async function (commit, query) {
-      await orm.emit("commit:build-fake:Model", commit, query);
+    orm.onDefault("commitProcess", async function (commit, query) {
+      await orm.emit(`commit:build-fake`, commit, query);
       await orm.emit("toMaster", commit, query);
     });
 
     //should persistent
-    orm.on("commit:build-fake:Model", async function (commit, query) {
+    orm.on("commit:build-fake", async function (commit, query) {
       const doc = await orm.execChain(query);
       await Model.updateOne({_id: doc._id}, {_fake: true})
       console.log('aaa')
@@ -95,7 +95,7 @@ describe("commit-sync", function () {
     });
     let commits = []
 
-    orm.on("commit:remove-fake:Model", async function (commit, query) {
+    orm.on("commit:remove-fake", async function (commit, query) {
       console.log('remove-fake');
       const fakeIds = (await Model.find({_fake: true})).map(d => d._id);
       await Model.remove({_id: {$in: fakeIds}});
@@ -118,7 +118,7 @@ describe("commit-sync", function () {
       `);*/
       //socket io layer here
       orm.once(`approve:${commit.uuid}`, async function () {
-        await orm.emit("commit:sync:Model");
+        await orm.emit("commit:sync");
         //sync data
       });
       {
@@ -130,8 +130,8 @@ describe("commit-sync", function () {
       await orm.emit(`approve:${commit.uuid}`);
     });
 
-    orm.on(`commit:sync:Model`, async function () {
-      await orm.emit('commit:remove-fake:Model');
+    orm.on(`commit:sync`, async function () {
+      await orm.emit('commit:remove-fake');
       done();
       //rebuild _doc with new commits
     });
@@ -148,7 +148,7 @@ describe("commit-sync", function () {
     orm.on('initSyncForClient', clientSocket => {
       orm.on('toMaster', async (commit, query) => {
         clientSocket.once(`approve:${commit.uuid}`, async function (_commit) {
-          await orm.emit("commit:sync:Model");
+          await orm.emit(`commit:sync`);
         });
         clientSocket.emit('commitRequest', commit, query);
         /*{
@@ -166,13 +166,13 @@ describe("commit-sync", function () {
         commit.approved = true;
         const _commit = await orm(`${query.name}Commit_Master`).create(commit)
         masterIo.emit(`sync:commit`, _commit);
-        cloudSocket.emit('sync:commit', _commit);
+        cloudSocket.emit('sync:commit', 100);
       });
     })
 
-    orm.on('initSyncForCloud', masterIo => {
+    orm.on('initSyncForCloud', cloudIo => {
       cloudIo.on('sync:commit', highestId => {
-        debugger
+
       })
     })
 
@@ -180,6 +180,7 @@ describe("commit-sync", function () {
     //layer init
     orm.emit('initSyncForClient', clientSocket);
     orm.emit('initSyncForMaster', masterIo);
+    orm.emit('initSyncForCloud', cloudIo);
 
     //gen _id for parseSchema
 
