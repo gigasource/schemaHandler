@@ -2,6 +2,7 @@ const Queue = require('better-queue')
 const ObjectID = require('bson').ObjectID
 const jsonFn = require('json-fn')
 const _ = require('lodash')
+const uuid = require("uuid").v1;
 
 const TAG = require('./tags').COMMIT_LAYER_TAG
 const { initTransporterWithOrm } = require('./transporter')
@@ -81,7 +82,8 @@ module.exports = function (orm) {
       data,
       _id: new ObjectID(),
       query: jsonFn.stringify(query),
-      collectionName: query.name
+      collectionName: query.name,
+      uuid: uuid()
     }
   }
 
@@ -97,10 +99,12 @@ module.exports = function (orm) {
       tags = args.filter(arg => typeof arg === 'string')
       data = _.assign({}, ...args.filter(arg => typeof arg === 'object'))
     }
-    const commit = createCommit(query, tags, data)
-    const dbName = (orm.mode === 'single' ? undefined : query.name.split('@')[1])
-    const _isMaster = (orm.mode === 'single' ? isMaster : isMaster[dbName])
-    await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commit, dbName, _isMaster)
+    orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target) {
+      const commit = createCommit(_query, tags, data)
+      const dbName = (orm.mode === 'single' ? undefined : query.name.split('@')[1])
+      const _isMaster = (orm.mode === 'single' ? isMaster : isMaster[dbName])
+      await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commit, dbName, _isMaster)
+    })
     this.ok = true
   })
 
@@ -110,5 +114,3 @@ module.exports = function (orm) {
     setMaster
   })
 }
-
-module.exports.TAG = TAG
