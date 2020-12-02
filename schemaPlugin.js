@@ -64,6 +64,12 @@ module.exports = function (orm) {
       target.new = true;
     }
 
+    if (key.includes('Update') || key.includes('Modify') || key.includes('create')
+      || key.includes('update') || key.includes('insert') || key.includes('delete')
+      || key.includes('remove')) {
+      target.isMutateCmd = true;
+    }
+
     if (key.includes('delete') || key === 'count') {
       if (key.includes('delete')) {
         target.isDeleteCmd = true;
@@ -179,7 +185,7 @@ module.exports = function (orm) {
     if (key.includes('find') || key.includes('create') || key.includes('update')
       || key.includes('insert') || key.includes('delete') || key.includes('remove')
       || key.includes('count') || key.includes('aggregate')
-      || key.includes('indexes') ||key.includes('Index') ) return true;
+      || key.includes('indexes') || key.includes('Index')) return true;
 
     return false;
   }
