@@ -268,7 +268,7 @@ function createCollectionQuery(query) {
   if (query.mockCollection) {
     _collection = this.models2[collectionName];
   } else {
-    let _nativeCollection = this._getCollection(...collectionName.split('@'));
+    let _nativeCollection = orm._getCollection(...collectionName.split('@'));
     _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
   }
   const mongoCollection = new Proxy({
@@ -308,7 +308,17 @@ function createCollectionQuery(query) {
 
             const result = await target.cursor;
             if (query.mockCollection) {
-              const r = await orm.emit(`proxyPreReturnValue:${query.uuid}`, result, target);
+              const exec = async function () {
+                let _nativeCollection = orm._getCollection(...collectionName.split('@'));
+                let cursor = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
+                const chain = result.chain;
+                for (const {fn, args} of chain) {
+                  cursor = cursor[fn](...args);
+                }
+                return (await orm.resultPostProcess( (await cursor), target));
+
+              }
+              const r = await orm.emit(`proxyPreReturnValue:${query.uuid}`, result, target, exec);
               return resolve(r.value);
             }
             const returnValue = await orm.resultPostProcess(result, target);
