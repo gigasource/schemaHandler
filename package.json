@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/gigasource/schemaHandler#readme",
   "dependencies": {
+    "await-lock": "^2.1.0",
     "better-queue": "^3.8.10",
     "bson": "^4.2.0",
     "combine-errors": "^3.0.3",
