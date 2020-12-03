@@ -90,6 +90,7 @@ module.exports = function (orm) {
   orm.on('pre:execChain', async function (query) {
     if (!commitTypes[query.name]) return
     // todo check allowed fn
+    query.mockCollection = true
     const last = _.last(query.chain)
     let tags = []
     let data = {}
@@ -99,13 +100,16 @@ module.exports = function (orm) {
       tags = args.filter(arg => typeof arg === 'string')
       data = _.assign({}, ...args.filter(arg => typeof arg === 'object'))
     }
-    orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target) {
-      const commit = createCommit(_query, tags, data)
-      const dbName = (orm.mode === 'single' ? undefined : query.name.split('@')[1])
-      const _isMaster = (orm.mode === 'single' ? isMaster : isMaster[dbName])
-      await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commit, dbName, _isMaster)
+    orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
+      if (target.isMutateCmd) {
+        const commit = createCommit(_query, tags, data)
+        const dbName = (orm.mode === 'single' ? undefined : query.name.split('@')[1])
+        const _isMaster = (orm.mode === 'single' ? isMaster : isMaster[dbName])
+        await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commit, dbName, _isMaster)
+      } else {
+        await exec()
+      }
     })
-    this.ok = true
   })
 
   Object.assign(orm, {

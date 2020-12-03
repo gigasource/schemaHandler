@@ -19,6 +19,7 @@ class Orm extends EventEmitter {
     this.plugin(require('./plugins/schemaPlugin'));
     this.plugin(require('./plugins/commitPlugin'));
     this.plugin(require('./plugins/transporter'));
+    this.plugin(require('./plugins/fakeDocumentsPlugin'));
   }
 
   setTtl(ttl) {
