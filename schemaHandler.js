@@ -279,9 +279,7 @@ function convertPathParentSchema(node, pathSchema) {
 function initDefaultValue(node, pathSchema, _path) {
   if (pathSchema.$type === 'ObjectID') {
     if (!_.get(node, _path)) {
-      const _id = new ObjectID()
-      console.log('gen object id: ', _id);
-      _.set(node, _path, _id);
+      _.set(node, _path, new ObjectID());
     }
   } else if (pathSchema.$options && pathSchema.$options.default) {
     let _default = pathSchema.$options.default;
