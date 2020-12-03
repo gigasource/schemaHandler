@@ -220,10 +220,11 @@ function factory(orm) {
     return async function (resolve, reject) {
       const query = {name: _this.modelName, chain: _this.chain,uuid : uuid()};
       await orm.waitForConnected();
-
-      {
+      if (_.last(query.chain).fn !== 'direct') {
         let returnResult = await orm.emit('pre:execChain', query);
         if (returnResult.ok) return resolve(returnResult.value);
+      } else {
+        query.chain.pop()
       }
 
       let returnResult = await orm.emit('debug', query);

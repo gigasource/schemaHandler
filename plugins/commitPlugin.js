@@ -6,14 +6,17 @@ const uuid = require("uuid").v1;
 
 const TAG = require('./tags').COMMIT_LAYER_TAG
 const { initTransporterWithOrm } = require('./transporter')
-const TRANSFORM_LAYER_TAG = require('./tags').TRANSPORT_LAYER_TAG
+const { TRANSPORT_LAYER_TAG, FAKE_LAYER_TAG } = require('./tags')
 const allowedFn = [] // todo: fill this
 
 module.exports = function (orm) {
   const queue = new Queue(async function (commits, cb) {
     if (!Array.isArray(commits)) commits = [commits]
     for (let commit of commits) {
+      const query = jsonFn.parse(commit.query)
+      await orm.emit(`${FAKE_LAYER_TAG}:recover`, commit.collectionName, query.chain[0].args[0])
       await orm.emit(`commit:${commitTypes[commit.collectionName].commitType}`, commit)
+      await orm.emit(`${FAKE_LAYER_TAG}:postRecover`)
     }
     cb()
   })
@@ -105,9 +108,12 @@ module.exports = function (orm) {
         const commit = createCommit(_query, tags, data)
         const dbName = (orm.mode === 'single' ? undefined : query.name.split('@')[1])
         const _isMaster = (orm.mode === 'single' ? isMaster : isMaster[dbName])
-        await orm.emit(`${TRANSFORM_LAYER_TAG}:sync`, commit, dbName, _isMaster)
+        await orm.emit(`${TRANSPORT_LAYER_TAG}:sync`, commit, dbName, _isMaster)
+        await orm.emit(`${TAG}:preFakeDocuments`, _query.name, target.condition)
+        this.value = await exec()
+        await orm.emit(`${TAG}:postFakeDocuments`, _query.name, target.condition)
       } else {
-        await exec()
+        this.value = await exec()
       }
     })
   })
