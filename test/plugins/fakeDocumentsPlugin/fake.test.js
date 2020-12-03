@@ -348,4 +348,24 @@ describe("Fake document test", () => {
     `);
     const newItem = orm.off("pre:execChain", cb);
   });
+
+  it('Test lock', async () => {
+    const testFn = jest.fn(() => {})
+    orm.on("pre:execChain", cb);
+    await orm.emit(`${FAKE_LAYER_TAG}:recover`, "Order", {});
+    const promise = new Promise(async (resolve, reject) => {
+      await orderModel.create({
+        table: 10,
+        items: [{ name: "cola", price: 10, quantity: 1 }]
+      });
+      testFn()
+    })
+    setTimeout(async () => {
+      expect(testFn.mock.calls.length).toBe(0)
+      await orm.emit(`${FAKE_LAYER_TAG}:postRecover`);
+      expect(testFn.mock.calls.length).toBe(1)
+    }, 100)
+    orm.off("pre:execChain", cb);
+  })
+
 });
