@@ -12,6 +12,7 @@ let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model, schema;
 const uuid = require("uuid").v1;
 const SocketMock = require("socket.io-mock");
+const jsonFn = require("json-fn");
 
 const { TRANSPORT_LAYER_TAG } = require("../../../plugins/tags");
 
@@ -63,19 +64,9 @@ describe("Commit flow basic", function() {
       expect(commits.length).toMatchInlineSnapshot();
     });
     const commitHandlerFn = jest.fn(commit => {
-      expect(commit._id.toString().length).toMatchInlineSnapshot(`24`);
-      delete commit._id;
-      expect(commit).toMatchInlineSnapshot(`
-        Object {
-          "collectionName": "Order",
-          "data": Object {},
-          "query": "{\\"name\\":\\"Order\\",\\"chain\\":[{\\"fn\\":\\"create\\",\\"args\\":[{\\"table\\":10,\\"items\\":[{\\"name\\":\\"cola\\",\\"price\\":10,\\"quantity\\":1}]}]}]}",
-          "tags": Array [],
-        }
-      `);
       expect(commitHandlerFn.mock.calls.length).toMatchInlineSnapshot(`1`);
       done();
-      orm.off("commit:Order", commitHandlerFn)
+      orm.off("commit:Order", commitHandlerFn);
     });
     orm.on("commit:Order", commitHandlerFn);
     const orderModel = orm("Order");
@@ -97,16 +88,6 @@ describe("Commit flow basic", function() {
     );
 
     const commitHandlerFn = jest.fn(commit => {
-      expect(commit._id.toString().length).toMatchInlineSnapshot(`24`);
-      delete commit._id;
-      expect(commit).toMatchInlineSnapshot(`
-        Object {
-          "collectionName": "Order",
-          "data": Object {},
-          "query": "{\\"name\\":\\"Order\\",\\"chain\\":[{\\"fn\\":\\"create\\",\\"args\\":[{\\"table\\":10,\\"items\\":[{\\"name\\":\\"cola\\",\\"price\\":10,\\"quantity\\":1}]}]}]}",
-          "tags": Array [],
-        }
-      `);
       expect(commitHandlerFn.mock.calls.length).toMatchInlineSnapshot(`1`);
       done();
     });
