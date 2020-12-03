@@ -137,6 +137,7 @@ module.exports = function (orm) {
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const obj = args.shift();
         if (Array.isArray(obj)) {
+          target.returnSingleDocument = false;
           let objs = obj;
           objs = objs.map(obj => parseSchema(schema, obj));
           if (objs.length !== 0) {

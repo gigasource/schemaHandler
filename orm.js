@@ -218,7 +218,7 @@ function factory(orm) {
 
   let models = builder(function (_this) {
     return async function (resolve, reject) {
-      const query = {name: _this.modelName, chain: _this.chain,uuid : uuid()};
+      const query = {name: _this.modelName, chain: _this.chain, uuid: uuid()};
       await orm.waitForConnected();
       if (_.last(query.chain).fn !== 'direct') {
         let returnResult = await orm.emit('pre:execChain', query);
@@ -263,7 +263,8 @@ function createCollectionQuery(query) {
     if (!result) {
       if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
         || fn.includes('countDocuments') || fn.includes('aggregate')
-        || fn.includes('Index') || fn.includes('indexes')) result = true;
+        || fn.includes('Index') || fn.includes('indexes')
+        || fn.includes('findAndModify') || fn.includes('drop')) result = true;
     }
     return result;
   }, false);
@@ -319,7 +320,7 @@ function createCollectionQuery(query) {
                 for (const {fn, args} of chain) {
                   cursor = cursor[fn](...args);
                 }
-                return (await orm.resultPostProcess( (await cursor), target));
+                return (await orm.resultPostProcess((await cursor), target));
 
               }
               const r = await orm.emit(`proxyPreReturnValue:${query.uuid}`, result, target, exec);
@@ -328,7 +329,7 @@ function createCollectionQuery(query) {
             const returnValue = await orm.resultPostProcess(result, target);
             resolve(returnValue);
           } catch (e) {
-            reject(error([e0,e]));
+            reject(error([e0, e]));
           }
         })
         return promise.then.bind(promise);
@@ -367,7 +368,7 @@ async function resultPostProcess(result, target) {
       } else {
         _result = result.result.message.documents;
       }
-    } else if (target.cmd === 'insertMany') {
+    } else if (target.cmd === 'insertMany' || (target.cmd === 'create' && !target.returnSingleDocument)) {
       _result = result.ops;
     } else if (target.cmd === 'insertOne') {
       _result = result.ops[0];
@@ -393,7 +394,7 @@ async function resultPostProcess(result, target) {
         _result = result.message.documents;
       }
     }
-    if (target.isInsertManyCmd) {
+    if (target.cmd === 'insertMany' || (target.cmd === 'create' && !target.returnSingleDocument)) {
       _result = result.ops;
     }
 
