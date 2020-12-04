@@ -3,31 +3,50 @@ const AwaitLock = require('await-lock').default
 const lock = new AwaitLock()
 /*
  - Only support single mode
- - Fake can not run when fake running and vice versa
+ - Recover can not run when fake running and vice versa
  */
 module.exports = function (orm) {
-  orm.on(`${TAG}:preFakeDocuments`, async function (collectionName, parseCondition) {
+  const recoveryCollection = orm.getCollection('Recovery')
+  orm.on(`${TAG}:fakeDocuments`, async function (collectionName, parseCondition, exec) {
+    if (orm.mode !== 'single') return
     await lock.acquireAsync()
-    if (orm.mode !== 'single' || !parseCondition) return
-    const recoveryCollectionName = collectionName + '-recovery'
-    const originalData = await orm.getCollection(collectionName).find(Object.assign({ ...parseCondition }, { fake: {$ne: true} })).direct()
-    await orm.getCollection(recoveryCollectionName).create(originalData).direct()
-  })
-  orm.on(`${TAG}:postFakeDocuments`, async function (collectionName, parseCondition) {
-    if (orm.mode !== 'single' || !parseCondition) return
-    await orm.getCollection(collectionName).updateMany(parseCondition, {$set: { fake: true }}).direct()
+    const collection = orm.getCollection(collectionName)
+    if (parseCondition) {
+      const originalData = await collection.find(Object.assign({ ...parseCondition }, { fake: { $ne: true } })).direct()
+      if (Array.isArray(originalData)) {
+        originalData.forEach(data => {
+          data.collectionName = collectionName
+        })
+      } else {
+        originalData.collectionName = collectionName
+      }
+      await recoveryCollection.create(originalData).direct()
+    }
+    this.value = await exec()
+    await collection.updateMany(parseCondition ? parseCondition :
+      (Array.isArray(this.value) ?
+        { _id: {$in: this.value.map(item => item._id)}} :
+          this.value ), { fake: true }).direct()
     lock.release()
   })
-  orm.on(`${TAG}:recover`, async function (collectionName, parseCondition) {
+  orm.on(`${TAG}:recover`, async function (collectionName, parseCondition, cb) {
+    if (orm.mode !== 'single') return
     await lock.acquireAsync()
-    if (orm.mode !== 'single' || !parseCondition) return
-    const recoveryCollectionName = collectionName + '-recovery'
-    const originalData = await orm.getCollection(recoveryCollectionName).find(parseCondition).direct()
-    await orm.getCollection(recoveryCollectionName).deleteMany(parseCondition).direct()
-    await orm.getCollection(collectionName).deleteMany(Object.assign({ ...parseCondition }, { fake: true })).direct()
-    await orm.getCollection(collectionName).create(originalData).direct()
-  })
-  orm.on(`${TAG}:postRecover`, function () {
+    const collection = orm.getCollection(collectionName)
+    const recoveryCondition = Object.assign({...parseCondition}, { collectionName })
+    const originalData = await recoveryCollection.find(recoveryCondition).direct()
+    await recoveryCollection.deleteMany(recoveryCondition).direct()
+    const fakeCondition = Object.assign({...parseCondition}, { fake: true})
+    await collection.deleteMany(fakeCondition).direct()
+    if (!Array.isArray(originalData)) {
+      delete originalData.collectionName
+    } else {
+      originalData.forEach(data => {
+        delete data.collectionName
+      })
+    }
+    await collection.create(originalData).direct()
+    if (cb) await cb()
     lock.release()
   })
 }

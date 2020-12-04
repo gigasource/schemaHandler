@@ -5,18 +5,18 @@ const _ = require("lodash");
 
 describe("Fake document test", () => {
   let orderModel;
-  let orderModelRecovery;
+  let recovery;
   beforeAll(async () => {
     orm.connect({ uri: "mongodb://localhost:27017" }, "myproject");
-    orderModelRecovery = orm("Order-recovery");
+    recovery = orm("Recovery");
     orderModel = orm("Order");
-    await orderModelRecovery.deleteMany();
     await orderModel.deleteMany();
+    await recovery.deleteMany();
   });
 
   afterEach(async () => {
     await orderModel.deleteMany();
-    await orderModelRecovery.deleteMany();
+    await recovery.deleteMany();
   });
 
   const cb = async function(query) {
@@ -32,22 +32,60 @@ describe("Fake document test", () => {
       exec
     ) {
       if (target.isMutateCmd) {
-        await orm.emit(
-          `${FAKE_LAYER_TAG}:preFakeDocuments`,
-          _query.name,
-          target.condition
-        );
-        this.value = await exec();
-        await orm.emit(
-          `${FAKE_LAYER_TAG}:postFakeDocuments`,
-          _query.name,
-          target.condition ? target.condition : this.value
-        );
+        const _this = this;
+        this.value = (
+          await orm.emit(
+            `${FAKE_LAYER_TAG}:fakeDocuments`,
+            _query.name,
+            target.condition,
+            exec
+          )
+        ).value;
       } else {
         this.value = await exec();
       }
     });
   };
+
+  it("Fake a create query 1", async () => {
+    await orderModel.create({
+      table: 10,
+      items: [{ name: "cola", price: 10, quantity: 1 }]
+    });
+    orm.on("pre:execChain", cb);
+    await orderModel.create({
+      table: 11,
+      items: [{ name: "a", price: 12 }]
+    });
+    const orders = await orderModel.find({}).direct();
+    expect(stringify(orders)).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "items": Array [
+            Object {
+              "name": "cola",
+              "price": 10,
+              "quantity": 1,
+            },
+          ],
+          "table": 10,
+        },
+        Object {
+          "_id": "ObjectID",
+          "fake": true,
+          "items": Array [
+            Object {
+              "name": "a",
+              "price": 12,
+            },
+          ],
+          "table": 11,
+        },
+      ]
+    `);
+    orm.off("pre:execChain", cb);
+  });
 
   it("Fake a create query", async () => {
     orm.on("pre:execChain", cb);
@@ -70,7 +108,7 @@ describe("Fake document test", () => {
       }
     `);
     const fakeDocument = await orderModel.findOne({ _id: result._id });
-    const recoveryDoc = await orderModelRecovery.find();
+    const recoveryDoc = await recovery.find();
     expect(recoveryDoc).toMatchInlineSnapshot(`Array []`);
     expect(stringify(fakeDocument)).toMatchInlineSnapshot(`
       Object {
@@ -87,17 +125,15 @@ describe("Fake document test", () => {
       }
     `);
     orm.off("pre:execChain", cb);
-    orderModel.deleteMany().direct();
-    orderModelRecovery.deleteMany().direct();
   });
 
-  it("Fake an exists doc", async () => {
+  it("Fake an existing doc", async () => {
     const doc = await orderModel.create({
       table: 10,
       items: [{ name: "cola", price: 10, quantity: 1 }]
     });
     orm.on("pre:execChain", cb);
-    const recoveryPreLen = (await orderModelRecovery.find()).length;
+    const recoveryPreLen = (await recovery.find()).length;
     const result = await orderModel.findOneAndUpdate(
       { _id: doc._id },
       { table: 20 }
@@ -115,10 +151,11 @@ describe("Fake document test", () => {
         "table": 20,
       }
     `);
-    const original = await orderModelRecovery.findOne({ _id: doc._id });
+    const original = await recovery.findOne({ _id: doc._id });
     expect(stringify(original)).toMatchInlineSnapshot(`
       Object {
         "_id": "ObjectID",
+        "collectionName": "Order",
         "items": Array [
           Object {
             "name": "cola",
@@ -130,7 +167,6 @@ describe("Fake document test", () => {
       }
     `);
     await orm.emit(`${FAKE_LAYER_TAG}:recover`, "Order", { _id: doc._id });
-    await orm.emit(`${FAKE_LAYER_TAG}:postRecover`);
     const recovered = await orderModel.findOne({ _id: doc._id }).direct();
     expect(stringify(recovered)).toMatchInlineSnapshot(`
       Object {
@@ -145,11 +181,9 @@ describe("Fake document test", () => {
         "table": 10,
       }
     `);
-    const recoveryPostLength = (await orderModelRecovery.find()).length;
+    const recoveryPostLength = (await recovery.find()).length;
     expect(recoveryPostLength).toBe(recoveryPreLen);
     orm.off("pre:execChain", cb);
-    orderModel.deleteMany().direct();
-    orderModelRecovery.deleteMany().direct();
   });
 
   it("Fake many doc", async () => {
@@ -209,11 +243,12 @@ describe("Fake document test", () => {
         },
       ]
     `);
-    const original = await orderModelRecovery.find();
+    const original = await recovery.find();
     expect(stringify(original)).toMatchInlineSnapshot(`
       Array [
         Object {
           "_id": "ObjectID",
+          "collectionName": "Order",
           "items": Array [
             Object {
               "name": "cola",
@@ -225,6 +260,7 @@ describe("Fake document test", () => {
         },
         Object {
           "_id": "ObjectID",
+          "collectionName": "Order",
           "items": Array [
             Object {
               "name": "fanta",
@@ -237,7 +273,6 @@ describe("Fake document test", () => {
       ]
     `);
     await orm.emit(`${FAKE_LAYER_TAG}:recover`, "Order", { table: 10 });
-    await orm.emit(`${FAKE_LAYER_TAG}:postRecover`);
     const recovered = await orderModel.find({ table: 10 });
     expect(stringify(recovered)).toMatchInlineSnapshot(`
       Array [
@@ -278,7 +313,6 @@ describe("Fake document test", () => {
     const orders = await orderModel.find();
     expect(orders).toMatchInlineSnapshot(`Array []`);
     await orm.emit(`${FAKE_LAYER_TAG}:recover`, "Order", { _id: doc._id });
-    await orm.emit(`${FAKE_LAYER_TAG}:postRecover`);
     const recovered = await orderModel.find();
     expect(stringify(recovered)).toMatchInlineSnapshot(`
       Array [
@@ -326,7 +360,6 @@ describe("Fake document test", () => {
       }
     `);
     await orm.emit(`${FAKE_LAYER_TAG}:recover`, "Order", { _id: _doc._id });
-    await orm.emit(`${FAKE_LAYER_TAG}:postRecover`);
     await orderModel.create(items).direct();
     const orders = await orderModel.find();
     expect(stringify(orders)).toMatchInlineSnapshot(`
@@ -349,23 +382,101 @@ describe("Fake document test", () => {
     const newItem = orm.off("pre:execChain", cb);
   });
 
-  it('Test lock', async () => {
-    const testFn = jest.fn(() => {})
+  // it("Test lock", async (done) => {
+  //   const testFn = jest.fn(() => {});
+  //   orm.on("pre:execChain", cb);
+  //   await orm.emit(`${FAKE_LAYER_TAG}:recover`, "Order", {});
+  //   const promise = new Promise(async (resolve, reject) => {
+  //     await orderModel.create({
+  //       table: 10,
+  //       items: [{ name: "cola", price: 10, quantity: 1 }]
+  //     });
+  //     testFn();
+  //     console.log('done')
+  //     done()
+  //     resolve()
+  //   });
+  //   setTimeout(async () => {
+  //     expect(testFn.mock.calls.length).toBe(0);
+  //     console.log('pre')
+  //     await orm.emit(`${FAKE_LAYER_TAG}:postRecover`);
+  //     orm.off("pre:execChain", cb);
+  //   }, 100);
+  // });
+
+  it("Create many", async () => {
+    await orderModel.create([
+      {
+        table: 5,
+        items: [{ name: "pepsi", price: 10, quantity: 1 }]
+      },
+      {
+        table: 9,
+        items: [{ name: "tobaco", price: 10, quantity: 1 }]
+      }
+    ]);
     orm.on("pre:execChain", cb);
-    await orm.emit(`${FAKE_LAYER_TAG}:recover`, "Order", {});
-    const promise = new Promise(async (resolve, reject) => {
-      await orderModel.create({
+    await orderModel.create([
+      {
         table: 10,
         items: [{ name: "cola", price: 10, quantity: 1 }]
-      });
-      testFn()
-    })
-    setTimeout(async () => {
-      expect(testFn.mock.calls.length).toBe(0)
-      await orm.emit(`${FAKE_LAYER_TAG}:postRecover`);
-      expect(testFn.mock.calls.length).toBe(1)
-    }, 100)
+      },
+      {
+        table: 15,
+        items: [{ name: "fanta", price: 10, quantity: 1 }]
+      }
+    ]);
+    const orders = await orderModel.find({});
+    expect(stringify(orders)).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "items": Array [
+            Object {
+              "name": "pepsi",
+              "price": 10,
+              "quantity": 1,
+            },
+          ],
+          "table": 5,
+        },
+        Object {
+          "_id": "ObjectID",
+          "items": Array [
+            Object {
+              "name": "tobaco",
+              "price": 10,
+              "quantity": 1,
+            },
+          ],
+          "table": 9,
+        },
+        Object {
+          "_id": "ObjectID",
+          "fake": true,
+          "items": Array [
+            Object {
+              "name": "cola",
+              "price": 10,
+              "quantity": 1,
+            },
+          ],
+          "table": 10,
+        },
+        Object {
+          "_id": "ObjectID",
+          "fake": true,
+          "items": Array [
+            Object {
+              "name": "fanta",
+              "price": 10,
+              "quantity": 1,
+            },
+          ],
+          "table": 15,
+        },
+      ]
+    `);
     orm.off("pre:execChain", cb);
-  })
-
+  });
 });
