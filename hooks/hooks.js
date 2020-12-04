@@ -1,5 +1,6 @@
 const EE = require('events');
 const _ = require('lodash');
+let AwaitLock;
 
 class Hooks extends EE {
   getPreHandler(event) {
@@ -24,9 +25,27 @@ class Hooks extends EE {
 
   once(event, listener) {
     const _this = this;
-    function _listener () {
+
+    function _listener() {
       _this.removeListener(event, _listener);
       return listener.bind(this)(...arguments);
+    }
+
+    this.on(event, _listener);
+  }
+
+  locks = {}
+
+  onQueue(event, channel, listener) {
+    if (!AwaitLock) AwaitLock = require('await-lock').default; //lazy
+
+    [channel, listener] = !listener ? [event, channel] : [channel, listener];
+    const lock = this.locks[channel] = this.locks[channel] || new AwaitLock();
+    const _listener = async function () {
+      await lock.acquireAsync();
+      const result = await listener.bind(this)(...arguments);
+      lock.release()
+      return result;
     }
     this.on(event, _listener);
   }

@@ -1,6 +1,7 @@
 const EE = require("./hooks");
 let hooks;
 let log;
+const delay = require("delay");
 
 describe("test hooks", function() {
   beforeEach(function() {
@@ -118,5 +119,69 @@ describe("test hooks", function() {
         "default",
       ]
     `);
+  });
+
+  it("test onQueue", async function(done) {
+    const arr = [];
+
+    hooks.on("test", async function() {
+      arr.push("a");
+      await delay(2000);
+      arr.push("b");
+    });
+
+    hooks.on("test2", async function() {
+      arr.push("c");
+      await delay(2000);
+      arr.push("d");
+      hooks.emit("done");
+    });
+
+    hooks.emit("test", e => eval(e));
+    hooks.emit("test2", e => eval(e));
+
+    hooks.on("done", () => {
+      expect(arr).toMatchInlineSnapshot(`
+        Array [
+          "a",
+          "c",
+          "b",
+          "d",
+        ]
+      `);
+      done();
+    });
+  });
+
+  it("test onQueue2", async function(done) {
+    const arr = [];
+
+    hooks.onQueue("test", "test", async function() {
+      arr.push("a");
+      await delay(2000);
+      arr.push("b");
+    });
+
+    hooks.onQueue("test2", "test", async function() {
+      arr.push("c");
+      await delay(2000);
+      arr.push("d");
+      hooks.emit("done");
+    });
+
+    hooks.emit("test", e => eval(e));
+    hooks.emit("test2", e => eval(e));
+
+    hooks.on("done", () => {
+      expect(arr).toMatchInlineSnapshot(`
+        Array [
+          "a",
+          "b",
+          "c",
+          "d",
+        ]
+      `);
+      done();
+    });
   });
 });
