@@ -7,15 +7,15 @@ const uuid = require("uuid").v1;
 const TAG = require('./tags').COMMIT_LAYER_TAG
 const { initTransporterWithOrm } = require('./transporter')
 const { TRANSPORT_LAYER_TAG, FAKE_LAYER_TAG } = require('./tags')
-const allowedFn = [] // todo: fill this
 
 module.exports = function (orm) {
   const queue = new Queue(async function (commits, cb) {
     if (!Array.isArray(commits)) commits = [commits]
     for (let commit of commits) {
       const query = jsonFn.parse(commit.query)
-      await orm.emit(`${FAKE_LAYER_TAG}:recover`, commit.collectionName, query.chain[0].args[0])
-      await orm.emit(`commit:${commitTypes[commit.collectionName].commitType}`, commit)
+      await orm.emit(`${FAKE_LAYER_TAG}:recover`, commit.collectionName, query.chain[0].args[0], async function () {
+        await orm.emit(`commit:${commitTypes[commit.collectionName].commitType}${commit.tags.length ? `:${commit.tags[0]}` : ''}`, commit)
+      })
       await orm.emit(`${FAKE_LAYER_TAG}:postRecover`)
     }
     cb()
@@ -39,6 +39,7 @@ module.exports = function (orm) {
   }
 
   orm.onDefault(`${TAG}:sync`, (commits) => {
+    // check highestId here
     queue.push(commits)
   })
   queue.pause()
@@ -91,6 +92,10 @@ module.exports = function (orm) {
   }
 
   orm.on('pre:execChain', async function (query) {
+    if (_.last(query.chain).fn === 'direct') {
+      query.chain.pop()
+      return
+    }
     if (!commitTypes[query.name]) return
     // todo check allowed fn
     query.mockCollection = true
@@ -109,14 +114,23 @@ module.exports = function (orm) {
         const dbName = (orm.mode === 'single' ? undefined : query.name.split('@')[1])
         const _isMaster = (orm.mode === 'single' ? isMaster : isMaster[dbName])
         await orm.emit(`${TRANSPORT_LAYER_TAG}:sync`, commit, dbName, _isMaster)
-        await orm.emit(`${TAG}:preFakeDocuments`, _query.name, target.condition)
-        this.value = await exec()
-        await orm.emit(`${TAG}:postFakeDocuments`, _query.name, target.condition)
+        this.value = (await orm.emit(`${FAKE_LAYER_TAG}:fakeDocuments`, _query.name, target.condition, exec)).value
       } else {
         this.value = await exec()
       }
     })
   })
+
+  orm.on(`${TAG}:getHighestCommitId`, async () => {
+    const highestDoc = await orm.getCollection('Commit').findOne({}).sort('-id')
+    this.value = highestDoc ? highestDoc.id + 1 : 1
+  })
+
+  orm.on(`update:Commit:c`, async (dbName) => {
+    await orm.emit('emitToAll')
+  })
+
+  // orm.on(`${TAG}:`)
 
   Object.assign(orm, {
     getMaster,
