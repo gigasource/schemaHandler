@@ -5,14 +5,16 @@
 * [_] base on event emitter
 * [_] 
 
-* [_] multi layer: on/pre/post
-    * [_] support async 
+* [x] multi layer: on/pre/post
+    * [x] support async
+* [_] multi layer like z-index:
+    * hooks.on('test', layer = 0, listener)
     
 * [_] support persistent : 
     * [_] vd vua khoi dong lai thi tu dong gan callback
     
 * [_] support return, mutate result !
-        
+
 vd : 
 callback() {
     console.log(a1) 

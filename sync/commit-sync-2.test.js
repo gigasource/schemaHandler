@@ -19,6 +19,8 @@ const cloudSocket = cloudIo.socketClient;
 const Queue = require('queue');
 const delay = require('delay');
 
+
+// split master + client + cloud -> multi db + multiprocess ??
 async function init() {
   Model = orm("Model");
   await Model.remove({})
@@ -43,21 +45,13 @@ async function init() {
         approved: false
       };
 
-      //commitId: incremental
-      //const CommitCol = orm(`${query.name}Commit`);
-      //const _commit = await CommitCol.create(commit);
-      //const r = await orm.emit(`commit:${query.name}`, commit, query);
-      //_.assign(this, r);
-      //remove later:
-      query.commit = true;
-
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
         if (_.get(_query, "chain[0].args[0]._id")) {
           commit.data.docId = _.get(_query, "chain[0].args[0]._id");
         }
         let value;
         await orm.emit('commit:build-fake', _query, target, exec, commit, e => eval(e));
-        await orm.emit(`commitProcess`, commit, _query);
+        await orm.emit("toMaster", commit, _query);
         this.value = value;
       });
       //test behavior if not create model
@@ -65,22 +59,18 @@ async function init() {
   });
 
   function getQuery(commit) {
-    const chain = JSON.parse(commit.chain);
+    const chain = JSON.parse(commit.chain || '[]');
     const name = commit.collectionName;
     return {name, chain}
   }
 
-  orm.onDefault("commitProcess", async function (commit) {
-    //await orm.emit(`commit:build-fake`, commit);
-    await orm.emit("toMaster", commit);
-  });
-
   orm.on('initFakeLayer', function () {
     //todo: fake layer
-    orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, exec) {
+    orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, exec, commit) {
       if (!target.isMutateCmd) {
         return this.update('value', await exec());
       }
+      const _uuid = {uuid: commit.uuid};
       //case findOneAndUpdate upsert ??
       //case updateMany
       //case delete || remove
@@ -92,7 +82,7 @@ async function init() {
         //case create, insert
         let value = await exec();
         //add recovery layer:
-        await orm('Recovery').create({collectionName: query.name});
+        await orm('Recovery').create({collectionName: query.name, ..._uuid});
         if (Array.isArray(value)) {
           for (const doc of value) {
             const _doc = await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}});
@@ -108,7 +98,8 @@ async function init() {
         if (doc && !doc._fake) {
           await orm('Recovery').create({
             collectionName: query.name,
-            doc
+            doc,
+            ..._uuid
           });
         }
         let value = await exec();
@@ -124,7 +115,8 @@ async function init() {
           if (!doc._fake) {
             await orm('Recovery').create({
               collectionName: query.name,
-              doc
+              doc,
+              ..._uuid
             });
             jobs.push(async () => await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}}))
           }
@@ -138,31 +130,50 @@ async function init() {
       // console.log('fake : ', doc);
     });
 
-    orm.onQueue("commit:remove-fake", 'fake-channel', async function () {
+    orm.onQueue("commit:remove-fake", 'fake-channel', async function (commit) {
       console.log('remove-fake');
-      const recoveries = await orm('Recovery').find({});
+      const recoveries = await orm('Recovery').find({uuid: commit.uuid});
       const cols = Object.keys(_.groupBy(recoveries, r => r.collectionName));
-      for (const col of cols) await orm(col).remove({_fake: true});
+      for (const col of cols) {
+        await orm(col).remove({_fake: true});
+      }
 
       for (const recovery of recoveries) {
         if (recovery.doc) await orm(recovery.collectionName).create(recovery.doc);
       }
-      await orm('Recovery').remove({});
+      await orm('Recovery').remove({uuid: commit.uuid});
     });
   })
 
+  //should transparent
   orm.pre(`commit:requireSync`, async function () {
     const {value: highestId} = await orm.emit('getHighestCommitId');
     orm.emit('commit:sync', highestId);
   });
-
-  orm.pre(`commit:sync`, async function () {
-    await orm.emit('commit:remove-fake');
-  })
-
   orm.on('getHighestCommitId', async function (collectionName = 'Commit') {
     const {id: highestCommitId} = await orm(collectionName).findOne({}).sort('-id') || {id: 0};
     this.value = highestCommitId;
+  })
+  //should transparent
+  orm.on('commit:sync:callback', async function (commits) {
+    for (const commit of commits) {
+      //replace behaviour here
+      try {
+        await orm('Commit').create(commit);
+        await orm.emit('commit:handler', commit);
+      } catch (e) {
+        if (e.message.slice(0, 6)) {
+          console.log('sync two fast')
+        }
+      }
+    }
+  })
+
+  //customize
+  orm.onQueue('commit:handler', async commit => {
+    await orm.emit('commit:remove-fake', commit);
+    const query = getQuery(commit);
+    await orm.execChain(query);
   })
 
   //use only for master
@@ -186,20 +197,6 @@ async function init() {
     this.value = await orm(collectionName).find({id: {$gt: clientHighestId}});
   })
 
-  orm.on('commit:sync:callback', async function (commits) {
-    for (const commit of commits) {
-      //replace behaviour here
-      try {
-        await orm('Commit').create(commit);
-        await orm.emit('commit:handler', commit);
-      } catch (e) {
-        if (e.message.slice(0, 6)) {
-          console.log('sync two fast')
-        }
-      }
-    }
-  })
-
   if (process.env.NODE_ENV === 'test') {
     let called = 0;
     orm.on('commit:sync:callback', async function (commits) {
@@ -209,11 +206,6 @@ async function init() {
       }
     })
   }
-
-  orm.onQueue('commit:handler', 'fake-channel', async commit => {
-    const query = getQuery(commit);
-    await orm.execChain(query);
-  })
 
   //todo: layer transport implement
 
@@ -259,9 +251,6 @@ async function init() {
   //orm.emit('initSyncForMaster', masterIo);
   orm.emit('initSyncForCloud', cloudIo);
 
-  //gen _id for parseSchema
-
-  //order._fake = true;
 }
 
 describe("commit-sync", function () {
@@ -334,6 +323,12 @@ describe("commit-sync", function () {
       if (commit.tags.includes('create')) {
         const activeOrder = await orm(`${commit.collectionName}Master`).findOne({table: commit.data.table});
         if (activeOrder) {
+          //create doNothing Commit here
+          commit.id = (await orm.emit('getHighestCommitId', 'CommitMaster')).value + 1;
+          commit.approved = false;
+          delete commit.chain;
+
+          this.value = await orm(`CommitMaster`).create(commit);
           return;
         }
       }
@@ -342,7 +337,6 @@ describe("commit-sync", function () {
     //problems : prevent Model.create({table: 10})
     const m1 = await Model.create({table: 10}).commit('create', {table: 10});
     const m2 = await Model.create({table: 10}).commit('create', {table: 10});
-
   });
 
 

@@ -36,6 +36,12 @@ class Hooks extends EE {
 
   locks = {}
 
+  getLock(channel) {
+    if (this.locks) {
+      return this.locks[channel];
+    }
+  }
+
   onQueue(event, channel, listener) {
     if (!AwaitLock) AwaitLock = require('await-lock').default; //lazy
 
