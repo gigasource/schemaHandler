@@ -13,8 +13,9 @@
 * [x] default là commit, direct
     [x] hooks : support stop
     [x] hooks : hooks.on(event, -5, listener);
-
-
+  
+* [_] socket io || cloud base ?? 
+  
 * what do user care:
 
 // tat bat duoc, mock duoc, code tap trung duoc

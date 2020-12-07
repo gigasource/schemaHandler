@@ -203,6 +203,7 @@ const syncPlugin = function (orm, role) {
     await orm.execChain(getQuery(commit));
   })
 
+  //customize
   orm.onDefault('createCommit:master', async function (commit) {
     let {value: highestId} = await orm.emit('getHighestCommitId');
     highestId++;

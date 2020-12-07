@@ -90,6 +90,7 @@ describe("commit-sync", function() {
     const m1 = await Model.create({ table: 10 });
     const m2 = await Model.create({ table: 10 });
     await delay(1000);
+    debugger
   }, 20000);
 
 
