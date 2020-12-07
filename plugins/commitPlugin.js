@@ -21,22 +21,6 @@ module.exports = function (orm) {
     cb()
   })
   const commitTypes = {}
-  let isMaster, setMaster
-
-  if (orm.mode === 'single') {
-    isMaster = false
-    setMaster = (_isMaster) => {
-      isMaster = _isMaster
-    }
-  } else {
-    isMaster = {}
-    setMaster = (dbName, _isMaster) => {
-      isMaster[dbName] = _isMaster
-    }
-  }
-  const getMaster = (dbName) => {
-    return dbName ? orm.commitHandler.isMaster[dbName] : orm.commitHandler.isMaster
-  }
 
   orm.onDefault(`${TAG}:sync`, (commits) => {
     // check highestId here
@@ -112,8 +96,7 @@ module.exports = function (orm) {
       if (target.isMutateCmd) {
         const commit = createCommit(_query, tags, data)
         const dbName = (orm.mode === 'single' ? undefined : query.name.split('@')[1])
-        const _isMaster = (orm.mode === 'single' ? isMaster : isMaster[dbName])
-        await orm.emit(`${TRANSPORT_LAYER_TAG}:sync`, commit, dbName, _isMaster)
+        await orm.emit(`${TRANSPORT_LAYER_TAG}:sync`, commit, dbName)
         this.value = (await orm.emit(`${FAKE_LAYER_TAG}:fakeDocuments`, _query.name, target.condition, exec)).value
       } else {
         this.value = await exec()
@@ -121,20 +104,26 @@ module.exports = function (orm) {
     })
   })
 
-  orm.on(`${TAG}:getHighestCommitId`, async () => {
+  orm.on(`${TAG}:createCommit`, async function (commit) {
+    if (!commit.id) {
+      commit.id = await orm.emit(`${TAG}:getHighestCommitId`)
+    }
+    await orm.getCollection('Commit').create(commit).direct()
+    await orm.emit(`${TRANSPORT_LAYER_TAG}:emitToAll`, commit)
+  })
+
+  orm.on(`${TAG}:getHighestCommitId`, async function () {
     const highestDoc = await orm.getCollection('Commit').findOne({}).sort('-id')
     this.value = highestDoc ? highestDoc.id + 1 : 1
   })
 
-  orm.on(`update:Commit:c`, async (dbName) => {
-    await orm.emit('emitToAll')
-  })
+  // orm.on(`update:Commit:c`, async function (dbName) {
+  //   await orm.emit(`${TRANSPORT_LAYER_TAG}:emitToAll`)
+  // })
 
   // orm.on(`${TAG}:`)
 
   Object.assign(orm, {
-    getMaster,
-    registerCommitCollections,
-    setMaster
+    registerCommitCollections
   })
 }

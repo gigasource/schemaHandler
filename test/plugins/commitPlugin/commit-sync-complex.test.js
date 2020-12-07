@@ -8,25 +8,31 @@ const uuid = require("uuid").v1;
 const TRANSPORT_LAYER_TAG = require("../../../plugins/tags")
   .TRANSPORT_LAYER_TAG;
 const SocketMock = require("socket.io-mock");
+const { fork } = require("child_process");
+const socketClient = require("socket.io-client");
 
 describe("commit-sync-complex", function() {
   let testModel;
-  let testRecoveryModel;
+  let recoveryModel;
+  let commitModel;
   beforeAll(async () => {
     orm.connect({ uri: "mongodb://localhost:27017" }, "myproject");
     orm.registerCommitCollections({
       Test: ["Test"]
     });
-    orm.setMaster(true);
+    await orm.setMaster(true);
     testModel = orm.getCollection("Test");
-    testRecoveryModel = orm.getCollection("Test-recovery");
+    recoveryModel = orm.getCollection("Recovery");
+    commitModel = orm.getCollection("Commit");
     await testModel.deleteMany().direct();
-    await testRecoveryModel.deleteMany().direct();
+    await recoveryModel.deleteMany().direct();
+    await commitModel.deleteMany().direct();
   });
 
   afterEach(async () => {
     await testModel.deleteMany().direct();
-    await testRecoveryModel.deleteMany().direct();
+    await recoveryModel.deleteMany().direct();
+    await commitModel.deleteMany().direct();
   });
 
   it("run with an injected commit", async done => {
@@ -72,5 +78,43 @@ describe("commit-sync-complex", function() {
     }, 500);
   });
 
-  it('Client master')
+  it("Client master test", async done => {
+    orm.use(require("./testCommit"));
+    await orm.setMaster(false);
+    const cp = fork(`${__dirname}/testMaster.js`);
+    setTimeout(async () => {
+      const socket = socketClient.connect("http://localhost:9000");
+      await orm.emit(`${TRANSPORT_LAYER_TAG}:registerMasterSocket`, socket);
+      const result = await testModel
+        .create({
+          clientMasterTest: true
+        })
+        .commit("tagA");
+      expect(stringify(result)).toMatchInlineSnapshot(`
+        Object {
+          "_id": "ObjectID",
+          "clientMasterTest": true,
+        }
+      `);
+      setTimeout(async () => {
+        const data = await testModel.find({});
+        expect(stringify(data)).toMatchInlineSnapshot(`
+          Array [
+            Object {
+              "_id": "ObjectID",
+              "clientMasterTest": true,
+            },
+          ]
+        `);
+        const commits = await orm.getCollection("Commit").find({});
+        expect(commits.length).toMatchInlineSnapshot(`1`);
+        expect(commits[0].id).toMatchInlineSnapshot(`
+          Object {
+            "value": 1,
+          }
+        `);
+        done();
+      }, 2000);
+    }, 1000);
+  });
 });

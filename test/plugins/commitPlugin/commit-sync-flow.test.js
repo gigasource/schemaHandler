@@ -59,7 +59,7 @@ describe("Commit flow basic", function() {
   it("run non allowed method", async function() {});
 
   it("master flow single db", async function(done) {
-    orm.setMaster(true);
+    await orm.setMaster(true);
     orm.on("commit:preHandleCommits", commits => {
       expect(commits.length).toMatchInlineSnapshot();
     });
@@ -77,7 +77,7 @@ describe("Commit flow basic", function() {
   });
 
   it("client flow single db", async function(done) {
-    orm.setMaster(false);
+    await orm.setMaster(false);
     const socket = new SocketMock();
     socket.on("sync", commits => {
       socket.emit("sync", commits);
@@ -101,7 +101,7 @@ describe("Commit flow basic", function() {
 
   // todo move this to transporter test
   it("socket disconnected", async function(done) {
-    orm.setMaster(false);
+    await orm.setMaster(false);
     const socket = new SocketMock();
     await orm.emit(
       `${TRANSPORT_LAYER_TAG}:registerMasterSocket`,
