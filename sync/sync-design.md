@@ -5,13 +5,16 @@
 * [x] Tạo fake + recovery
     [x] client should create commit with approve = false
     [x] test recovery : remove one doc instead of all _fake
-    [_] behaviour should be like master ??
-    [_] make fake base on create commit event
-* [x] flow for commit handler customize:
-* [_] split logic for master + client
-* [_] use lock for time step (flow)
-* [_] default là commit, direct
+    [x] behaviour should be like master ??
   
+* [x] flow for commit handler customize:
+* [x] split logic for master + client
+* [x] use lock for time step (flow)
+* [x] default là commit, direct
+    [x] hooks : support stop
+    [x] hooks : hooks.on(event, -5, listener);
+
+
 * what do user care:
 
 // tat bat duoc, mock duoc, code tap trung duoc

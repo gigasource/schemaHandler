@@ -1,11 +1,39 @@
 const _ = require('lodash');
 const uuid = require('uuid').v1;
 let AwaitLock = require('await-lock').default;
+const Orm = require('../orm');
+
 const syncPlugin = function (orm, role) {
   const isMaster = role === 'master';
   orm.isMaster = () => isMaster;
+  const whitelist = []
 
-  orm.on("pre:execChain", async function (query) {
+  orm.registerCommitBaseCollection = function () {
+    whitelist.push(...arguments);
+  }
+
+  orm.on('pre:execChain', -1, function (query) {
+    const last = _.last(query.chain);
+    if (last.fn === "direct") {
+      query.chain.pop();
+      this.stop();
+    } else {
+      if (whitelist.includes(query.name)) {
+        const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete']
+        let mutateCmd = false;
+        query.chain.forEach(({fn}) => {
+          for (const cmd of cmds) {
+            if (fn.includes(cmd)) return mutateCmd = true;
+          }
+        })
+        if (mutateCmd) {
+          query.chain.push({fn: 'commit', args: []})
+        }
+      }
+    }
+  })
+
+  orm.on('pre:execChain', async function (query) {
     const last = _.last(query.chain);
     if (last.fn === "commit") {
       query.chain.pop();
@@ -23,6 +51,7 @@ const syncPlugin = function (orm, role) {
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
         if (_.get(_query, "chain[0].args[0]._id")) {
+          orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
           commit.data.docId = _.get(_query, "chain[0].args[0]._id");
         }
         let value;
@@ -57,6 +86,8 @@ const syncPlugin = function (orm, role) {
     return {name, chain}
   }
 
+  orm.getQuery = getQuery;
+
   orm.on('initFakeLayer', function () {
     //todo: fake layer
     orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, exec, commit) {
@@ -79,13 +110,13 @@ const syncPlugin = function (orm, role) {
         //add recovery layer:
         if (Array.isArray(value)) {
           for (const doc of value) {
-            const _doc = await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}});
+            const _doc = await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}}).direct();
             value.splice(value.indexOf(doc), 1, _doc);
             await orm('Recovery').create({collectionName: query.name, ..._uuid, type: 'create', doc: _doc});
           }
           return this.update('value', value);
         } else {
-          value = await orm(query.name).updateOne({_id: value._id}, {$set: {_fake: true}});
+          value = await orm(query.name).updateOne({_id: value._id}, {$set: {_fake: true}}).direct();
           await orm('Recovery').create({collectionName: query.name, ..._uuid, type: 'create', doc: value});
           return this.update('value', value);
         }
@@ -100,7 +131,7 @@ const syncPlugin = function (orm, role) {
         }
         let value = await exec();
         if (value) {
-          value = await orm(query.name).updateOne(target.condition, {$set: {_fake: true}});
+          value = await orm(query.name).updateOne(target.condition, {$set: {_fake: true}}).direct();
         }
         this.update('value', value);
       } else {
@@ -114,7 +145,7 @@ const syncPlugin = function (orm, role) {
               doc,
               ..._uuid
             });
-            jobs.push(async () => await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}}))
+            jobs.push(async () => await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}}).direct())
           }
         }
         let value = await exec();
@@ -132,9 +163,9 @@ const syncPlugin = function (orm, role) {
 
       for (const recovery of recoveries) {
         if (recovery.type === 'create') {
-          await orm(recovery.collectionName).remove({_id: recovery.doc._id});
+          await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
         } else {
-          await orm(recovery.collectionName).create(recovery.doc);
+          await orm(recovery.collectionName).create(recovery.doc).direct();
         }
       }
       await orm('Recovery').remove({uuid: commit.uuid});

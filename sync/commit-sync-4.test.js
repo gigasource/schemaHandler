@@ -43,7 +43,17 @@ describe("commit-sync", function() {
     await ormB("Commit").remove({});
 
     for (const orm of [ormA, ormB]) {
-      orm.on("createCommit:master", async function(commit) {
+      orm.registerCommitBaseCollection('Model');
+      orm.on(`commit:auto-assign:Model`,( commit, _query, target) => {
+        if (target.cmd === 'create') {
+          commit.data.table = _.get(_query, "chain[0].args[0].table")
+          commit.tags.push('create')
+        }
+      });
+
+      orm.onQueue("createCommit:master", async function(commit) {
+        const {chain} = orm.getQuery(commit);
+        const isMaster = orm.isMaster();
         if (commit.tags.includes("create")) {
           const activeOrder = await orm(`${commit.collectionName}`).findOne({
             table: commit.data.table
@@ -75,16 +85,12 @@ describe("commit-sync", function() {
     toMasterLock = orm.getLock("toMaster");
   });
 
-  it("case basic client create no master", async function(done) {
+  it("case basic client create no master", async function() {
     //toMasterLock.acquireAsync();
-    const m1 = await Model.create({ table: 10 }).commit("create", {
-      table: 10
-    });
-    const m2 = await Model.create({ table: 11 }).commit("create", {
-      table: 11,
-    });
-
-  });
+    const m1 = await Model.create({ table: 10 });
+    const m2 = await Model.create({ table: 10 });
+    await delay(1000);
+  }, 20000);
 
 
 });
