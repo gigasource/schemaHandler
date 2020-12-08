@@ -108,13 +108,14 @@ describe("commit-sync-complex", function() {
         const commits = await orm.getCollection("Commit").find({});
         expect(commits.length).toMatchInlineSnapshot(`1`);
         expect(commits[0].id).toMatchInlineSnapshot(`1`);
+        cp.kill()
         done();
       }, 1000);
     }, 1000);
   });
 
   it("multi db case", async done => {
-    await orm.setMaster(false)
+    await orm.setMaster(false);
     const cp = fork(`${__dirname}/testMasterMultiDb.js`);
     const messages = [];
     cp.on("message", function(data) {
@@ -135,12 +136,12 @@ describe("commit-sync-complex", function() {
             Object {
               "_id": "ObjectID",
               "clientMasterTest": true,
-              "fake": true,
             },
           ]
         `);
+        cp.kill()
         done();
-      });
+      }, 1000);
     }, 1000);
   });
 });

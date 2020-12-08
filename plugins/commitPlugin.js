@@ -14,7 +14,11 @@ module.exports = function (orm) {
     for (let commit of commits) {
       const query = jsonFn.parse(commit.query)
       await orm.emit(`${FAKE_LAYER_TAG}:recover`, commit.collectionName, query.chain[0].args[0], async function () {
-        await orm.emit(`commit:${commitTypes[commit.collectionName].commitType}${commit.tags.length ? `:${commit.tags[0]}` : ''}`, commit)
+        if (!(commit.tags.length && commit.tags[0] === 'deleteCommit')) {
+          await orm.emit(`commit:${commitTypes[commit.collectionName].commitType}${commit.tags.length ? `:${commit.tags[0]}` : ''}`, commit)
+          const recoverCommit = Object.assign({ ...commit }, { tags: ['deleteCommit'] })
+          await orm.emit(`${TAG}:createCommit`, recoverCommit)
+        }
       })
       await orm.emit(`${FAKE_LAYER_TAG}:postRecover`)
     }
@@ -108,8 +112,10 @@ module.exports = function (orm) {
     if (!commit.id) {
       commit.id = (await orm.emit(`${TAG}:getHighestCommitId`)).value
     }
-    await orm.getCollection('Commit').create(commit).direct()
-    await orm.emit(`${TRANSPORT_LAYER_TAG}:emitToAll`, commit)
+    const query = jsonFn.parse(commit.query)
+    const dbName = query.name.includes('@') ? query.name.split('@')[1] : undefined
+    await orm.getCollection('Commit', dbName).create(commit).direct()
+    await orm.emit(`${TRANSPORT_LAYER_TAG}:emitToAll`, commit, dbName)
   })
 
   orm.on(`${TAG}:getHighestCommitId`, async function () {
