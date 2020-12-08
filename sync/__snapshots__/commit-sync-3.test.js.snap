@@ -1,0 +1,42 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`commit-sync case basic client create no master 1`] = `
+Array [
+  Object {
+    "_fake": true,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+]
+`;
+
+exports[`commit-sync case basic client create no master 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync case basic client create no master 3`] = `Array []`;
+
+exports[`commit-sync case only master 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  null,
+]
+`;
+
+exports[`commit-sync case only master 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "table": 10,
+  },
+]
+`;

@@ -14,7 +14,17 @@
     [x] hooks : support stop
     [x] hooks : hooks.on(event, -5, listener);
   
-* [_] socket io || cloud base ?? 
+* [_] socket io || cloud base ??
+  
+* [_] case 1: cloud backup :
+    * [_] master emit commit to cloud : easy
+    
+* [x] case 2: cloud is master : multi-db: 
+    * [x] assign dbName to commit !!!
+    
+* [_] case 3 : no master, cloud only backup ??
+
+* [_] case 4: client + master + cloud backup
   
 * what do user care:
 
@@ -131,3 +141,9 @@ flow.on('pre:execChain', '@cb').makeCommit()
 .emit('commitRequest')
 .return().return()
 ```
+
+
+// stash -> trùng context với nhau ??
+can access to dbName with this pattern : inject provide ... 
+commit has dbName (can provide at client or master)
+this.getParent()

@@ -15,6 +15,13 @@
     
 * [_] support return, mutate result !
 
+* [_] support multi events ['event1', 'event2']
+
+* [_] support auto completion for emit/on
+* [_] support transparent same flow uuid for cross platform
+
+
+
 vd : 
 callback() {
     console.log(a1) 

@@ -1,3 +1,9 @@
+const {
+  checkEqual2,
+  convertSchemaToPaths,
+  findAllPathsInLevelArrHandler2,
+  parseCondition
+} = require("../schemaHandler");
 const Orm = require("../orm");
 let ormA = new Orm();
 let ormB = new Orm();
@@ -15,14 +21,13 @@ const cloudIo = new Socket();
 const cloudSocket = cloudIo.socketClient;
 const Queue = require("queue");
 const delay = require("delay");
-const syncPlugin = require("./sync-plugin-multi");
+const syncPlugin = require("./sync-plugin");
 let toMasterLock;
 
 describe("commit-sync", function() {
   beforeAll(async () => {
     ormA.connect({ uri: "mongodb://localhost:27017" }, "myproject");
     ormB.connect({ uri: "mongodb://localhost:27017" }, "myproject2");
-    ormB.setMultiDbMode();
 
     ormA.plugin(syncPlugin, "client");
     ormA.emit("initSyncForClient", clientSocket);
@@ -34,21 +39,14 @@ describe("commit-sync", function() {
     await ormA("Model").remove({});
     await ormA("Commit").remove({});
     await ormA("Recovery").remove({});
-    await ormB("Model", 'myproject-m1').remove({});
-    await ormB("Commit", 'myproject-m1').remove({});
-
-    ormA.on('commit:auto-assign', (commit, query, target) => {
-      commit.dbName = 'myproject-m1'
-    });
-    ormA.on('commit:sync:args', args => {
-      args.push('myproject-m1');
-    })
+    await ormB("Model").remove({});
+    await ormB("Commit").remove({});
 
     for (const orm of [ormA, ormB]) {
       orm.registerCommitBaseCollection('Model');
-      orm.on(`commit:auto-assign:Model`,( commit, query, target) => {
+      orm.on(`commit:auto-assign:Model`,( commit, _query, target) => {
         if (target.cmd === 'create') {
-          commit.data.table = _.get(query, "chain[0].args[0].table")
+          commit.data.table = _.get(_query, "chain[0].args[0].table")
           commit.tags.push('create')
         }
       });
@@ -57,7 +55,7 @@ describe("commit-sync", function() {
         const {chain} = orm.getQuery(commit);
         const isMaster = orm.isMaster();
         if (commit.tags.includes("create")) {
-          const activeOrder = await orm(commit.collectionName, commit.dbName).findOne({
+          const activeOrder = await orm(`${commit.collectionName}`).findOne({
             table: commit.data.table
           });
           if (activeOrder) {
@@ -68,7 +66,7 @@ describe("commit-sync", function() {
 
             this.value = commit;
             if (orm.isMaster()) {
-              this.value = await orm(`Commit`, commit.dbName).create(commit);
+              this.value = await orm(`Commit`).create(commit);
             }
             return;
           }
@@ -87,11 +85,12 @@ describe("commit-sync", function() {
     toMasterLock = orm.getLock("toMaster");
   });
 
-  it("case basic client create no master", async function(done) {
+  it("case basic client create no master", async function() {
     //toMasterLock.acquireAsync();
-    orm.on("commit:sync:callback:2", done);
     const m1 = await Model.create({ table: 10 });
-    const m2 = await Model.create({ table: 11 });
+    const m2 = await Model.create({ table: 10 });
+    await delay(1000);
+    debugger
   }, 20000);
 
 
