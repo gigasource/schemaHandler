@@ -21,6 +21,7 @@ describe("commit-sync-complex", function() {
       Test: ["Test"]
     });
     await orm.setMaster(true);
+    orm.use(require("./testCommit"));
     testModel = orm.getCollection("Test");
     recoveryModel = orm.getCollection("Recovery");
     commitModel = orm.getCollection("Commit");
@@ -36,7 +37,6 @@ describe("commit-sync-complex", function() {
   });
 
   it("run with an injected commit", async done => {
-    orm.use(require("./testCommit"));
     const result = await orm
       .getCollection("Test")
       .create({
@@ -79,7 +79,6 @@ describe("commit-sync-complex", function() {
   });
 
   it("Client master test", async done => {
-    orm.use(require("./testCommit"));
     await orm.setMaster(false);
     const cp = fork(`${__dirname}/testMaster.js`);
     setTimeout(async () => {
@@ -108,13 +107,40 @@ describe("commit-sync-complex", function() {
         `);
         const commits = await orm.getCollection("Commit").find({});
         expect(commits.length).toMatchInlineSnapshot(`1`);
-        expect(commits[0].id).toMatchInlineSnapshot(`
-          Object {
-            "value": 1,
-          }
+        expect(commits[0].id).toMatchInlineSnapshot(`1`);
+        done();
+      }, 1000);
+    }, 1000);
+  });
+
+  it("multi db case", async done => {
+    await orm.setMaster(false)
+    const cp = fork(`${__dirname}/testMasterMultiDb.js`);
+    const messages = [];
+    cp.on("message", function(data) {
+      messages.push(data);
+    });
+    setTimeout(async () => {
+      const socket = socketClient.connect("http://localhost:9000");
+      await orm.emit(`${TRANSPORT_LAYER_TAG}:registerMasterSocket`, socket);
+      const result = await testModel
+        .create({
+          clientMasterTest: true
+        })
+        .commit("tagA");
+      setTimeout(async () => {
+        const data = await testModel.find({});
+        expect(stringify(data)).toMatchInlineSnapshot(`
+          Array [
+            Object {
+              "_id": "ObjectID",
+              "clientMasterTest": true,
+              "fake": true,
+            },
+          ]
         `);
         done();
-      }, 2000);
+      });
     }, 1000);
   });
 });

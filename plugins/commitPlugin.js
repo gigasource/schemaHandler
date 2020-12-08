@@ -106,7 +106,7 @@ module.exports = function (orm) {
 
   orm.on(`${TAG}:createCommit`, async function (commit) {
     if (!commit.id) {
-      commit.id = await orm.emit(`${TAG}:getHighestCommitId`)
+      commit.id = (await orm.emit(`${TAG}:getHighestCommitId`)).value
     }
     await orm.getCollection('Commit').create(commit).direct()
     await orm.emit(`${TRANSPORT_LAYER_TAG}:emitToAll`, commit)

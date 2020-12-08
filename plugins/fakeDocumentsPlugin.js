@@ -30,7 +30,10 @@ module.exports = function (orm) {
     lock.release()
   })
   orm.on(`${TAG}:recover`, async function (collectionName, parseCondition, cb) {
-    if (orm.mode !== 'single') return
+    if (orm.mode !== 'single') {
+      if (cb) await cb()
+      return
+    }
     await lock.acquireAsync()
     const collection = orm.getCollection(collectionName)
     const recoveryCondition = Object.assign({...parseCondition}, { collectionName })
