@@ -40,6 +40,7 @@ describe("commit-sync", function() {
     ormA.on('commit:auto-assign', (commit, query, target) => {
       commit.dbName = 'myproject-m1'
     });
+
     ormA.on('commit:sync:args', args => {
       args.push('myproject-m1');
     })
