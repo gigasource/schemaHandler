@@ -40,7 +40,10 @@ const syncPlugin = function (orm, role) {
       let _chain = [...query.chain];
       const {args} = last;
       const commit = {
-        collectionName: query.name,
+        collectionName: query.name.split('@')[0],
+        ...query.name.split('@')[1] && {
+          dbName: query.name.split('@')[1]
+        },
         uuid: uuid(),
         tags: args.filter(arg => typeof arg === "string"),
         data: _.assign({}, ...args.filter(arg => typeof arg === "object")),
