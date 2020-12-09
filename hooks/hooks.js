@@ -1,5 +1,6 @@
 const EE = require('events');
 const _ = require('lodash');
+let AwaitLock;
 
 class Hooks extends EE {
   getPreHandler(event) {
@@ -24,16 +25,65 @@ class Hooks extends EE {
 
   once(event, listener) {
     const _this = this;
-    function _listener () {
+
+    function _listener() {
       _this.removeListener(event, _listener);
       return listener.bind(this)(...arguments);
+    }
+
+    this.on(event, _listener);
+  }
+
+  locks = {}
+
+  getLock(channel) {
+    if (this.locks) {
+      return this.locks[channel];
+    }
+  }
+
+  onQueue(event, channel, listener) {
+    if (!AwaitLock) AwaitLock = require('await-lock').default; //lazy
+
+    [channel, listener] = !listener ? [event, channel] : [channel, listener];
+    const lock = this.locks[channel] = this.locks[channel] || new AwaitLock();
+    const _listener = async function () {
+      await lock.acquireAsync();
+      const result = await listener.bind(this)(...arguments);
+      lock.release()
+      return result;
     }
     this.on(event, _listener);
   }
 
-  on(event, listener) {
+  layers = {}
+
+  sortLayer(event) {
+    const map = this.layers[event] = this.layers[event] || new Map();
+    let events = _.get(this._events, event);
+    if (Array.isArray(events)) {
+      events = _.sortBy(events, [e => map.get(e) || 0]);
+      _.set(this._events, event, events);
+    }
+  }
+
+  on(event, layer, listener) {
+    if (arguments.length === 2) [layer, listener] = [0, layer];
+    const map = this.layers[event] = this.layers[event] || new Map();
+    map.set(listener, layer);
     if (isArrowFn(listener)) throw new Error(`don't use arrow function here because of scope`);
-    super.on(...arguments);
+    super.on(event, listener);
+    this.sortLayer(event);
+  }
+
+  off() {
+    this.removeListener(...arguments);
+  }
+
+  removeListener(event, listener) {
+    const map = this.layers[event] = this.layers[event] || new Map();
+    map.delete(listener);
+    super.removeListener(...arguments);
   }
 
   emitPrepare(channel, event, ...args) {
@@ -104,8 +154,13 @@ class Hooks extends EE {
       const p = Reflect.apply(handler, _this, args);
       if (p instanceof Promise) promises.push(p);
     } else {
+      _this.stop = function () {
+        _this._stop = true;
+      }
+
       for (let i = 0; i < handler.length; i += 1) {
         const p = Reflect.apply(handler[i], _this, args);
+        if (_this._stop) break;
         if (p instanceof Promise) promises.push(p);
       }
     }

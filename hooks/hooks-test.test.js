@@ -1,6 +1,7 @@
 const EE = require("./hooks");
 let hooks;
 let log;
+const delay = require("delay");
 
 describe("test hooks", function() {
   beforeEach(function() {
@@ -118,5 +119,137 @@ describe("test hooks", function() {
         "default",
       ]
     `);
+  });
+
+  it("test onQueue", async function(done) {
+    const arr = [];
+
+    hooks.on("test", async function() {
+      arr.push("a");
+      await delay(2000);
+      arr.push("b");
+    });
+
+    hooks.on("test2", async function() {
+      arr.push("c");
+      await delay(2000);
+      arr.push("d");
+      hooks.emit("done");
+    });
+
+    hooks.emit("test", e => eval(e));
+    hooks.emit("test2", e => eval(e));
+
+    hooks.on("done", () => {
+      expect(arr).toMatchInlineSnapshot(`
+        Array [
+          "a",
+          "c",
+          "b",
+          "d",
+        ]
+      `);
+      done();
+    });
+  });
+
+  it("test onQueue2", async function(done) {
+    const arr = [];
+
+    hooks.onQueue("test", "test", async function() {
+      arr.push("a");
+      await delay(2000);
+      arr.push("b");
+    });
+
+    hooks.onQueue("test2", "test", async function() {
+      arr.push("c");
+      await delay(2000);
+      arr.push("d");
+      hooks.emit("done");
+    });
+
+    hooks.emit("test", e => eval(e));
+    hooks.emit("test2", e => eval(e));
+
+    hooks.on("done", () => {
+      expect(arr).toMatchInlineSnapshot(`
+        Array [
+          "a",
+          "b",
+          "c",
+          "d",
+        ]
+      `);
+      done();
+    });
+  });
+
+  it("serialize design", async function() {
+    let _fn;
+    let _scopes;
+    let __eval;
+    let arr = [];
+    const emitStringify = function(e, cb, scopes, _eval) {
+      const result = ([_fn, _scopes, __eval] = [cb.toString(), scopes, _eval]);
+      for (const _var of scopes) {
+        arr.push(_eval(_var));
+      }
+      return result;
+    };
+
+    function run() {
+      let val = 10;
+      emitStringify(
+        "test",
+        function() {
+          console.log(val);
+        },
+        ["val"],
+        e => eval(e)
+      );
+    }
+
+    run();
+    //const _fn = a.toString();
+    const b = new Function(_scopes, `return (${_fn})()`)(...arr);
+  });
+
+  it("test onLayer", async function() {
+    let arr = [];
+    hooks.on("test", () => {
+      arr.push(0);
+    });
+
+    let cb = () => {
+      arr.push(-1);
+    };
+
+    hooks.on("test", -1, cb);
+
+    hooks.off("test", cb);
+
+    hooks.on("test", -1, cb);
+
+    hooks.emit("test");
+    expect(arr).toMatchInlineSnapshot(`
+      Array [
+        -1,
+        0,
+      ]
+    `);
+  });
+
+  it("test stop", async function() {
+    hooks.on("test", () => {
+      console.log("0");
+    });
+
+    hooks.on("test", -1, function () {
+      console.log("-1");
+      this.stop();
+    });
+
+    hooks.emit("test");
   });
 });

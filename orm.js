@@ -90,8 +90,9 @@ class Orm extends EventEmitter {
   getOptions(collectionName, dbName) {
   }
 
-  plugin(plugin) {
-    plugin(this);
+  plugin(plugin, ...args) {
+    const _this = new Proxy(Orm, proxyHandlerFactory(this));
+    plugin(_this, ...args);
   }
 
   use(module) {
@@ -135,7 +136,26 @@ for (const key of Object.keys(_orm)) {
 //_.extend(orm, _orm);
 const __orm = new Orm()
 __orm.Orm = Orm;
+
 //_.extend(__orm, new EventEmitter());
+
+function proxyHandlerFactory(__orm) {
+  return {
+    apply(target, thisArg, argArray) {
+      if (argArray.length === 0) {
+        return __orm;
+      } else {
+        return __orm.getCollection(...argArray);
+      }
+    },
+    get(target, p, receiver) {
+      return Reflect.get(__orm, p);
+    },
+    set(target, p, value, receiver) {
+      return Reflect.set(__orm, p, value);
+    }
+  }
+}
 
 const _orm = new Proxy(Orm, {
   construct(target, args) {
@@ -143,35 +163,11 @@ const _orm = new Proxy(Orm, {
     const orm2 = new Proxy(function () {
       },
       {
-        apply(target, thisArg, argArray) {
-          if (argArray.length === 0) {
-            return orm;
-          } else {
-            return orm.getCollection(...argArray);
-          }
-        },
-        get(target, p, receiver) {
-          return Reflect.get(orm, p);
-        },
-        set(target, p, value, receiver) {
-          return Reflect.set(orm, p, value);
-        }
+        ...proxyHandlerFactory(orm)
       })
     return orm2;
   },
-  apply(target, thisArg, argArray) {
-    if (argArray.length === 0) {
-      return __orm;
-    } else {
-      return __orm.getCollection(...argArray);
-    }
-  },
-  get(target, p, receiver) {
-    return Reflect.get(__orm, p);
-  },
-  set(target, p, value, receiver) {
-    return Reflect.set(__orm, p, value);
-  }
+  ...proxyHandlerFactory(__orm)
 });
 
 const mquery = require('mquery');
@@ -249,6 +245,7 @@ function factory(orm) {
 }
 
 function execChain(query) {
+  if (query.chain.length === 0) return;
   let cursor = this.createCollectionQuery(query);
   for (const {fn, args} of query.chain) {
     cursor = cursor[fn](...args);

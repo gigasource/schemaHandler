@@ -278,13 +278,17 @@ module.exports = function (orm) {
   orm.on('proxyResultPostProcess', async function ({target, result}, returnResult) {
     let cmd = target.cmd;
     if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
-      await orm.emit(`update:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, result, target);
+      await orm.emit(`update:${target.collectionName}`, result, target);
+      if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}`, result, target);
       const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
-      await orm.emit(`update:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}:${type}`, result, target);
+      await orm.emit(`update:${target.collectionName}:${type}`, result, target);
+      if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}:${type}`, result, target);
     } else if (cmd.includes('find')) {
-      await orm.emit(`find:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, result, target);
+      await orm.emit(`find:${target.collectionName}`, result, target);
+      if (orm.mode === 'multi') await orm.emit(`find:${target.collectionName}@${target.dbName}`, result, target);
     } else {
-      await orm.emit(`delete:${target.collectionName}${orm.mode === 'multi' ? '@' + target.dbName : ''}`, result, target);
+      await orm.emit(`delete:${target.collectionName}`, result, target);
+      if (orm.mode === 'multi') await orm.emit(`delete:${target.collectionName}@${target.dbName}`, result, target);
     }
   })
 

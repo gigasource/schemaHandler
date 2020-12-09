@@ -5,14 +5,23 @@
 * [_] base on event emitter
 * [_] 
 
-* [_] multi layer: on/pre/post
-    * [_] support async 
+* [x] multi layer: on/pre/post
+    * [x] support async
+* [_] multi layer like z-index:
+    * hooks.on('test', layer = 0, listener)
     
 * [_] support persistent : 
     * [_] vd vua khoi dong lai thi tu dong gan callback
     
 * [_] support return, mutate result !
-        
+
+* [_] support multi events ['event1', 'event2']
+
+* [_] support auto completion for emit/on
+* [_] support transparent same flow uuid for cross platform
+
+
+
 vd : 
 callback() {
     console.log(a1) 
