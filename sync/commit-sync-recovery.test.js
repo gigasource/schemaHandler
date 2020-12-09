@@ -1,9 +1,4 @@
-const {
-  checkEqual2,
-  convertSchemaToPaths,
-  findAllPathsInLevelArrHandler2,
-  parseCondition
-} = require("../schemaHandler");
+//<editor-fold desc="declaration">
 const Orm = require("../orm");
 let ormA = new Orm();
 let ormB = new Orm();
@@ -27,6 +22,7 @@ const Queue = require("queue");
 const delay = require("delay");
 const syncPlugin = require("./sync-plugin-multi");
 let toMasterLockA, toMasterLockC;
+//</editor-fold>
 
 describe("commit-sync", function () {
   beforeAll(async () => {
@@ -90,13 +86,10 @@ describe("commit-sync", function () {
       });
     }
 
-    ormA.on('transport:requireSync:callback', () => {
-      hooks.emit('transport:requireSync:callback');
-    });
-
-    ormC.on('transport:requireSync:callback', () => {
-      hooks.emit('transport:requireSync:callback');
-    });
+    ['transport:requireSync:callback', 'transport:toMaster'].forEach(hook => {
+      ormA.on(hook, () => hooks.emit(hook));
+      ormC.on(hook, () => hooks.emit(hook));
+    })
 
     toMasterLockA = ormA.getLock("transport:toMaster");
     toMasterLockC = ormC.getLock("transport:toMaster");
@@ -109,7 +102,14 @@ describe("commit-sync", function () {
       }
     })
 
+    hooks.onCount('transport:toMaster', (count) => {
+      if (count === 3) {
+        done();
+      }
+    })
+
     await toMasterLockA.acquireAsync();
+    await toMasterLockC.acquireAsync();
     const m1 = await ormA('Model').create({table: 10}).commit("create", {
       table: 10
     });
@@ -121,9 +121,7 @@ describe("commit-sync", function () {
       table: 10
     });
 
-    await toMasterLockA.release();
-
-
+    //await toMasterLockA.release();
 
   });
 });
