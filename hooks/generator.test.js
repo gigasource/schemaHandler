@@ -59,7 +59,7 @@ describe("test hooks", function () {
         custom('fake');
         yield () => buildFake();
 
-        custom('toMaster');
+        custom('transport:toMaster');
         yield () => toMaster();
       }
 

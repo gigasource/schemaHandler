@@ -14,6 +14,7 @@
   [x] hooks : support stop
   [x] hooks : hooks.on(event, -5, listener);
 
+* [_] lúc require sync là biết master phải xử lý hết các commit rồi thì mới require sync 
 * [_] socket io || cloud base ??
 
 * [_] case 1: cloud backup :
@@ -94,7 +95,7 @@ function* flow() {
   do1();
   const query = yield orm.on('pre:execChain');
   do2();
-  const result = yield orm.on('toMaster');
+  const result = yield orm.on('transport:toMaster');
 }
 
 ```

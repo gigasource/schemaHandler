@@ -59,7 +59,7 @@ const syncPlugin = function (orm, role) {
         }
         let value;
         if (!isMaster) {
-          const {value: _commit} = await orm.emit('createCommit:master', _.cloneDeep(commit));
+          const {value: _commit} = await orm.emit('createCommit', _.cloneDeep(commit));
           if (_commit.chain !== commit.chain) {
             exec = async () => await orm.execChain(getQuery(commit))
           }
@@ -73,7 +73,7 @@ const syncPlugin = function (orm, role) {
             lock.release();
           });
         }
-        orm.emit("toMaster", commit, _query);
+        orm.emit("transport:toMaster", commit, _query);
         if (isMaster) {
           await lock.acquireAsync();
         }
@@ -175,9 +175,9 @@ const syncPlugin = function (orm, role) {
   })
 
   //should transparent
-  orm.on(`commit:requireSync`, async function () {
+  orm.on(`transport:sync`, async function () {
     const {value: highestId} = await orm.emit('getHighestCommitId');
-    orm.emit('commit:sync', highestId);
+    orm.emit('transport:require-sync', highestId);
   });
   orm.on('getHighestCommitId', async function (dbName) {
     const {id: highestCommitId} = await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0};
@@ -185,7 +185,7 @@ const syncPlugin = function (orm, role) {
   })
 
   //should transparent
-  orm.on('commit:sync:callback', async function (commits) {
+  orm.on('transport:requireSync:callback', async function (commits) {
     for (const commit of commits) {
       //replace behaviour here
       try {
@@ -206,7 +206,7 @@ const syncPlugin = function (orm, role) {
   })
 
   //customize
-  orm.onDefault('createCommit:master', async function (commit) {
+  orm.onDefault('createCommit', async function (commit) {
     let {value: highestId} = await orm.emit('getHighestCommitId', commit.dbName);
     highestId++;
     commit.approved = true;
@@ -227,7 +227,7 @@ const syncPlugin = function (orm, role) {
       if (commit.fromMaster) {
         orm.emit(`commit:result:master:${commit.uuid}`, result);
       }
-      await orm.emit('master:commit:requireSync');
+      await orm.emit('master:transport:sync');
     })
 
     orm.on('commit:sync:master', async function (clientHighestId, dbName) {
@@ -237,45 +237,45 @@ const syncPlugin = function (orm, role) {
 
   //todo: layer transport implement
   orm.on('initSyncForClient', clientSocket => {
-    orm.onQueue('toMaster', async commit => {
+    orm.onQueue('transport:toMaster', async commit => {
       clientSocket.emit('commitRequest', commit)
     })
 
-    clientSocket.on('commit:requireSync', async () => {
-      orm.emit('commit:requireSync');
+    clientSocket.on('transport:sync', async () => {
+      orm.emit('transport:sync');
     })
 
-    orm.on('commit:sync', (highestId) => {
+    orm.on('transport:require-sync', (highestId) => {
       const args = [highestId];
       orm.emit('commit:sync:args', args);
-      clientSocket.emit('commit:sync', args, async (commits) => {
-        await orm.emit('commit:sync:callback', commits)
+      clientSocket.emit('transport:require-sync', args, async (commits) => {
+        await orm.emit('transport:requireSync:callback', commits)
       })
     })
   })
 
   orm.on('initSyncForMaster', masterIo => {
     masterIo.on('commitRequest', async (commit) => {
-      await orm.emit('createCommit:master', commit);
+      await orm.emit('createCommit', commit);
     });
 
-    orm.on('master:commit:requireSync', () => {
-      masterIo.emit(`commit:requireSync`);
+    orm.on('master:transport:sync', () => {
+      masterIo.emit(`transport:sync`);
     });
 
-    masterIo.on('commit:sync', async function ([clientHighestId = 0, dbName], cb) {
+    masterIo.on('transport:require-sync', async function ([clientHighestId = 0, dbName], cb) {
       const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
       cb(commits);
     })
 
-    orm.on('toMaster', async commit => {
+    orm.on('transport:toMaster', async commit => {
       commit.fromMaster = true;
-      await orm.emit('createCommit:master', commit);
+      await orm.emit('createCommit', commit);
     });
   })
 
   orm.on('initSyncForCloud', cloudIo => {
-    cloudIo.on('commit:requireSync', highestId => {
+    cloudIo.on('transport:sync', highestId => {
     })
   })
 

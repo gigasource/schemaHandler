@@ -54,7 +54,7 @@ describe("commit-sync", function () {
         }
       });
 
-      orm.onQueue("createCommit:master", async function (commit) {
+      orm.onQueue("createCommit", async function (commit) {
         const {chain} = orm.getQuery(commit);
         const isMaster = orm.isMaster();
         if (commit.tags.includes("create")) {
@@ -74,30 +74,30 @@ describe("commit-sync", function () {
             return;
           }
         }
-        const result = await orm.emitDefault("createCommit:master", commit);
+        const result = await orm.emitDefault("createCommit", commit);
         this.value = result['value'];
       });
     }
 
     let called = 0;
-    orm.on("commit:sync:callback", () => {
+    orm.on("transport:requireSync:callback", () => {
       called++;
-      orm.emit(`commit:sync:callback:${called}`);
+      orm.emit(`transport:requireSync:callback:${called}`);
     });
 
-    toMasterLock = orm.getLock("toMaster");
+    toMasterLock = orm.getLock("transport:toMaster");
   });
 
   it("case basic client create no master", async function (done) {
     //toMasterLock.acquireAsync();
-    orm.on("commit:sync:callback:2", done);
+    orm.on("transport:requireSync:callback:2", done);
     const m1 = await Model.create({table: 10});
     const m2 = await Model.create({table: 11});
   }, 20000);
 
   it("case update one", async function (done) {
     //toMasterLock.acquireAsync();
-    orm.on("commit:sync:callback:2", done);
+    orm.on("transport:requireSync:callback:2", done);
     const m1 = await Model.create({table: 10});
     const m2 = await Model.findOneAndUpdate({table: 10}, {status: 'paid'}).commit({table: 10});
   }, 20000);

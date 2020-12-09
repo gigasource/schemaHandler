@@ -51,7 +51,7 @@ describe("commit-sync", function() {
         }
       });
 
-      orm.onQueue("createCommit:master", async function(commit) {
+      orm.onQueue("createCommit", async function(commit) {
         const {chain} = orm.getQuery(commit);
         const isMaster = orm.isMaster();
         if (commit.tags.includes("create")) {
@@ -71,18 +71,18 @@ describe("commit-sync", function() {
             return;
           }
         }
-        const result = await orm.emitDefault("createCommit:master", commit);
+        const result = await orm.emitDefault("createCommit", commit);
         this.value = result['value'];
       });
     }
 
     let called = 0;
-    orm.on("commit:sync:callback", () => {
+    orm.on("transport:requireSync:callback", () => {
       called++;
-      orm.emit(`commit:sync:callback:${called}`);
+      orm.emit(`transport:requireSync:callback:${called}`);
     });
 
-    toMasterLock = orm.getLock("toMaster");
+    toMasterLock = orm.getLock("transport:toMaster");
   });
 
   it("order resolve conflict: can not create table", async function(done) {
@@ -98,7 +98,7 @@ describe("commit-sync", function() {
   it("case only master", async function(done) {
     const Model = ormB("Model");
 
-    orm.on("commit:sync:callback:2", async () => {
+    orm.on("transport:requireSync:callback:2", async () => {
       const models = await Model.find({});
       expect(stringify(models)).toMatchSnapshot();
       done();

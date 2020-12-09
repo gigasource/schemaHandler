@@ -69,7 +69,7 @@ describe("commit-sync", function () {
     //cần once : -> ko bị leak memory
     orm.onDefault("commit:Model", async function (commit, query) {
       await orm.emit("commit:build-fake:Model", commit, query);
-      await orm.emit("toMaster", commit, query);
+      await orm.emit("transport:toMaster", commit, query);
     });
 
     //should persistent
@@ -87,7 +87,7 @@ describe("commit-sync", function () {
       await Model.remove({_id: {$in: fakeIds}});
     });
 
-    orm.onDefault("toMaster", async function (commit, query) {
+    orm.onDefault("transport:toMaster", async function (commit, query) {
       expect(stringify(commit)).toMatchInlineSnapshot(`
         Object {
           "approved": false,

@@ -51,7 +51,7 @@ async function init() {
         }
         let value;
         await orm.emit('commit:build-fake', _query, target, exec, commit, e => eval(e));
-        await orm.emit("toMaster", commit, _query);
+        await orm.emit("transport:toMaster", commit, _query);
         this.value = value;
       });
       //test behavior if not create model
@@ -155,7 +155,7 @@ async function init() {
     this.value = highestCommitId;
   })
   //should transparent
-  orm.on('commit:sync:callback', async function (commits) {
+  orm.on('transport:requireSync:callback', async function (commits) {
     for (const commit of commits) {
       //replace behaviour here
       try {
@@ -177,7 +177,7 @@ async function init() {
   })
 
   //use only for master
-  orm.onDefault('createCommit:master', async function (commit) {
+  orm.onDefault('createCommit', async function (commit) {
     let {value: highestId} = await orm.emit('getHighestCommitId', 'CommitMaster');
     highestId++;
     commit.approved = true;
@@ -199,7 +199,7 @@ async function init() {
 
   if (process.env.NODE_ENV === 'test') {
     let called = 0;
-    orm.on('commit:sync:callback', async function (commits) {
+    orm.on('transport:requireSync:callback', async function (commits) {
       called++;
       if (called === 2) {
         orm.emit('done');
@@ -210,7 +210,7 @@ async function init() {
   //todo: layer transport implement
 
   orm.on('initSyncForClient', clientSocket => {
-    orm.on('toMaster', async commit => clientSocket.emit('commitRequest', commit))
+    orm.on('transport:toMaster', async commit => clientSocket.emit('commitRequest', commit))
 
     clientSocket.on('commit:requireSync', async () => {
       orm.emit('commit:requireSync');
@@ -218,14 +218,14 @@ async function init() {
 
     orm.on('commit:sync', (highestId) => {
       clientSocket.emit('commit:sync', highestId, async (commits) => {
-        await orm.emit('commit:sync:callback', commits)
+        await orm.emit('transport:requireSync:callback', commits)
       })
     })
   })
 
   orm.on('initSyncForMaster', masterIo => {
     masterIo.on('commitRequest', async (commit) => {
-      await orm.emit('createCommit:master', commit);
+      await orm.emit('createCommit', commit);
       //masterIo.emit(`commit:requireSync`);
       //cloudSocket.emit('commit:requireSync', 100);
     });
@@ -319,7 +319,7 @@ describe("commit-sync", function () {
 
   it("order resolve conflict: can not create table", async function (done) {
     orm.emit('initSyncForMaster', masterIo);
-    orm.on('createCommit:master', async function (commit) {
+    orm.on('createCommit', async function (commit) {
       if (commit.tags.includes('create')) {
         const activeOrder = await orm(`${commit.collectionName}Master`).findOne({table: commit.data.table});
         if (activeOrder) {
@@ -332,7 +332,7 @@ describe("commit-sync", function () {
           return;
         }
       }
-      await orm.emitDefault('createCommit:master', commit);
+      await orm.emitDefault('createCommit', commit);
     });
     //problems : prevent Model.create({table: 10})
     const m1 = await Model.create({table: 10}).commit('create', {table: 10});
