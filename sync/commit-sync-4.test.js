@@ -56,7 +56,6 @@ describe("commit-sync", function() {
 
       orm.onQueue("createCommit:master", async function(commit) {
         const {chain} = orm.getQuery(commit);
-        const isMaster = orm.isMaster();
         if (commit.tags.includes("create")) {
           const activeOrder = await orm(commit.collectionName, commit.dbName).findOne({
             table: commit.data.table

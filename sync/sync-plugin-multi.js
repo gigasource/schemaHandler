@@ -1,17 +1,11 @@
 const _ = require('lodash');
 const uuid = require('uuid').v1;
 let AwaitLock = require('await-lock').default;
-const Orm = require('../orm');
-
-function setupMulti(orm) {
-}
 
 const syncPlugin = function (orm, role) {
   const isMaster = role === 'master';
   orm.isMaster = () => isMaster;
   const whitelist = []
-
-  setupMulti(orm);
 
   orm.registerCommitBaseCollection = function () {
     whitelist.push(...arguments);
