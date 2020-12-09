@@ -2,8 +2,8 @@ const Orm = require("../orm");
 let ormA = new Orm();
 let ormB = new Orm();
 const orm = ormA;
-const { ObjectID } = require("bson");
-const { stringify } = require("../utils");
+const {ObjectID} = require("bson");
+const {stringify} = require("../utils");
 const _ = require("lodash");
 let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model, schema;
@@ -18,10 +18,10 @@ const delay = require("delay");
 const syncPlugin = require("./sync-plugin-multi");
 let toMasterLock;
 
-describe("commit-sync", function() {
+describe("commit-sync", function () {
   beforeAll(async () => {
-    ormA.connect({ uri: "mongodb://localhost:27017" }, "myproject");
-    ormB.connect({ uri: "mongodb://localhost:27017" }, "myproject2");
+    ormA.connect({uri: "mongodb://localhost:27017"}, "myproject");
+    ormB.connect({uri: "mongodb://localhost:27017"}, "myproject2");
     ormB.setMultiDbMode();
 
     ormA.plugin(syncPlugin, "client");
@@ -47,15 +47,16 @@ describe("commit-sync", function() {
 
     for (const orm of [ormA, ormB]) {
       orm.registerCommitBaseCollection('Model');
-      orm.on(`commit:auto-assign:Model`,( commit, query, target) => {
+      orm.on(`commit:auto-assign:Model`, (commit, query, target) => {
         if (target.cmd === 'create') {
           commit.data.table = _.get(query, "chain[0].args[0].table")
           commit.tags.push('create')
         }
       });
 
-      orm.onQueue("createCommit:master", async function(commit) {
+      orm.onQueue("createCommit:master", async function (commit) {
         const {chain} = orm.getQuery(commit);
+        const isMaster = orm.isMaster();
         if (commit.tags.includes("create")) {
           const activeOrder = await orm(commit.collectionName, commit.dbName).findOne({
             table: commit.data.table
@@ -87,11 +88,18 @@ describe("commit-sync", function() {
     toMasterLock = orm.getLock("toMaster");
   });
 
-  it("case basic client create no master", async function(done) {
+  it("case basic client create no master", async function (done) {
     //toMasterLock.acquireAsync();
     orm.on("commit:sync:callback:2", done);
-    const m1 = await Model.create({ table: 10 });
-    const m2 = await Model.create({ table: 11 });
+    const m1 = await Model.create({table: 10});
+    const m2 = await Model.create({table: 11});
+  }, 20000);
+
+  it("case update one", async function (done) {
+    //toMasterLock.acquireAsync();
+    orm.on("commit:sync:callback:2", done);
+    const m1 = await Model.create({table: 10});
+    const m2 = await Model.findOneAndUpdate({table: 10}, {status: 'paid'}).commit({table: 10});
   }, 20000);
 
 

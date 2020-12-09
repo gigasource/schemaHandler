@@ -17,7 +17,7 @@ const syncPlugin = function (orm, role) {
       query.chain.pop();
       this.stop();
     } else {
-      if (whitelist.includes(query.name)) {
+      if (whitelist.includes(query.name) && !query.chain.find(c => c.fn === 'commit')) {
         const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete']
         let mutateCmd = false;
         query.chain.forEach(({fn}) => {
@@ -52,9 +52,9 @@ const syncPlugin = function (orm, role) {
       };
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
+        orm.emit(`commit:auto-assign`, commit, _query, target);
+        orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
         if (_.get(_query, "chain[0].args[0]._id")) {
-          orm.emit(`commit:auto-assign`, commit, _query, target);
-          orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
           commit.data.docId = _.get(_query, "chain[0].args[0]._id");
         }
         let value;
