@@ -3,7 +3,7 @@ const Hooks = require('../hooks/hooks');
 
 const hooks = new Hooks();
 
-class Socket extends EE {
+class Socket extends Hooks {
   hooks = hooks
   connect(address) {
     this.address = address;
@@ -45,7 +45,9 @@ class Io extends Socket {
     hooks.on(`connect:${address}`, function (socket) {
       const mapValue = {}
       _this.sockets.set(socket, mapValue);
-      const cb = () => socket.emit(...arguments)
+      const cb = function () {
+        return socket.emit(...arguments);
+      }
       hooks.on(`emit:${address}`, cb);
       mapValue.off = function () {
         hooks.off(`emit:${address}`, cb);

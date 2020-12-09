@@ -1,0 +1,129 @@
+const {
+  checkEqual2,
+  convertSchemaToPaths,
+  findAllPathsInLevelArrHandler2,
+  parseCondition
+} = require("../schemaHandler");
+const Orm = require("../orm");
+let ormA = new Orm();
+let ormB = new Orm();
+let ormC = new Orm();
+const orm = ormA;
+const {ObjectID} = require("bson");
+const {stringify} = require("../utils");
+const _ = require("lodash");
+let id = () => "5fb7f13453d00d8aace1d89b";
+let paths, Model, model, schema;
+const uuid = require("uuid").v1;
+const {Socket, Io} = require("../io/io");
+const masterIo = new Io();
+masterIo.listen('local');
+const s1 = new Socket();
+const s2 = new Socket();
+const Hooks = require('../hooks/hooks')
+const hooks = new Hooks();
+
+const Queue = require("queue");
+const delay = require("delay");
+const syncPlugin = require("./sync-plugin-multi");
+let toMasterLockA, toMasterLockC;
+
+describe("commit-sync", function () {
+  beforeAll(async () => {
+    ormA.connect({uri: "mongodb://localhost:27017"}, "myproject");
+    ormB.connect({uri: "mongodb://localhost:27017"}, "myproject2");
+    ormC.connect({uri: "mongodb://localhost:27017"}, "myproject3");
+
+    ormA.plugin(syncPlugin, "client");
+    ormA.emit("initSyncForClient", s1);
+
+    ormB.plugin(syncPlugin, "master");
+    ormB.emit("initSyncForMaster", masterIo);
+
+    ormC.plugin(syncPlugin, 'client');
+    ormC.emit("initSyncForClient", s2);
+
+    s1.connect('local');
+    s2.connect('local');
+
+    Model = ormA("Model");
+    await ormA("Model").remove({});
+    await ormA("Commit").remove({});
+    await ormA("Recovery").remove({});
+    await ormC("Model").remove({});
+    await ormC("Commit").remove({});
+    await ormC("Recovery").remove({});
+    await ormB("Model").remove({});
+    await ormB("Commit").remove({});
+
+    for (const orm of [ormA, ormB, ormC]) {
+      orm.registerCommitBaseCollection("Model");
+      orm.on(`commit:auto-assign:Model`, (commit, _query, target) => {
+        if (target.cmd === "create") {
+          commit.data.table = _.get(_query, "chain[0].args[0].table");
+          commit.tags.push("create");
+        }
+      });
+
+      orm.onQueue("createCommit", async function (commit) {
+        const {chain} = orm.getQuery(commit);
+        const isMaster = orm.isMaster();
+        if (commit.tags.includes("create")) {
+          const activeOrder = await orm(`${commit.collectionName}`).findOne({
+            table: commit.data.table
+          });
+          if (activeOrder) {
+            //create doNothing Commit here
+            commit.id = (await orm.emit("getHighestCommitId")).value + 1;
+            commit.approved = false;
+            delete commit.chain;
+
+            this.value = commit;
+            if (orm.isMaster()) {
+              this.value = await orm(`Commit`).create(commit);
+            }
+            return;
+          }
+        }
+        const result = await orm.emitDefault("createCommit", commit);
+        this.value = result["value"];
+      });
+    }
+
+    ormA.on('transport:requireSync:callback', () => {
+      hooks.emit('transport:requireSync:callback');
+    });
+
+    ormC.on('transport:requireSync:callback', () => {
+      hooks.emit('transport:requireSync:callback');
+    });
+
+    toMasterLockA = ormA.getLock("transport:toMaster");
+    toMasterLockC = ormC.getLock("transport:toMaster");
+  });
+
+  it("case 1", async function (done) {
+    hooks.onCount('transport:requireSync:callback', (count) => {
+      if (count === 3) {
+        done();
+      }
+    })
+
+    await toMasterLockA.acquireAsync();
+    const m1 = await ormA('Model').create({table: 10}).commit("create", {
+      table: 10
+    });
+    const m2 = await ormA('Model').create({table: 10}).commit("create", {
+      table: 10
+    });
+
+    const m3 = await ormC('Model').create({table: 10}).commit("create", {
+      table: 10
+    });
+
+    await toMasterLockA.release();
+
+
+
+  });
+});

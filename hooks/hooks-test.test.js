@@ -252,4 +252,14 @@ describe("test hooks", function() {
 
     hooks.emit("test");
   });
+
+  it("test onCount", async function(done) {
+    hooks.onCount("test", (count, arg) => {
+      if (count === 2) done();
+    });
+
+    hooks.emit("test", 10);
+    hooks.emit("test", 11);
+
+  });
 });

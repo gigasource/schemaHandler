@@ -67,6 +67,17 @@ class Hooks extends EE {
     }
   }
 
+  onCount(event, layer, listener) {
+    if (arguments.length === 2) [layer, listener] = [0, layer];
+    let called = 0;
+    const _listener = async function () {
+      called++;
+      const result = await listener.bind(this)(called, ...arguments)
+      return result;
+    }
+    this.on(event, layer, _listener)
+  }
+
   on(event, layer, listener) {
     if (arguments.length === 2) [layer, listener] = [0, layer];
     const map = this.layers[event] = this.layers[event] || new Map();
@@ -125,14 +136,14 @@ class Hooks extends EE {
   }
 
   emitDefault(event, ...args) {
-    return this._emit('default', event, ...args);
+    return this.__emit('default', event, ...args);
   }
 
   emit(event, ...args) {
-    return this._emit('all', event, ...args);
+    return this.__emit('all', event, ...args);
   }
 
-  _emit(channel = 'all', event, ...args) {
+  __emit(channel = 'all', event, ...args) {
     const handler = this.emitPrepare(...arguments);
 
     if (_.isEmpty(handler) && !_.isFunction(handler)) {

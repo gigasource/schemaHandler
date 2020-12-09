@@ -255,23 +255,25 @@ const syncPlugin = function (orm, role) {
   })
 
   orm.on('initSyncForMaster', masterIo => {
-    masterIo.on('commitRequest', async (commit) => {
-      await orm.emit('createCommit', commit);
-    });
-
     orm.on('master:transport:sync', () => {
       masterIo.emit(`transport:sync`);
     });
 
-    masterIo.on('transport:require-sync', async function ([clientHighestId = 0, dbName], cb) {
-      const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
-      cb(commits);
-    })
+    masterIo.on('connect', socket => {
+      socket.on('commitRequest', async (commit) => {
+        await orm.emit('createCommit', commit);
+      });
 
-    orm.on('transport:toMaster', async commit => {
-      commit.fromMaster = true;
-      await orm.emit('createCommit', commit);
-    });
+      socket.on('transport:require-sync', async function ([clientHighestId = 0, dbName], cb) {
+        const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
+        cb(commits);
+      })
+
+      orm.on('transport:toMaster', async commit => {
+        commit.fromMaster = true;
+        await orm.emit('createCommit', commit);
+      });
+    })
   })
 
   orm.on('initSyncForCloud', cloudIo => {

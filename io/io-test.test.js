@@ -1,6 +1,7 @@
 const { Socket, Io } = require("./io");
 const io = new Io();
 const s1 = new Socket();
+const s2 = new Socket();
 
 function init() {}
 
@@ -33,7 +34,7 @@ describe("test io", function() {
     s1.connect("local");
   });
 
-  it("case3", function(done) {
+  it("case3: io emit", function(done) {
     io.listen("local");
     io.on("connect", socket => {
       s1.on("test", arg => {
@@ -78,6 +79,26 @@ describe("test io", function() {
       s1.emit("test", 10);
     });
     s1.connect("local?clientId=s1");
+  });
+
+  it("case7: two client", function(done) {
+    io.listen("local");
+    io.onCount("connect", (count, socket) => {
+      socket.on("test", arg => {
+        console.log(arg);
+        if (count === 2) done();
+      });
+    });
+
+    io.onCount("connect", (count, socket) => {
+      if (count === 2) {
+        s1.emit("test", 10);
+        s2.emit("test", 11);
+      }
+    });
+
+    s1.connect("local");
+    s2.connect("local");
   });
 
 
