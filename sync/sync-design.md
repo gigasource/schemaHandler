@@ -29,12 +29,8 @@
     * [_] cloud back up is like one client not more
 
 * [_] flow: sync -> use for simulate
-* [_] socket io simulate
-    * [_] emit/on layer
-    * [_] connect
-    * [_] disconnect
-    * [_] emitTo() / on()
-    * [_] addable logic over hooks system
+
+
 
 ```javascript
 

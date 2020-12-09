@@ -1,26 +1,31 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`commit-sync case basic client create no master 1`] = `
+exports[`commit-sync case create + findOneAndUpdate 1`] = `
 Array [
   Object {
     "_fake": true,
     "_id": "ObjectID",
+    "status": "paid",
     "table": 10,
   },
 ]
 `;
 
-exports[`commit-sync case basic client create no master 2`] = `
+exports[`commit-sync case create + findOneAndUpdate 2`] = `
 Array [
   Object {
     "_id": "ObjectID",
     "collectionName": "Model",
+    "doc": Object {
+      "_fake": true,
+      "_id": "ObjectID",
+      "table": 10,
+    },
+    "type": "create",
     "uuid": "uuid-v1",
   },
 ]
 `;
-
-exports[`commit-sync case basic client create no master 3`] = `Array []`;
 
 exports[`commit-sync case only master 1`] = `
 Array [

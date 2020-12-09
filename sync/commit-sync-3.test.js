@@ -21,7 +21,7 @@ const cloudIo = new Socket();
 const cloudSocket = cloudIo.socketClient;
 const Queue = require("queue");
 const delay = require("delay");
-const syncPlugin = require("./sync-plugin");
+const syncPlugin = require("./sync-plugin-multi");
 let toMasterLock;
 
 describe("commit-sync", function() {
@@ -43,16 +43,16 @@ describe("commit-sync", function() {
     await ormB("Commit").remove({});
 
     for (const orm of [ormA, ormB]) {
-      orm.registerCommitBaseCollection('Model');
-      orm.on(`commit:auto-assign:Model`,( commit, _query, target) => {
-        if (target.cmd === 'create') {
-          commit.data.table = _.get(_query, "chain[0].args[0].table")
-          commit.tags.push('create')
+      orm.registerCommitBaseCollection("Model");
+      orm.on(`commit:auto-assign:Model`, (commit, _query, target) => {
+        if (target.cmd === "create") {
+          commit.data.table = _.get(_query, "chain[0].args[0].table");
+          commit.tags.push("create");
         }
       });
 
       orm.onQueue("createCommit", async function(commit) {
-        const {chain} = orm.getQuery(commit);
+        const { chain } = orm.getQuery(commit);
         const isMaster = orm.isMaster();
         if (commit.tags.includes("create")) {
           const activeOrder = await orm(`${commit.collectionName}`).findOne({
@@ -72,7 +72,7 @@ describe("commit-sync", function() {
           }
         }
         const result = await orm.emitDefault("createCommit", commit);
-        this.value = result['value'];
+        this.value = result["value"];
       });
     }
 
@@ -129,6 +129,12 @@ describe("commit-sync", function() {
         Object {
           "_id": "ObjectID",
           "collectionName": "Model",
+          "doc": Object {
+            "_fake": true,
+            "_id": "ObjectID",
+            "table": 10,
+          },
+          "type": "create",
           "uuid": "uuid-v1",
         },
       ]
@@ -155,11 +161,12 @@ describe("commit-sync", function() {
           "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"table\\":10}]}]",
           "collectionName": "Model",
           "data": Object {
-            "docId": "5fcdba6b26f1fe37ef2da6a2",
+            "docId": "5fd0963fc630898689265c9c",
             "table": 10,
           },
           "id": 1,
           "tags": Array [
+            "create",
             "create",
           ],
           "uuid": "uuid-v1",
@@ -168,13 +175,13 @@ describe("commit-sync", function() {
     `);
   });
 
-  it("case basic client create no master", async function() {
+  it("case create + findOneAndUpdate", async function() {
     toMasterLock.acquireAsync();
     const m1 = await Model.create({ table: 10 }).commit("create", {
       table: 10
     });
 
-    const m1a = await Model.findOneAndUpdate({table: 10}, {status: 'paid'});
+    const m1a = await Model.findOneAndUpdate({ table: 10 }, { status: "paid" });
     await delay(50);
     expect(stringify(await Model.find())).toMatchSnapshot();
     expect(stringify(await orm("Recovery").find())).toMatchSnapshot();
@@ -189,9 +196,7 @@ describe("commit-sync", function() {
         },
       ]
     `);
-    expect(stringify(await orm("Recovery").find())).toMatchSnapshot(
-      `Array []`
-    );
+    expect(stringify(await orm("Recovery").find())).toMatchSnapshot(`Array []`);
     expect(stringify(await orm("Commit").find())).toMatchSnapshot(`
       Array [
         Object {
