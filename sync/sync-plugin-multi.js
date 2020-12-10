@@ -47,13 +47,15 @@ const syncPlugin = function (orm, role) {
         uuid: uuid(),
         tags: args.filter(arg => typeof arg === "string"),
         data: _.assign({}, ...args.filter(arg => typeof arg === "object")),
-        chain: JSON.stringify(_chain),
+        //chain: JSON.stringify(_chain),
         approved: false
       };
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
+        commit.condition = target.condition;
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
+        commit.chain = JSON.stringify(_query.chain);
         if (_.get(_query, "chain[0].args[0]._id")) {
           commit.data.docId = _.get(_query, "chain[0].args[0]._id");
         }
@@ -130,7 +132,14 @@ const syncPlugin = function (orm, role) {
             doc,
             ..._uuid
           });
-        }
+        }/* else {
+          const _recovery = await orm('Recovery').findOne({'doc._id': doc._id});
+          await orm('Recovery').create({
+            collectionName: query.name,
+            doc: _recovery.doc,
+            ..._uuid
+          });
+        }*/
         let value = await exec();
         if (value) {
           value = await orm(query.name).updateOne(target.condition, {$set: {_fake: true}}).direct();
@@ -148,7 +157,14 @@ const syncPlugin = function (orm, role) {
               ..._uuid
             });
             jobs.push(async () => await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}}).direct())
-          }
+          }/* else {
+            const _recovery = await orm('Recovery').findOne({'doc._id': doc._id});
+            await orm('Recovery').create({
+              collectionName: query.name,
+              doc: _recovery.doc,
+              ..._uuid
+            });
+          }*/
         }
         let value = await exec();
         for (const job of jobs) await job();
@@ -160,17 +176,23 @@ const syncPlugin = function (orm, role) {
     });
 
     orm.onQueue("commit:remove-fake", 'fake-channel', async function (commit) {
+      //if (orm.name !== 'A') return;
       console.log('remove-fake');
-      const recoveries = await orm('Recovery').find({uuid: commit.uuid});
+      let recoveries = await orm('Recovery').find({uuid: commit.uuid});
 
+      if (recoveries.length === 0) {
+        const condition = _.mapKeys(commit.condition, (v,k) => `doc.${k}`)
+        recoveries = await orm('Recovery').find(condition);
+      }
       for (const recovery of recoveries) {
+        await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
         if (recovery.type === 'create') {
-          await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
         } else {
           await orm(recovery.collectionName).create(recovery.doc).direct();
         }
+        await orm('Recovery').remove({_id: recovery._id});
       }
-      await orm('Recovery').remove({uuid: commit.uuid});
+
     });
   })
 
@@ -185,7 +207,7 @@ const syncPlugin = function (orm, role) {
   })
 
   //should transparent
-  orm.on('transport:requireSync:callback', async function (commits) {
+  orm.onQueue('transport:requireSync:callback', async function (commits) {
     for (const commit of commits) {
       //replace behaviour here
       try {
@@ -201,8 +223,10 @@ const syncPlugin = function (orm, role) {
 
   //customize
   orm.onQueue('commit:handler', async commit => {
+    console.log('commit:handler');
     await orm.emit('commit:remove-fake', commit);
     await orm.execChain(getQuery(commit));
+    orm.emit('commit:handler:finish');
   })
 
   //customize
@@ -227,7 +251,7 @@ const syncPlugin = function (orm, role) {
       if (commit.fromMaster) {
         orm.emit(`commit:result:master:${commit.uuid}`, result);
       }
-      await orm.emit('master:transport:sync');
+      await orm.emit('master:transport:sync', commit.id);
     })
 
     orm.on('commit:sync:master', async function (clientHighestId, dbName) {
@@ -255,7 +279,7 @@ const syncPlugin = function (orm, role) {
   })
 
   orm.on('initSyncForMaster', masterIo => {
-    orm.on('master:transport:sync', () => {
+    orm.on('master:transport:sync', (id) => {
       masterIo.emit(`transport:sync`);
     });
 

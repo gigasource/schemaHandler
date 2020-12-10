@@ -56,6 +56,27 @@ class Hooks extends EE {
     this.on(event, _listener);
   }
 
+  onQueueCount(event, channel, listener) {
+    if (!AwaitLock) AwaitLock = require('await-lock').default; //lazy
+
+    [channel, listener] = !listener ? [event, channel] : [channel, listener];
+    const lock = this.locks[channel] = this.locks[channel] || new AwaitLock();
+    let called = 0;
+    const _listener = async function () {
+      called++;
+      await lock.acquireAsync();
+      this.keepLock = function () {
+        this._keepLock = true;
+      }
+      const result = await listener.bind(this)(called, ...arguments);
+      if (!this._keepLock) {
+        lock.release()
+      }
+      return result;
+    }
+    this.on(event, _listener);
+  }
+
   layers = {}
 
   sortLayer(event) {

@@ -26,6 +26,7 @@ module.exports = {
     '<rootDir>/node_modules',
     '<rootDir>/flow-test',
     '<rootDir>/test',
+    '<rootDir>/sync',
   ],
   //snapshotSerializers: ["jest-serializer-html"],
   slowTestThreshold: 20

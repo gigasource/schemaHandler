@@ -245,7 +245,7 @@ describe("test hooks", function() {
       console.log("0");
     });
 
-    hooks.on("test", -1, function () {
+    hooks.on("test", -1, function() {
       console.log("-1");
       this.stop();
     });
@@ -260,6 +260,29 @@ describe("test hooks", function() {
 
     hooks.emit("test", 10);
     hooks.emit("test", 11);
+  });
 
+  it("test layer", async function() {
+    let arr = [];
+    hooks.on("test", 1, arg => {
+      arr.push("3");
+    });
+
+    hooks.onQueue("test", arg => {
+      arr.push("1");
+    });
+
+    hooks.on("test", arg => {
+      arr.push("2");
+    });
+
+    hooks.emit("test");
+    expect(arr).toMatchInlineSnapshot(`
+      Array [
+        "1",
+        "2",
+        "3",
+      ]
+    `);
   });
 });

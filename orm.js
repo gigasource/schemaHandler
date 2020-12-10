@@ -313,11 +313,17 @@ function createCollectionQuery(query) {
                 for (const {fn, args} of chain) {
                   cursor = cursor[fn](...args);
                 }
+                if (process.env.NODE_ENV === 'test'){
+                  orm.emit('beforeReturnValue', query, target);
+                }
                 return (await orm.resultPostProcess((await cursor), target));
 
               }
               const r = await orm.emit(`proxyPreReturnValue:${query.uuid}`, result, target, exec);
               return resolve(r.value);
+            }
+            if (process.env.NODE_ENV === 'test'){
+              orm.emit('beforeReturnValue', query, target);
             }
             const returnValue = await orm.resultPostProcess(result, target);
             resolve(returnValue);
@@ -334,7 +340,8 @@ function createCollectionQuery(query) {
         try {
           target.cursor = target.cursor[key](...arguments);
         } catch (e) {
-          console.warn(e);
+          console.log('key: ', key);
+          console.warn();
         }
         return proxy;
       }

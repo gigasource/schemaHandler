@@ -44,6 +44,7 @@ describe("test io", function() {
       io.emit("test", 10);
     });
     s1.connect("local");
+    s2.connect("local");
   });
 
   it("case4: disconnect", function(done) {
