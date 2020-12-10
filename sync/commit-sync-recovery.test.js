@@ -39,8 +39,6 @@ describe("commit-sync", function() {
     ormB.plugin(syncPlugin, "master");
     ormB.emit("initSyncForMaster", masterIo);
 
-
-
     s1.connect("local");
     s2.connect("local");
 
@@ -188,4 +186,114 @@ describe("commit-sync", function() {
     //await callbackLockA.release();
     //await toMasterLockA.release();
   }, 30000);
+
+  it("case basic client create no master", async function() {
+    toMasterLockA.acquireAsync();
+    const m1 = await Model.create({ table: 10 }).commit("create", {
+      table: 10
+    });
+    await delay(50);
+    expect(stringify(await Model.find())).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_fake": true,
+          "_id": "ObjectID",
+          "table": 10,
+        },
+      ]
+    `);
+    expect(stringify(await orm("Recovery").find())).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "collectionName": "Model",
+          "doc": Object {
+            "_fake": true,
+            "_id": "ObjectID",
+            "table": 10,
+          },
+          "type": "create",
+          "uuid": "uuid-v1",
+        },
+      ]
+    `);
+    expect(stringify(await orm("Commit").find())).toMatchObject([]);
+    toMasterLockA.release();
+    await delay(50);
+    expect(stringify(await Model.find())).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "table": 10,
+        },
+      ]
+    `);
+    expect(stringify(await orm("Recovery").find())).toMatchInlineSnapshot(
+      `Array []`
+    );
+    expect(stringify(await orm("Commit").find())).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "approved": false,
+          "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"table\\":10,\\"_id\\":\\"5fd205698753f1c9cb64219f\\"}]}]",
+          "collectionName": "Model",
+          "condition": null,
+          "data": Object {
+            "docId": "ObjectID",
+            "table": 10,
+          },
+          "id": 1,
+          "tags": Array [
+            "create",
+            "create",
+          ],
+          "uuid": "uuid-v1",
+        },
+      ]
+    `);
+  });
+
+  it("case create + findOneAndUpdate", async function() {
+    toMasterLockA.acquireAsync();
+    const m1 = await Model.create({ table: 10 }).commit("create", {
+      table: 10
+    });
+
+    const m1a = await Model.findOneAndUpdate({ table: 10 }, { status: "paid" });
+    await delay(50);
+    expect(stringify(await Model.find())).toMatchSnapshot();
+    expect(stringify(await orm("Recovery").find())).toMatchSnapshot();
+    expect(stringify(await orm("Commit").find())).toMatchObject([]);
+    toMasterLockA.release();
+    await delay(50);
+    expect(stringify(await Model.find())).toMatchSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "table": 10,
+        },
+      ]
+    `);
+    expect(stringify(await orm("Recovery").find())).toMatchSnapshot(`Array []`);
+    expect(stringify(await orm("Commit").find())).toMatchSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "approved": true,
+          "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"table\\":10}]}]",
+          "collectionName": "Model",
+          "data": Object {
+            "docId": "5fcdba6b26f1fe37ef2da6a2",
+            "table": 10,
+          },
+          "id": 1,
+          "tags": Array [
+            "create",
+          ],
+          "uuid": "uuid-v1",
+        },
+      ]
+    `);
+  });
 });

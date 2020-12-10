@@ -66,8 +66,6 @@ class Io extends Socket {
       socket.emit('disconnect', 'io server disconnect')
       hooks.emit(`disconnect:${address}`, socket);
     });
-
-
   }
 
   emit(event, ...args) {

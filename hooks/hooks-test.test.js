@@ -288,15 +288,25 @@ describe("test hooks", function () {
 
   it('test lock', async function (done) {
     hooks.onQueue('test', async function () {
-      await delay(1000);
+      await delay(10);
       console.log('onQueue');
     })
 
-    hooks.onQueueCount('test', async function () {
-      console.log('onQueueCount');
+    hooks.on('test', function () {
+      console.log('on');
+    })
+
+    hooks.onQueueCount('test', async function (count) {
+      console.log('onQueueCount : ', count);
+      if (count === 2) done();
     })
 
     hooks.emit('test');
     hooks.emit('test');
   })
+
+  it('test await emit', async function (done) {
+    await hooks.emit('test');
+  })
+
 });
