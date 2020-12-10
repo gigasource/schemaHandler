@@ -1,4 +1,4 @@
-* [_] rebuild recovery concept
+* [_] rebuild recovery concept : sau khi nhận đc commit từ master thì rebuild lại recovery
 
 commit a1, c1, a2 :
 

@@ -105,7 +105,7 @@ describe("commit-sync", function () {
     const callbackLockA = ormA.getLock('transport:requireSync:callback');
     let arr = []
     ormA.onCount('commit:handler:finish', (count) => {
-      if (count === 3) {
+      if (count === 4) {
         arr;
         done();
       }
@@ -145,21 +145,21 @@ describe("commit-sync", function () {
     const lock = new AwaitLock();
     await lock.acquireAsync();
     ormA.onQueueCount('transport:requireSync:callback',  function (count, commits) {
-      if (count ===3) {
+      if (count ===2) {
         this.keepLock();
         lock.release();
-      } else if (count > 3) {
+      } else if (count > 2) {
         const a = 5;
-        this.keepLock();
+        //this.keepLock();
       }
     })
     await lock.acquireAsync();
+    //
     const m5 = await ormA('Model').updateOne({table: 10}, {$push: {items: 'item3'}}).commit("addItem", {
       table: 10
     });
 
     callbackLockA.release();
-    debugger
 
     //await callbackLockA.release();
 
