@@ -303,7 +303,7 @@ const syncPlugin = function (orm, role) {
 
       orm.on('transport:toMaster', async commit => {
         commit.fromMaster = true;
-        await orm.emit('createCommit', commit);
+        await orm.emit('commitRequest', commit);
       });
     })
   })
