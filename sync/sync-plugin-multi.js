@@ -61,8 +61,8 @@ const syncPlugin = function (orm, role) {
         }
         let value;
         if (!isMaster) {
-          const {value: _commit} = await orm.emit('createCommit', _.cloneDeep(commit));
-          if (_commit.chain !== commit.chain) {
+          const {value: _commit} = await orm.emit('process:commit', _.cloneDeep(commit));
+          if (_commit && _commit.chain !== commit.chain) {
             exec = async () => await orm.execChain(getQuery(commit))
           }
           await orm.emit('commit:build-fake', _query, target, exec, _commit, e => eval(e));
@@ -181,7 +181,7 @@ const syncPlugin = function (orm, role) {
       let recoveries = await orm('Recovery').find({uuid: commit.uuid});
 
       if (recoveries.length === 0) {
-        const condition = _.mapKeys(commit.condition, (v,k) => `doc.${k}`)
+        const condition = _.mapKeys(commit.condition, (v, k) => `doc.${k}`)
         recoveries = await orm('Recovery').find(condition);
       }
       for (const recovery of recoveries) {
@@ -233,16 +233,16 @@ const syncPlugin = function (orm, role) {
   orm.onDefault('createCommit', async function (commit) {
     let {value: highestId} = await orm.emit('getHighestCommitId', commit.dbName);
     highestId++;
-    commit.approved = true;
     commit.id = highestId;
-    this.value = commit;
-    if (isMaster) {
-      this.value = await orm(`Commit`, commit.dbName).create(commit);
-    }
+    this.value = await orm(`Commit`, commit.dbName).create(commit);
   })
 
   if (isMaster) {
     //use only for master
+    orm.onDefault('process:commit', async function (commit) {
+      commit.approved = true;
+      this.value = commit;
+    })
 
     orm.on('update:Commit:c', async function (commit) {
       let query = getQuery(commit);
@@ -285,6 +285,10 @@ const syncPlugin = function (orm, role) {
 
     masterIo.on('connect', socket => {
       socket.on('commitRequest', async (commit) => {
+        const {value} = await orm.emit('process:commit', commit);
+        if (value) {
+          commit = value;
+        }
         await orm.emit('createCommit', commit);
       });
 

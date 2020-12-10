@@ -65,7 +65,7 @@ describe("commit-sync", function() {
         }
       });
 
-      orm.onQueue("createCommit", async function(commit) {
+      orm.onQueue("process:commit", async function(commit) {
         const { chain } = orm.getQuery(commit);
         const isMaster = orm.isMaster();
         if (commit.tags.includes("create")) {
@@ -79,14 +79,10 @@ describe("commit-sync", function() {
             delete commit.chain;
 
             this.value = commit;
-            if (orm.isMaster()) {
-              this.value = await orm(`Commit`).create(commit);
-            }
             return;
           }
         }
-        const result = await orm.emitDefault("createCommit", commit);
-        this.value = result["value"];
+        this.value = commit;
       });
     }
 

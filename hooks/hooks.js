@@ -48,6 +48,7 @@ class Hooks extends EE {
     [channel, listener] = !listener ? [event, channel] : [channel, listener];
     const lock = this.locks[channel] = this.locks[channel] || new AwaitLock();
     const _listener = async function () {
+      event;
       await lock.acquireAsync();
       const result = await listener.bind(this)(...arguments);
       lock.release()
@@ -63,8 +64,8 @@ class Hooks extends EE {
     const lock = this.locks[channel] = this.locks[channel] || new AwaitLock();
     let called = 0;
     const _listener = async function () {
-      called++;
       await lock.acquireAsync();
+      called++;
       this.keepLock = function () {
         this._keepLock = true;
       }
