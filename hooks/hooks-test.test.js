@@ -3,25 +3,25 @@ let hooks;
 let log;
 const delay = require("delay");
 
-describe("test hooks", function() {
-  beforeEach(function() {
+describe("test hooks", function () {
+  beforeEach(function () {
     hooks = new EE();
-    log = jest.fn(function() {
+    log = jest.fn(function () {
       console.log(...arguments);
     });
   });
 
-  it('default should called if don"t have pre or on', async function() {
+  it('default should called if don"t have pre or on', async function () {
     let arg;
-    hooks.onDefault("test", async function() {
+    hooks.onDefault("test", async function () {
       log("default");
     });
-    await hooks.emit("test", { arg }, e => eval(e));
+    await hooks.emit("test", {arg}, e => eval(e));
     expect(log).toHaveBeenCalledWith("default");
   });
 
-  it("normal on", async function() {
-    hooks.on("test", async function({ arg }, e) {
+  it("normal on", async function () {
+    hooks.on("test", async function ({arg}, e) {
       this.value = "11";
       //this.ok = true;
       log("on test");
@@ -31,13 +31,13 @@ describe("test hooks", function() {
     expect(log).toHaveBeenCalledWith("on test");
   });
 
-  it("normal on with pre", async function() {
-    hooks.on("test", async function({ arg }, e) {
+  it("normal on with pre", async function () {
+    hooks.on("test", async function ({arg}, e) {
       this.value = "11";
       log("on test");
     });
 
-    hooks.pre("test", async function() {
+    hooks.pre("test", async function () {
       log("pre");
     });
 
@@ -47,12 +47,12 @@ describe("test hooks", function() {
     expect(log).toHaveBeenCalledWith("pre");
   });
 
-  it("once", async function() {
-    hooks.once("test", async function({ arg }, e) {
+  it("once", async function () {
+    hooks.once("test", async function ({arg}, e) {
       log("on test");
     });
 
-    hooks.pre("test", async function() {
+    hooks.pre("test", async function () {
       log("pre");
     });
 
@@ -63,8 +63,8 @@ describe("test hooks", function() {
     expect(log).toHaveBeenCalledWith("pre");
   });
 
-  it("sync", async function() {
-    hooks.on("test", function() {
+  it("sync", async function () {
+    hooks.on("test", function () {
       this.ok = true;
       log("on test");
     });
@@ -78,7 +78,7 @@ describe("test hooks", function() {
     `);
   });
 
-  it("test warning if arrow function", async function() {
+  it("test warning if arrow function", async function () {
     try {
       hooks.on("test", () => {
         this.ok = true;
@@ -91,23 +91,23 @@ describe("test hooks", function() {
     }
   });
 
-  it("eval", async function() {
+  it("eval", async function () {
     let arg = 0;
-    hooks.on("test", function({ arg }, e) {
+    hooks.on("test", function ({arg}, e) {
       this.update("arg", 10);
     });
 
-    hooks.emit("test", { arg }, e => eval(e));
+    hooks.emit("test", {arg}, e => eval(e));
     expect(arg).toMatchInlineSnapshot(`10`);
   });
 
-  it("test default", async function() {
+  it("test default", async function () {
     const arr = [];
-    hooks.onDefault("test", function() {
+    hooks.onDefault("test", function () {
       arr.push("default");
     });
 
-    hooks.on("test", function() {
+    hooks.on("test", function () {
       arr.push("test");
       hooks.emitDefault("test", ...arguments);
     });
@@ -121,16 +121,16 @@ describe("test hooks", function() {
     `);
   });
 
-  it("test onQueue", async function(done) {
+  it("test onQueue", async function (done) {
     const arr = [];
 
-    hooks.on("test", async function() {
+    hooks.on("test", async function () {
       arr.push("a");
       await delay(2000);
       arr.push("b");
     });
 
-    hooks.on("test2", async function() {
+    hooks.on("test2", async function () {
       arr.push("c");
       await delay(2000);
       arr.push("d");
@@ -153,16 +153,16 @@ describe("test hooks", function() {
     });
   });
 
-  it("test onQueue2", async function(done) {
+  it("test onQueue2", async function (done) {
     const arr = [];
 
-    hooks.onQueue("test", "test", async function() {
+    hooks.onQueue("test", "test", async function () {
       arr.push("a");
       await delay(2000);
       arr.push("b");
     });
 
-    hooks.onQueue("test2", "test", async function() {
+    hooks.onQueue("test2", "test", async function () {
       arr.push("c");
       await delay(2000);
       arr.push("d");
@@ -185,12 +185,12 @@ describe("test hooks", function() {
     });
   });
 
-  it("serialize design", async function() {
+  it("serialize design", async function () {
     let _fn;
     let _scopes;
     let __eval;
     let arr = [];
-    const emitStringify = function(e, cb, scopes, _eval) {
+    const emitStringify = function (e, cb, scopes, _eval) {
       const result = ([_fn, _scopes, __eval] = [cb.toString(), scopes, _eval]);
       for (const _var of scopes) {
         arr.push(_eval(_var));
@@ -202,7 +202,7 @@ describe("test hooks", function() {
       let val = 10;
       emitStringify(
         "test",
-        function() {
+        function () {
           console.log(val);
         },
         ["val"],
@@ -215,7 +215,7 @@ describe("test hooks", function() {
     const b = new Function(_scopes, `return (${_fn})()`)(...arr);
   });
 
-  it("test onLayer", async function() {
+  it("test onLayer", async function () {
     let arr = [];
     hooks.on("test", () => {
       arr.push(0);
@@ -240,12 +240,12 @@ describe("test hooks", function() {
     `);
   });
 
-  it("test stop", async function() {
+  it("test stop", async function () {
     hooks.on("test", () => {
       console.log("0");
     });
 
-    hooks.on("test", -1, function() {
+    hooks.on("test", -1, function () {
       console.log("-1");
       this.stop();
     });
@@ -253,7 +253,7 @@ describe("test hooks", function() {
     hooks.emit("test");
   });
 
-  it("test onCount", async function(done) {
+  it("test onCount", async function (done) {
     hooks.onCount("test", (count, arg) => {
       if (count === 2) done();
     });
@@ -262,7 +262,7 @@ describe("test hooks", function() {
     hooks.emit("test", 11);
   });
 
-  it("test layer", async function() {
+  it("test layer", async function () {
     let arr = [];
     hooks.on("test", 1, arg => {
       arr.push("3");
@@ -285,4 +285,18 @@ describe("test hooks", function() {
       ]
     `);
   });
+
+  it('test lock', async function (done) {
+    hooks.onQueue('test', async function () {
+      await delay(1000);
+      console.log('onQueue');
+    })
+
+    hooks.onQueueCount('test', async function () {
+      console.log('onQueueCount');
+    })
+
+    hooks.emit('test');
+    hooks.emit('test');
+  })
 });

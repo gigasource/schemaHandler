@@ -257,6 +257,14 @@ const syncPlugin = function (orm, role) {
     orm.on('commit:sync:master', async function (clientHighestId, dbName) {
       this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}});
     })
+
+    orm.onQueue('commitRequest', async function (commit) {
+      const {value} = await orm.emit('process:commit', commit);
+      if (value) {
+        commit = value;
+      }
+      await orm.emit('createCommit', commit);
+    })
   }
 
   //todo: layer transport implement
@@ -285,11 +293,7 @@ const syncPlugin = function (orm, role) {
 
     masterIo.on('connect', socket => {
       socket.on('commitRequest', async (commit) => {
-        const {value} = await orm.emit('process:commit', commit);
-        if (value) {
-          commit = value;
-        }
-        await orm.emit('createCommit', commit);
+        await orm.emit('commitRequest', commit);
       });
 
       socket.on('transport:require-sync', async function ([clientHighestId = 0, dbName], cb) {

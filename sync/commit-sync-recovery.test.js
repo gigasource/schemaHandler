@@ -32,7 +32,6 @@ describe("commit-sync", function() {
   beforeAll(async () => {
     ormA.connect({ uri: "mongodb://localhost:27017" }, "myproject");
     ormB.connect({ uri: "mongodb://localhost:27017" }, "myproject2");
-    ormC.connect({ uri: "mongodb://localhost:27017" }, "myproject3");
 
     ormA.plugin(syncPlugin, "client");
     ormA.emit("initSyncForClient", s1);
@@ -40,8 +39,7 @@ describe("commit-sync", function() {
     ormB.plugin(syncPlugin, "master");
     ormB.emit("initSyncForMaster", masterIo);
 
-    ormC.plugin(syncPlugin, "client");
-    ormC.emit("initSyncForClient", s2);
+
 
     s1.connect("local");
     s2.connect("local");
@@ -50,13 +48,25 @@ describe("commit-sync", function() {
     await ormA("Model").remove({});
     await ormA("Commit").remove({});
     await ormA("Recovery").remove({});
-    await ormC("Model").remove({});
-    await ormC("Commit").remove({});
-    await ormC("Recovery").remove({});
     await ormB("Model").remove({});
     await ormB("Commit").remove({});
 
-    for (const orm of [ormA, ormB, ormC]) {
+    let orms = [ormA, ormB];
+    async function enableC() {
+      ormC.connect({ uri: "mongodb://localhost:27017" }, "myproject3");
+
+      await ormC("Model").remove({});
+      await ormC("Commit").remove({});
+      await ormC("Recovery").remove({});
+
+      ormC.plugin(syncPlugin, "client");
+      ormC.emit("initSyncForClient", s2);
+
+      orms.push(ormC);
+    }
+    //await enableC();
+
+    for (const orm of orms) {
       orm.registerCommitBaseCollection("Model");
       orm.on(`commit:auto-assign:Model`, (commit, _query, target) => {
         if (target.cmd === "create") {
@@ -86,10 +96,10 @@ describe("commit-sync", function() {
       });
     }
 
-    ["transport:requireSync:callback", "transport:toMaster"].forEach(hook => {
+    /*["transport:requireSync:callback", "transport:toMaster"].forEach(hook => {
       ormA.on(hook, () => hooks.emit(hook));
       ormC.on(hook, () => hooks.emit(hook));
-    });
+    });*/
 
     toMasterLockA = ormA.getLock("transport:toMaster");
     toMasterLockC = ormC.getLock("transport:toMaster");
@@ -150,10 +160,10 @@ describe("commit-sync", function() {
       count,
       commits
     ) {
-      if (count === 2) {
+      if (count === 1) {
         this.keepLock();
         lock.release();
-      } else if (count > 2) {
+      } else if (count > 1) {
         const a = 5;
         //this.keepLock();
       }
