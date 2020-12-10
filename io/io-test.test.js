@@ -55,6 +55,7 @@ describe("test io", function() {
     io.on("disconnect", function(socket) {});
     s1.connect("local");
     s1.disconnect();
+    done()
   });
 
   it("case5: disconnect", function(done) {

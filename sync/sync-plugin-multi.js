@@ -1,10 +1,7 @@
 const _ = require('lodash');
 const uuid = require('uuid').v1;
-let AwaitLock = require('await-lock').default;
 
 const syncPlugin = function (orm, role) {
-  const isMaster = role === 'master';
-  orm.isMaster = () => isMaster;
   const whitelist = []
 
   orm.registerCommitBaseCollection = function () {
@@ -59,26 +56,25 @@ const syncPlugin = function (orm, role) {
         if (_.get(_query, "chain[0].args[0]._id")) {
           commit.data.docId = _.get(_query, "chain[0].args[0]._id");
         }
-        let value;
-        if (!isMaster) {
-          const {value: _commit} = await orm.emit('process:commit', _.cloneDeep(commit));
-          if (_commit && _commit.chain !== commit.chain) {
-            exec = async () => await orm.execChain(getQuery(commit))
-          }
-          await orm.emit('commit:build-fake', _query, target, exec, _commit, e => eval(e));
-        }
-        let lock = new AwaitLock();
-        if (isMaster) {
-          lock.acquireAsync();
-          orm.once(`commit:result:master:${commit.uuid}`, function (result) {
-            value = result;
-            lock.release();
-          });
-        }
-        orm.emit("transport:toMaster", commit, _query);
-        if (isMaster) {
-          await lock.acquireAsync();
-        }
+        // put processCommit here
+        const {value: value} = await orm.emit('commit:flow:execCommit', _query, target, exec, commit);
+        // const {value: _commit} = await orm.emit('createCommit:master', _.cloneDeep(commit)); // todo fix this
+        // if (_commit.chain !== commit.chain) {
+        //   exec = async () => await orm.execChain(getQuery(commit))
+        // }
+        // await orm.emit('commit:build-fake', _query, target, exec, _commit, e => eval(e));
+        // let lock = new AwaitLock();
+        // if (isMaster) {
+        //   lock.acquireAsync();
+        //   orm.once(`commit:result:master:${commit.uuid}`, function (result) {
+        //     value = result;
+        //     lock.release();
+        //   });
+        // }
+        // orm.emit("transport:toMaster", commit, _query);
+        // if (isMaster) {
+        //   await lock.acquireAsync();
+        // }
         this.value = value;
       });
     }
@@ -197,121 +193,57 @@ const syncPlugin = function (orm, role) {
   })
 
   //should transparent
-  orm.on(`transport:sync`, async function () {
-    const {value: highestId} = await orm.emit('getHighestCommitId');
-    orm.emit('transport:require-sync', highestId);
-  });
+  // orm.on(`transport:sync`, async function () {
+  //   const {value: highestId} = await orm.emit('getHighestCommitId');
+  //   orm.emit('transport:require-sync', highestId);
+  // });
   orm.on('getHighestCommitId', async function (dbName) {
     const {id: highestCommitId} = await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0};
     this.value = highestCommitId;
   })
 
-  //should transparent
-  orm.onQueue('transport:requireSync:callback', async function (commits) {
-    for (const commit of commits) {
-      //replace behaviour here
-      try {
-        await orm('Commit').create(commit);
-        await orm.emit('commit:handler', commit);
-      } catch (e) {
-        if (e.message.slice(0, 6)) {
-          console.log('sync two fast')
-        }
-      }
-    }
-  })
-
-  //customize
-  orm.onQueue('commit:handler', async commit => {
-    console.log('commit:handler');
-    await orm.emit('commit:remove-fake', commit);
-    await orm.execChain(getQuery(commit));
-    orm.emit('commit:handler:finish');
-  })
-
   //customize
   orm.onDefault('createCommit', async function (commit) {
-    let {value: highestId} = await orm.emit('getHighestCommitId', commit.dbName);
-    highestId++;
-    commit.id = highestId;
-    this.value = await orm(`Commit`, commit.dbName).create(commit);
-  })
-
-  if (isMaster) {
-    //use only for master
-    orm.onDefault('process:commit', async function (commit) {
+    if (!commit.id) {
+      let {value: highestId} = await orm.emit('getHighestCommitId', commit.dbName);
+      highestId++;
       commit.approved = true;
-      this.value = commit;
-    })
-
-    orm.on('update:Commit:c', async function (commit) {
-      let query = getQuery(commit);
-      if (commit.dbName) query.name += `@${commit.dbName}`;
-      const result = await orm.execChain(query);
-      if (commit.fromMaster) {
-        orm.emit(`commit:result:master:${commit.uuid}`, result);
-      }
-      await orm.emit('master:transport:sync', commit.id);
-    })
-
-    orm.on('commit:sync:master', async function (clientHighestId, dbName) {
-      this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}});
-    })
-
-    orm.onQueue('commitRequest', async function (commit) {
-      const {value} = await orm.emit('process:commit', commit);
-      if (value) {
-        commit = value;
-      }
-      await orm.emit('createCommit', commit);
-    })
-  }
-
-  //todo: layer transport implement
-  orm.on('initSyncForClient', clientSocket => {
-    orm.onQueue('transport:toMaster', async commit => {
-      clientSocket.emit('commitRequest', commit)
-    })
-
-    clientSocket.on('transport:sync', async () => {
-      orm.emit('transport:sync');
-    })
-
-    orm.on('transport:require-sync', (highestId) => {
-      const args = [highestId];
-      orm.emit('commit:sync:args', args);
-      clientSocket.emit('transport:require-sync', args, async (commits) => {
-        await orm.emit('transport:requireSync:callback', commits)
-      })
-    })
+      commit.id = highestId;
+    }
+    this.value = commit;
+    await orm('Commit', commit.dbName).create(commit)
+    // if (isMaster) {
+    //   this.value = await orm(`Commit`, commit.dbName).create(commit);
+    // }
   })
 
-  orm.on('initSyncForMaster', masterIo => {
-    orm.on('master:transport:sync', (id) => {
-      masterIo.emit(`transport:sync`);
-    });
-
-    masterIo.on('connect', socket => {
-      socket.on('commitRequest', async (commit) => {
-        await orm.emit('commitRequest', commit);
-      });
-
-      socket.on('transport:require-sync', async function ([clientHighestId = 0, dbName], cb) {
-        const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
-        cb(commits);
-      })
-
-      orm.on('transport:toMaster', async commit => {
-        commit.fromMaster = true;
-        await orm.emit('commitRequest', commit);
-      });
-    })
+  orm.onDefault('process:commit', async function (commit) {
+    commit.approved = true;
+    this.value = commit;
   })
 
-  orm.on('initSyncForCloud', cloudIo => {
-    cloudIo.on('transport:sync', highestId => {
-    })
+  orm.on('update:Commit:c', async function (commit) {
+    let query = getQuery(commit)
+    if (commit.dbName) query.name += `@${commit.dbName}`
+    const result = await orm.execChain(query)
+    orm.emit(`commit:result:${commit.uuid}`, result);
   })
+
+  // if (isMaster) {
+  //   //use only for master
+  //
+  //   orm.on('update:Commit:c', async function (commit) {
+  //     let query = getQuery(commit);
+  //     if (commit.dbName) query.name += `@${commit.dbName}`;
+  //     const result = await orm.execChain(query);
+  //     orm.emit(`commit:result:${commit.uuid}`, result);
+  //     await orm.emit('master:transport:sync', commit.id);
+  //   })
+  //
+  //   orm.on('commit:sync:master', async function (clientHighestId, dbName) {
+  //     this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}});
+  //   })
+  // }
 
   orm.emit('initFakeLayer');
 }

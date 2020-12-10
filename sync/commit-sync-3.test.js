@@ -22,6 +22,7 @@ const cloudSocket = cloudIo.socketClient;
 const Queue = require("queue");
 const delay = require("delay");
 const syncPlugin = require("./sync-plugin-multi");
+const syncFlow = require('./sync-flow');
 let toMasterLock;
 
 describe("commit-sync", function() {
@@ -29,11 +30,18 @@ describe("commit-sync", function() {
     ormA.connect({ uri: "mongodb://localhost:27017" }, "myproject");
     ormB.connect({ uri: "mongodb://localhost:27017" }, "myproject2");
 
-    ormA.plugin(syncPlugin, "client");
+    ormA.plugin(syncPlugin);
+    ormA.plugin(syncFlow);
+    await ormA.emit('commit:flow:setMaster', false)
     ormA.emit("initSyncForClient", clientSocket);
 
-    ormB.plugin(syncPlugin, "master");
-    ormB.emit("initSyncForMaster", masterIo);
+    ormB.plugin(syncPlugin);
+    ormB.plugin(syncFlow)
+    await ormB.emit('commit:flow:setMaster', true)
+    masterIo.on('connect', (socket) => {
+      console.log('123')
+      ormB.emit('initSocketForMaster', socket)
+    })
 
     Model = ormA("Model");
     await ormA("Model").remove({});
@@ -89,6 +97,7 @@ describe("commit-sync", function() {
     const m2 = await Model.create({ table: 10 }).commit("create", {
       table: 10
     });
+    done()
   });
 
   it("case only master", async function(done) {
