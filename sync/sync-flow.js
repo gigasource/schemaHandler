@@ -29,7 +29,7 @@ module.exports = function (orm, role) {
     }
     //todo: [process:commit] can return array
     let _commit = _.cloneDeep(commit)
-    if (!_commit.tag) {
+    if (!_commit.tags) {
       await orm.emit('process:commit', _commit)
     } else {
       for (tag of _commit.tag) {
