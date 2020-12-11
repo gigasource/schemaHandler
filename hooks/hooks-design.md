@@ -20,6 +20,8 @@
 * [_] support auto completion for emit/on
 * [_] support transparent same flow uuid for cross platform
 
+trace, refactor problems: 
+design problems:
 
 
 vd : 

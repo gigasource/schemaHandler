@@ -54,7 +54,7 @@ module.exports = function (orm, role) {
   })
 
   orm.on('update:Commit:c', async function (commit) {
-    if (!commit.fromMaster) {
+    if (!commit.fromMaster && !checkMaster(commit.dbName)) {
       await orm.emit('commit:remove-fake', commit);
     }
     let query = orm.getQuery(commit)
