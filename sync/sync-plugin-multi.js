@@ -1,7 +1,7 @@
 const _ = require('lodash');
 const uuid = require('uuid').v1;
 
-const syncPlugin = function (orm, role) {
+const syncPlugin = function (orm) {
   const whitelist = []
 
   orm.registerCommitBaseCollection = function () {

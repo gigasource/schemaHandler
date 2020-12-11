@@ -35,14 +35,14 @@ describe("commit-sync", function () {
 
     let orms = [ormA, ormB];
     for (const orm of orms) {
-      orm.plugin(require('./sync-flow'));
+      orm.plugin(syncPlugin);
       orm.plugin(require('./sync-transporter'));
     }
 
-    ormA.plugin(syncPlugin, "client");
-    ormA.emit("initSyncForClient", s1);
+    ormA.plugin(require('./sync-flow'), 'client');
+    ormB.plugin(require('./sync-flow'), 'master');
 
-    ormB.plugin(syncPlugin, "master");
+    ormA.emit("initSyncForClient", s1);
     ormB.emit("initSyncForMasterIo", masterIo);
 
     s1.connect("local");
@@ -120,6 +120,13 @@ describe("commit-sync", function () {
     const m1 = await ormA("Model").create({table: 10, items: []});
     const m2 = await ormA("Model").create({table: 10, items: []});
     toMasterLockA.release();
+
+  }, 30000)
+
+  it('case only master', async function (done) {
+    const m1 = await ormB("Model").create({table: 10, items: []});
+    //const m2 = await ormB("Model").create({table: 10, items: []});
+    debugger
 
   }, 30000)
 

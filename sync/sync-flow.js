@@ -1,25 +1,28 @@
 const AwaitLock = require('await-lock').default;
 const _ = require('lodash');
 
-module.exports = function (orm) {
-  let isMaster = (orm.mode === 'multi' ? {} : false)
+module.exports = function (orm, role) {
+  let masterDbMap = (orm.mode === 'multi' ? {} : false)
 
   orm.on('commit:flow:setMaster', function (_isMaster, dbName) {
     if (dbName) {
-      isMaster[dbName] = _isMaster
+      masterDbMap[dbName] = _isMaster
     } else {
-      isMaster = _isMaster
+      masterDbMap = _isMaster
     }
   })
 
   const checkMaster = (dbName) => {
-    return dbName ? isMaster[dbName] : isMaster
+    if (role === 'master') return true;
+    if (role === 'client') return false;
+    if (!dbName) return false;
+    return masterDbMap[dbName];
   }
 
   orm.isMaster = checkMaster
 
   // customize
-  orm.onQueue('commit:flow:execCommit', async (query, target, exec, commit) => {
+  orm.onQueue('commit:flow:execCommit', async function (query, target, exec, commit) {
     if (orm.mode === 'multi' && !commit.dbName) {
       console.warn('commit.dbName is undefined')
       return
