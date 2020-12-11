@@ -28,9 +28,16 @@ module.exports = function (orm, role) {
       return
     }
     //todo: [process:commit] can return array
-    const {value: _commit} = await orm.emit('process:commit', _.cloneDeep(commit))
+    let _commit = _.cloneDeep(commit)
+    if (!_commit.tag) {
+      await orm.emit('process:commit', _commit)
+    } else {
+      for (tag of _commit.tag) {
+        await orm.emit(`process:commit:${tag}`, _commit)
+      }
+    }
     if (_commit && _commit.chain !== commit.chain) {
-      exec = async () => await orm.execChain(getQuery(_commit))
+      exec = async () => await orm.execChain(orm.getQuery(_commit))
       commit = _commit;
     }
 
