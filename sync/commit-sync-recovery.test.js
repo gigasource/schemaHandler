@@ -339,4 +339,20 @@ describe("commit-sync", function() {
       ]
     `);
   });
+
+  it("test raw", async function() {
+    const raw = await ormA("Model")
+      .create({ table: 10 })
+      .direct()
+      .raw();
+
+    const model = await ormA.execChain(raw, true);
+
+    expect(model).toMatchInlineSnapshot(`
+      Object {
+        "_id": "5fd32da5be78ca274183a18b",
+        "table": 10,
+      }
+    `);
+  });
 });
