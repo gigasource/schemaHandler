@@ -32,7 +32,7 @@ module.exports = function (orm, role) {
     if (!_commit.tags) {
       await orm.emit('process:commit', _commit)
     } else {
-      for (tag of _commit.tag) {
+      for (const tag of _commit.tags) {
         await orm.emit(`process:commit:${tag}`, _commit)
       }
     }
