@@ -202,16 +202,26 @@ const syncPlugin = function (orm, role) {
     this.value = highestCommitId;
   })
 
+  //should transparent
+  orm.onQueue('transport:requireSync:callback', async function (commits) {
+    for (const commit of commits) {
+      //replace behaviour here
+      await orm.emit('createCommit', commit)
+    }
+  })
   //customize
   orm.onDefault('createCommit', async function (commit) {
     if (!commit.id) {
       let {value: highestId} = await orm.emit('getHighestCommitId', commit.dbName);
-      highestId++;
-      commit.approved = true;
-      commit.id = highestId;
+      commit.id = highestId + 1;
     }
-    this.value = commit;
-    await orm('Commit', commit.dbName).create(commit)
+    try {
+      this.value = await orm(`Commit`, commit.dbName).create(commit);
+    } catch (e) {
+      if (e.message.slice(0, 6) === 'E11000') {
+        console.log('sync two fast')
+      }
+    }
     // if (isMaster) {
     //   this.value = await orm(`Commit`, commit.dbName).create(commit);
     // }
@@ -222,11 +232,16 @@ const syncPlugin = function (orm, role) {
     this.value = commit;
   })
 
-  orm.on('update:Commit:c', async function (commit) {
-    let query = getQuery(commit)
-    if (commit.dbName) query.name += `@${commit.dbName}`
-    const result = await orm.execChain(query)
-    orm.emit(`commit:result:${commit.uuid}`, result);
+  orm.on('commit:sync:master', async function (clientHighestId, dbName) {
+    this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}});
+  })
+
+  orm.onQueue('commitRequest', async function (commit) {
+    const {value} = await orm.emit('process:commit', commit);
+    if (value) {
+      commit = value;
+    }
+    await orm.emit('createCommit', commit);
   })
 
   // if (isMaster) {
