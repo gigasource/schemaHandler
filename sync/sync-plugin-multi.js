@@ -10,7 +10,11 @@ const syncPlugin = function (orm) {
 
   orm.on('pre:execChain', -1, function (query) {
     const last = _.last(query.chain);
-    if (last.fn === "direct") {
+    if (last.fn === "raw") {
+      query.chain.pop();
+      this.ok = true;
+      this.value = query;
+    } else if (last.fn === "direct") {
       query.chain.pop();
       this.stop();
     } else {

@@ -237,7 +237,22 @@ function factory(orm) {
   return {models, models2};
 }
 
-function execChain(query) {
+function execChain(query, withHooks = false) {
+  if (withHooks) {
+    return new Promise(async resolve => {
+      let returnResult = await this.emit('pre:execChain', query);
+      if (returnResult.ok) return resolve(returnResult.value);
+
+      if (query.chain.length === 0) return;
+      let cursor = this.createCollectionQuery(query);
+      for (const {fn, args} of query.chain) {
+        cursor = cursor[fn](...args);
+      }
+
+      resolve(await cursor);
+    })
+  }
+
   if (query.chain.length === 0) return;
   let cursor = this.createCollectionQuery(query);
   for (const {fn, args} of query.chain) {
