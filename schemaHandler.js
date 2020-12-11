@@ -2,6 +2,8 @@ const traverse = require('traverse');
 const ObjectID = require('bson').ObjectID;
 const _ = require('lodash');
 const _merge = require('extend');
+const Hooks = require('./hooks/hooks');
+const hooks = new Hooks();
 const iso8061 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/;
 
 function merge() {
@@ -88,7 +90,7 @@ function convertSchemaToPaths(schema, collectionName) {
 
 // parse function : init + convert ObjectID, convert String, convert Number, convert Object -> Array []
 
-function parseSchema(paths, obj) {
+function parseSchema(paths, obj, {prefixPath} = {}) {
   return traverse(obj).map(function (node) {
     const {key, path, isRoot, parent, isLeaf} = this;
     if (this.node_ instanceof ObjectID || (typeof this.node_ === 'object' && ObjectID.isValid(this.node_))) {
@@ -100,8 +102,12 @@ function parseSchema(paths, obj) {
     /*if (isRoot) {
       return;
     }*/
+    let _path = [...path];
+    if (prefixPath) {
+      _path.unshift(...prefixPath);
+    }
 
-    const pathsInLevel = findAllPathsInLevel(paths, path);
+    const pathsInLevel = findAllPathsInLevel(paths, _path);
     let _node = Array.isArray(node) ? [...node] : {...node};
 
     for (const {relative: _path, absolute} of pathsInLevel) {
@@ -153,6 +159,8 @@ function parseCondition(paths, obj, {arrayFilters, prefixPath, identifier} = {})
 
     let _node = node;
     const pathsInLevel2 = findAllPathsInLevelArrHandler2(paths, pathFilter);
+    const {value, ok} = hooks.emit('processNode', {paths, path, pathFilter, pathsInLevel2, _node, self: this});
+    if (ok) return;
     for (let {relative: _path, absolute} of pathsInLevel2) {
       const pathSchema = paths[absolute];
       if (isLeaf || (pathSchema.$options && pathSchema.$options.autopopulate && _node._id)) {
@@ -165,6 +173,31 @@ function parseCondition(paths, obj, {arrayFilters, prefixPath, identifier} = {})
     }
   })
 }
+
+hooks.on('processNode', ({paths, path, pathFilter, pathsInLevel2, _node, self}) => {
+  if (path.includes('$push')) {
+    const _path = filterMongoOperators(pathFilter).slice(0, 2);
+    let pathsInLevel = findAllPathsInLevelArrHandler2(paths, _path);
+    pathsInLevel.forEach(p => p.pathSchema = paths[p.absolute]);
+    if (pathsInLevel.find(({pathSchema}) => pathSchema.$type === 'Array')) {
+      for (let {relative, absolute, pathSchema} of pathsInLevel) {
+        if (relative === '0') {
+          let prefixPath = [..._path, '0'];
+          const convert = item => parseSchema(paths, item, {prefixPath});
+          if (_node.$each) {
+            _node.$each = _node.$each.map(item => convert(item));
+          } else {
+            _node = convert(_node);
+          }
+
+          self.update(_node);
+          self.block();
+          self.ok = true;
+        }
+      }
+    }
+  }
+})
 
 function convertArrayFilters(path, arrayFilters, paths) {
   const identifierRegex = /^\$\[(\w*)\]$/i;
