@@ -172,7 +172,11 @@ class Hooks extends EE {
       return false;
     }
 
-    const _this = {}
+    const _this = {
+      setValue(val) {
+        this._value = val;
+      }
+    }
 
     if (typeof _.last(args) === 'function' && _.last(args).toString().includes('eval')) {
       const _eval = _.last(args);
@@ -203,11 +207,11 @@ class Hooks extends EE {
         for (const promise of promises) {
           await promise;
         }
-        resolve(_this);
+        resolve(_this._value || _this);
       });
     }
 
-    return _this;
+    return _this._value || _this;
   }
 }
 

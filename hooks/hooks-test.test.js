@@ -309,4 +309,12 @@ describe("test hooks", function () {
     await hooks.emit('test');
   })
 
+  it('test setValue', async function (done) {
+    hooks.on('add', function (arg) {
+      this.setValue(arg + 1)
+    })
+    const a = hooks.emit('add', 10);
+    debugger
+  })
+
 });
