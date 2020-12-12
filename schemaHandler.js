@@ -174,7 +174,7 @@ function parseCondition(paths, obj, {arrayFilters, prefixPath, identifier} = {})
   })
 }
 
-hooks.on('processNode', ({paths, path, pathFilter, pathsInLevel2, _node, self}) => {
+hooks.on('processNode', function ({paths, path, pathFilter, pathsInLevel2, _node, self}) {
   if (path.includes('$push')) {
     const _path = filterMongoOperators(pathFilter).slice(0, 2);
     let pathsInLevel = findAllPathsInLevelArrHandler2(paths, _path);
@@ -193,6 +193,7 @@ hooks.on('processNode', ({paths, path, pathFilter, pathsInLevel2, _node, self}) 
           self.update(_node);
           self.block();
           self.ok = true;
+          this.stop();
         }
       }
     }
