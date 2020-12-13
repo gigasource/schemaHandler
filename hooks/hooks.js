@@ -175,6 +175,9 @@ class Hooks extends EE {
     const _this = {
       setValue(val) {
         this._value = val;
+      },
+      stop() {
+        this._stop = true;
       }
     }
 
@@ -191,9 +194,6 @@ class Hooks extends EE {
       const p = Reflect.apply(handler, _this, args);
       if (p instanceof Promise) promises.push(p);
     } else {
-      _this.stop = function () {
-        _this._stop = true;
-      }
 
       for (let i = 0; i < handler.length; i += 1) {
         const p = Reflect.apply(handler[i], _this, args);
