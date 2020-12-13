@@ -194,9 +194,9 @@ class Hooks extends EE {
       const p = Reflect.apply(handler, _this, args);
       if (p instanceof Promise) promises.push(p);
     } else {
-
-      for (let i = 0; i < handler.length; i += 1) {
-        const p = Reflect.apply(handler[i], _this, args);
+      let _handler = [...handler];
+      for (let i = 0; i < _handler.length; i += 1) {
+        const p = Reflect.apply(_handler[i], _this, args);
         if (_this._stop) break;
         if (p instanceof Promise) promises.push(p);
       }
