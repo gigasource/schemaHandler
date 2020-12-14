@@ -266,7 +266,9 @@ module.exports = function (orm) {
           arrPath.pop();
           arrPath = arrPath.join('.');
           const arr = _.get(result, arrPath);
-          _.set(result, arrPath, arr.filter(a => a !== null));
+          if (Array.isArray(arr)) {
+            _.set(result, arrPath, arr.filter(a => a !== null));
+          }
         }
       }
 
