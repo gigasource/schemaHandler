@@ -43,7 +43,9 @@ describe("commit-sync", function() {
     ormB.plugin(require("./sync-flow"), "master");
 
     ormA.emit("initSyncForClient", s1);
-    ormB.emit("initSyncForMasterIo", masterIo);
+    masterIo.on('connect', (socket) => {
+      ormB.emit('initSyncForMaster', socket)
+    })
 
     s1.connect("local");
 

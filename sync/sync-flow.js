@@ -57,7 +57,7 @@ module.exports = function (orm, role) {
       orm.emit('createCommit', commit)
       await lock.acquireAsync()
     }
-    delete value._fake;
+    if (value) delete value._fake;
     this.value = value
   })
 
