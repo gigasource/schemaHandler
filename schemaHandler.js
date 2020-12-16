@@ -329,7 +329,7 @@ function convertPathSchema(node, pathSchema, _path) {
   if (value && pathSchema.$type === 'ObjectID') {
     if (ObjectID.isValid(value)) {
       _.set(node, _path, new ObjectID(value));
-    } else if (pathSchema.$options.autopopulate && value._id) {
+    } else if (pathSchema.$options && pathSchema.$options.autopopulate && value._id) {
       _.set(node, _path, new ObjectID(value._id));
     }
   } else if (value && typeof value !== 'string' && pathSchema.$type === 'String') {
