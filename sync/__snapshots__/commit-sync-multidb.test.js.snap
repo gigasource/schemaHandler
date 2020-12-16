@@ -1,0 +1,47 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`commit-mutliDB Case client to cloud as master 1`] = `
+Object {
+  "_fake": true,
+  "_id": "ObjectID",
+  "table": 10,
+}
+`;
+
+exports[`commit-mutliDB Case client to cloud as master 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "doc": Object {
+      "_fake": true,
+      "_id": "ObjectID",
+      "table": 10,
+    },
+    "type": "create",
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-mutliDB Case client to cloud as master 3`] = `
+Object {
+  "_id": "ObjectID",
+  "table": 10,
+}
+`;
+
+exports[`commit-mutliDB Case client to cloud as master 4`] = `
+Object {
+  "_id": "ObjectID",
+  "table": 10,
+}
+`;
+
+exports[`commit-mutliDB Case client to cloud as master 5`] = `
+Object {
+  "_id": "ObjectID",
+  "status": "inProgress",
+  "table": 10,
+}
+`;

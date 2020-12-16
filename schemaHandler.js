@@ -135,6 +135,7 @@ function parseSchema(paths, obj, {prefixPath} = {}) {
 const logicArrayOperators = ['$or', '$nor', '$and', '$in' /*'$where', '$not'*/];
 
 function parseCondition(paths, obj, {arrayFilters, prefixPath, identifier} = {}) {
+  if (!paths) return obj
   return traverse(obj).map(function (node) {
     const {key, path, isRoot, parent, isLeaf} = this;
     if (this.node_ instanceof ObjectID || (typeof this.node_ === 'object' && ObjectID.isValid(this.node_))) {

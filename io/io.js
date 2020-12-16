@@ -5,9 +5,10 @@ const hooks = new Hooks();
 
 class Socket extends Hooks {
   hooks = hooks
-  connect(address) {
+  connect(address, name) {
     this.address = address;
     const bindingSocket = this.bindingSocket = new BindingSocket();
+    bindingSocket.name = name
     bindingSocket.address = address;
     bindingSocket.bindingSocket = this;
     hooks.emit(`connect:${address}`, bindingSocket);
