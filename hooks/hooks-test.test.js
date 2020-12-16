@@ -314,7 +314,22 @@ describe("test hooks", function () {
       this.setValue(arg + 1)
     })
     const a = hooks.emit('add', 10);
-    debugger
   })
 
+  it('test off', async function () {
+    hooks.on('test', function () {
+      console.log('test');
+    })
+
+    hooks.off('test')
+    hooks.emit('test');
+  })
+
+  it('test off from on' , function () {
+    const {off} = hooks.on('test', function () {
+      console.log('test');
+    })
+    off();
+    hooks.emit('test');
+  })
 });

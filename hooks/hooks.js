@@ -31,7 +31,7 @@ class Hooks extends EE {
       return listener.bind(this)(...arguments);
     }
 
-    this.on(event, _listener);
+    return this.on(event, _listener);
   }
 
   locks = {}
@@ -54,7 +54,7 @@ class Hooks extends EE {
       lock.release()
       return result;
     }
-    this.on(event, _listener);
+    return this.on(event, _listener);
   }
 
   onQueueCount(event, channel, listener) {
@@ -75,7 +75,7 @@ class Hooks extends EE {
       }
       return result;
     }
-    this.on(event, _listener);
+    return this.on(event, _listener);
   }
 
   layers = {}
@@ -97,7 +97,7 @@ class Hooks extends EE {
       const result = await listener.bind(this)(called, ...arguments)
       return result;
     }
-    this.on(event, layer, _listener)
+    return this.on(event, layer, _listener)
   }
 
   on(event, layer, listener) {
@@ -107,10 +107,22 @@ class Hooks extends EE {
     if (isArrowFn(listener)) throw new Error(`don't use arrow function here because of scope`);
     super.on(event, listener);
     this.sortLayer(event);
+    return {
+      off: () => {
+        this.off(event, listener);
+      },
+      emit: (...args) => {
+        this.emit(...args);
+      }
+    }
   }
 
-  off() {
-    this.removeListener(...arguments);
+  off(event) {
+    if (arguments.length === 1) {
+      this.removeAllListeners(event);
+    } else {
+      this.removeListener(...arguments);
+    }
   }
 
   removeListener(event, listener) {
