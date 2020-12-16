@@ -90,7 +90,7 @@ describe("commit-sync", function() {
           });
           if (activeOrder) {
             //create doNothing Commit here
-            commit.id = (await orm.emit("getHighestCommitId")).value + 1;
+            commit.id = await orm.emit("getHighestCommitId") + 1;
             commit.approved = false;
             delete commit.chain;
 

@@ -202,7 +202,7 @@ const syncPlugin = function (orm) {
   // });
   orm.on('getHighestCommitId', async function (dbName) {
     const {id: highestCommitId} = await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0};
-    this.value = highestCommitId;
+    this.setValue(highestCommitId);
   })
 
   //should transparent
@@ -215,8 +215,7 @@ const syncPlugin = function (orm) {
   //customize
   orm.onDefault('createCommit', async function (commit) {
     if (!commit.id) {
-      let {value: highestId} = await orm.emit('getHighestCommitId', commit.dbName);
-      commit.id = highestId + 1;
+      commit.id = await orm.emit('getHighestCommitId', commit.dbName) + 1;
     }
     try {
       this.value = await orm(`Commit`, commit.dbName).create(commit);
