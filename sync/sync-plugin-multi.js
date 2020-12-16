@@ -1,4 +1,5 @@
 const _ = require('lodash');
+const {parseCondition} = require("../schemaHandler");
 const uuid = require('uuid').v1;
 
 const syncPlugin = function (orm) {
@@ -53,7 +54,7 @@ const syncPlugin = function (orm) {
       };
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
-        commit.condition = target.condition;
+        commit.condition = JSON.stringify(target.condition);
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
         commit.chain = JSON.stringify(_query.chain);
@@ -142,7 +143,7 @@ const syncPlugin = function (orm) {
         }*/
         let value = await exec();
         if (value) {
-          value = await orm(query.name).updateOne(target.condition, {$set: {_fake: true}}).direct();
+          value = await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}}).direct();
         }
         this.update('value', value);
       } else {
@@ -177,10 +178,13 @@ const syncPlugin = function (orm) {
 
     orm.onQueue("commit:remove-fake", 'fake-channel', async function (commit) {
       //if (orm.name !== 'A') return;
+      let _parseCondition = commit.condition ? JSON.parse(commit.condition) : {}
       let recoveries = await orm('Recovery').find({uuid: commit.uuid});
 
       if (recoveries.length === 0) {
-        const condition = _.mapKeys(commit.condition, (v, k) => `doc.${k}`)
+        const schema = orm.getSchema(commit.collectionName, commit.dbName);
+        _parseCondition = parseCondition(schema, _parseCondition);
+        const condition = _.mapKeys(_parseCondition, (v, k) => `doc.${k}`)
         recoveries = await orm('Recovery').find(condition);
       }
       for (const recovery of recoveries) {

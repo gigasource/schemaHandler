@@ -1,0 +1,28 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`commit-sync case create + findOneAndUpdate 1`] = `
+Array [
+  Object {
+    "_fake": true,
+    "_id": "ObjectID",
+    "status": "paid",
+    "table": 10,
+  },
+]
+`;
+
+exports[`commit-sync case create + findOneAndUpdate 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "doc": Object {
+      "_fake": true,
+      "_id": "ObjectID",
+      "table": 10,
+    },
+    "type": "create",
+    "uuid": "uuid-v1",
+  },
+]
+`;
