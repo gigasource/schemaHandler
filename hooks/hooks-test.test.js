@@ -310,10 +310,12 @@ describe("test hooks", function () {
   })
 
   it('test setValue', async function (done) {
-    hooks.on('add', function (arg) {
+    hooks.on('add', async function (arg) {
+      await delay(1000);
       this.setValue(arg + 1)
     })
-    const a = hooks.emit('add', 10);
+    const a = await hooks.emit('add', 10);
+    done();
   })
 
   it('test off', async function () {
