@@ -1,4 +1,5 @@
 const _ = require('lodash');
+const {parseCondition} = require("../schemaHandler");
 const uuid = require('uuid').v1;
 
 const syncPlugin = function (orm) {
@@ -177,11 +178,13 @@ const syncPlugin = function (orm) {
 
     orm.onQueue("commit:remove-fake", 'fake-channel', async function (commit) {
       //if (orm.name !== 'A') return;
-      const parseCondition = commit.condition ? JSON.parse(commit.condition) : {}
+      let _parseCondition = commit.condition ? JSON.parse(commit.condition) : {}
       let recoveries = await orm('Recovery').find({uuid: commit.uuid});
 
       if (recoveries.length === 0) {
-        const condition = _.mapKeys(parseCondition, (v, k) => `doc.${k}`)
+        const schema = orm.getSchema(commit.collectionName, commit.dbName);
+        _parseCondition = parseCondition(schema, _parseCondition);
+        const condition = _.mapKeys(_parseCondition, (v, k) => `doc.${k}`)
         recoveries = await orm('Recovery').find(condition);
       }
       for (const recovery of recoveries) {

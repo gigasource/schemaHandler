@@ -11,9 +11,11 @@ function stringify() {
         if (k === 'uuid') return 'uuid-v1'
         if (
           this[k] instanceof ObjectID ||
-          (typeof this[k] === "object" && ObjectID.isValid(this[k])) ||
-          (typeof this[k] === "string" && ObjectID.isValid(this[k]))
+          (typeof this[k] === "object" && ObjectID.isValid(this[k]))
         ) {
+          return "ObjectID";
+        }
+        if (typeof this[k] === "string" && this[k].length === 24 && ObjectID.isValid(this[k])) {
           return "ObjectID";
         }
         if (k === 'chain') {

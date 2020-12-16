@@ -42,7 +42,7 @@ module.exports = function (orm) {
         if (match.testCollection(collectionName) && match.testDb(dbName)) return true;
       }
     });
-    if (match) return match.schema;
+    if (match) return match.schema || defaultSchema;
   }
 
   //parse condition
