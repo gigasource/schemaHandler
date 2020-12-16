@@ -53,7 +53,7 @@ const syncPlugin = function (orm) {
       };
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
-        commit.condition = target.condition;
+        commit.condition = JSON.stringify(target.condition);
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
         commit.chain = JSON.stringify(_query.chain);
@@ -177,10 +177,11 @@ const syncPlugin = function (orm) {
 
     orm.onQueue("commit:remove-fake", 'fake-channel', async function (commit) {
       //if (orm.name !== 'A') return;
+      const parseCondition = JSON.stringify(commit.condition)
       let recoveries = await orm('Recovery').find({uuid: commit.uuid});
 
       if (recoveries.length === 0) {
-        const condition = _.mapKeys(commit.condition, (v, k) => `doc.${k}`)
+        const condition = _.mapKeys(parseCondition, (v, k) => `doc.${k}`)
         recoveries = await orm('Recovery').find(condition);
       }
       for (const recovery of recoveries) {
