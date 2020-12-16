@@ -7,9 +7,8 @@ module.exports = function (orm) {
       if (dbName !== _dbName) return
       clientSocket.emit('commitRequest', commit)
     }
-    const transportSync = async (_dbName) => {
+    const transportSync = async () => {
       // orm.emit('transport:sync');
-      if (dbName !== _dbName) return
       const {value: highestId} = await orm.emit('getHighestCommitId');
       orm.emit('transport:require-sync', highestId);
     }

@@ -5,12 +5,32 @@ module.exports = function (orm, role) {
   let masterDbMap = (orm.mode === 'multi' ? {} : false)
 
   orm.on('commit:flow:setMaster', function (_isMaster, dbName) {
+    // 0: same
+    // 1: master -> node
+    // 2: node -> master
+    let isStateChange = 0
     if (dbName) {
+      if (masterDbMap[dbName] !== _isMaster) {
+        isStateChange = (_isMaster ? 2 : 1)
+      }
       masterDbMap[dbName] = _isMaster
     } else {
+      if (masterDbMap !== _isMaster) {
+        isStateChange = (_isMaster ? 2 : 1)
+      }
       masterDbMap = _isMaster
     }
+    if (isStateChange === 2) {
+      orm.emit('offNode')
+    } else if (isStateChange === 1) {
+      orm.emit('offMaster')
+    }
   })
+
+  orm.getMaster = (dbName) => {
+    if (dbName) return masterDbMap[dbName]
+    return masterDbMap
+  }
 
   const checkMaster = (dbName) => {
     if (role === 'master') return true;
@@ -69,7 +89,7 @@ module.exports = function (orm, role) {
     if (commit.dbName) query.name += `@${commit.dbName}`
     const result = await orm.execChain(query)
     orm.emit(`commit:result:${commit.uuid}`, result);
-    orm.emit('master:transport:sync', commit.id);
+    orm.emit('master:transport:sync', commit.id, commit.dbName);
     orm.emit('commit:handler:finish');
   })
 }
