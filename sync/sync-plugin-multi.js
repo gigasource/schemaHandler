@@ -177,7 +177,7 @@ const syncPlugin = function (orm) {
 
     orm.onQueue("commit:remove-fake", 'fake-channel', async function (commit) {
       //if (orm.name !== 'A') return;
-      const parseCondition = JSON.stringify(commit.condition)
+      const parseCondition = commit.condition ? JSON.parse(commit.condition) : {}
       let recoveries = await orm('Recovery').find({uuid: commit.uuid});
 
       if (recoveries.length === 0) {
