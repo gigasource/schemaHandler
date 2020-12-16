@@ -219,11 +219,11 @@ class Hooks extends EE {
         for (const promise of promises) {
           await promise;
         }
-        resolve(_this._value || _this);
+        resolve(_this.hasOwnProperty('_value') ? _this._value : _this)
       });
     }
 
-    return _this._value || _this;
+    return _this.hasOwnProperty('_value') ? _this._value : _this;
   }
 }
 
