@@ -9,11 +9,10 @@ module.exports = function (orm) {
     }
     const transportSync = async () => {
       // orm.emit('transport:sync');
-      const {value: highestId} = await orm.emit('getHighestCommitId');
+      const {value: highestId} = await orm.emit('getHighestCommitId', dbName);
       orm.emit('transport:require-sync', highestId);
     }
-    const transportRequireSync = (highestId, _dbName) => {
-      if (dbName !== _dbName) return
+    const transportRequireSync = (highestId) => {
       const args = [highestId];
       orm.emit('commit:sync:args', args);
       clientSocket.emit('transport:require-sync', args, async (commits) => {

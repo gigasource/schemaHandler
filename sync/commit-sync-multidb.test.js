@@ -57,15 +57,30 @@ describe('commit-mutliDB', function () {
 		ormA.emit('commit:flow:setMaster', true, 'db1')
 		ormC.emit('commit:flow:setMaster', true)
 
-		await ormA('Model', 'db1').remove({})
-		await ormA('Model', 'db2').remove({})
-		await ormA('Commit', 'db1').remove({})
-		await ormA('Commit', 'db2').remove({})
+		await ormA('Model', 'db1').remove({}).direct()
+		await ormA('Model', 'db2').remove({}).direct()
+		await ormA('Commit', 'db1').remove({}).direct()
+		await ormA('Commit', 'db2').remove({}).direct()
+		ormA.registerSchema("Model", {
+			inProgress: Boolean,
+			items: [{}],
+			table: Number
+		}, 'db1');
+		ormA.registerSchema("Model", {
+			inProgress: Boolean,
+			items: [{}],
+			table: Number
+		}, 'db2');
 
 		for (const orm of orms) {
-			await orm('Model').remove({})
-			await orm('Commit').remove({})
-			await orm('Recovery').remove({})
+			await orm('Model').remove({}).direct()
+			await orm('Commit').remove({}).direct()
+			await orm('Recovery').remove({}).direct()
+			orm.registerSchema("Model", {
+				inProgress: Boolean,
+				items: [{}],
+				table: Number
+			});
 		}
 
 		multiDbIo.on('connect', socket => {
@@ -82,6 +97,9 @@ describe('commit-mutliDB', function () {
 
 		const ormCIo = new Io()
 		ormCIo.listen('ormC')
+		ormCIo.on('connect', socket => {
+			ormC.emit('initSyncForMaster', socket)
+		})
 		s4.connect('ormC')
 		ormB.emit('initSyncForClient', s1)
 		ormD.emit('initSyncForClient', s2)
@@ -91,15 +109,15 @@ describe('commit-mutliDB', function () {
 	})
 
 	afterEach(async () => {
-		await ormA('Model', 'db1').remove({})
-		await ormA('Model', 'db2').remove({})
-		await ormA('Commit', 'db1').remove({})
-		await ormA('Commit', 'db2').remove({})
+		await ormA('Model', 'db1').remove({}).direct()
+		await ormA('Model', 'db2').remove({}).direct()
+		await ormA('Commit', 'db1').remove({}).direct()
+		await ormA('Commit', 'db2').remove({}).direct()
 		let orms = [ormB, ormC, ormD, ormE]
 		for (const orm of orms) {
-			await orm('Model').remove({})
-			await orm('Commit').remove({})
-			await orm('Recovery').remove({})
+			await orm('Model').remove({}).direct()
+			await orm('Commit').remove({}).direct()
+			await orm('Recovery').remove({}).direct()
 		}
 	})
 
@@ -137,9 +155,31 @@ describe('commit-mutliDB', function () {
 	}, 30000)
 
 	it('Case cloud to client as master', async function (done) {
+		let docD = await ormD('Model').create({ table: 9, items: [] })
+		await delay(50)
+		ormD.onCount('transport:require-sync', count => {
+			console.log('Counting for transport:require-sync', count)
+		})
+		let docA = await ormA('Model', 'db2').findOne({ _id: docD._id })
+		expect(stringify(docA)).toMatchSnapshot()
+		let docC = await ormC('Model').findOne({ _id: docD._id })
+		expect(stringify(docC)).toMatchSnapshot()
+		docC = await ormC('Model').findOneAndUpdate({
+			_id: docD._id
+		}, {
+			$push: {
+				items: {
+					name: 'fanta'
+				}
+			}
+		})
+		await delay(50)
+		expect(stringify(docC)).toMatchSnapshot()
+		docD = await ormD('Model').findOne({_id: docC._id})
+		docA = await ormA('Model', 'db2').findOne({ _id: docC._id })
+		expect(stringify(docD)).toEqual(stringify(docC))
+		expect(stringify(docA)).toEqual(stringify((docC)))
+		expect(docA.items[0]._id.toString()).toEqual(docC.items[0]._id.toString())
 		done()
-		// await ormD.create({ table: 10 })
-		// await delay(50)
-		// const dataFrom
 	})
 })
