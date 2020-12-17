@@ -96,7 +96,7 @@ describe('commit-mutliDB', function () {
 			}
 		})
 
-		s1.connect('local')
+		s1.connect('local', 'fromB')
 		s2.connect('local')
 		s3.connect('local', 'master')
 
