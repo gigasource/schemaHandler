@@ -32,6 +32,7 @@ const syncFlow = require('./sync-flow')
 const syncTransporter = require('./sync-transporter')
 
 let toMasterLockB
+let socketToC, socketToB
 
 describe('commit-mutliDB', function () {
 	beforeAll(async () => {
@@ -87,7 +88,11 @@ describe('commit-mutliDB', function () {
 			if (socket.name !== 'master') {
 				ormA.emit('initSyncForMaster', socket, 'db1')
 			} else if (socket.name === 'master') {
+				socketToC = socket
 				ormA.emit('initSyncForClient', socket, 'db2')
+			}
+			if (socket.name === 'fromB') {
+				socketToB = socket
 			}
 		})
 
@@ -180,6 +185,36 @@ describe('commit-mutliDB', function () {
 		expect(stringify(docE)).toEqual(stringify(docC))
 		expect(stringify(docA)).toEqual(stringify((docC)))
 		expect(docA.items[0]._id.toString()).toEqual(docC.items[0]._id.toString())
+		done()
+	})
+
+	it('Test off master', async function (done) {
+		// off ormC as master and set ormA as master
+		ormC.emit('offMaster')
+		ormC.emit('commit:flow:setMaster', false)
+		ormA.emit('offClient', 'db2')
+		ormA.emit('commit:flow:setMaster', true, 'db2')
+		ormC.emit('initSyncForClient', s3)
+		ormA.emit('initSyncForMaster', socketToC, 'db2')
+		const toMasterLockC = ormC.getLock('transport:toMaster')
+		await toMasterLockC.acquireAsync()
+		let docC = await ormC('Model').create({
+			table: 10
+		})
+		docC = await ormC('Model').findById(docC._id)
+		let docA = await ormA('Model', 'db2').findById(docC._id)
+		let docE = await ormE('Model').findById(docC._id)
+		expect(stringify(docC)).toMatchSnapshot()
+		expect(stringify(docA)).toMatchSnapshot()
+		expect(stringify(docE)).toMatchSnapshot()
+		toMasterLockC.release()
+		await delay(50)
+		docC = await ormC('Model').findById(docC._id)
+		docA = await ormA('Model', 'db2').findById(docC._id)
+		docE = await ormE('Model').findById(docC._id)
+		expect(stringify(docC)).toMatchSnapshot()
+		expect(stringify(docA)).toEqual(stringify(docC))
+		expect(docE).toEqual(null)
 		done()
 	})
 })

@@ -79,3 +79,24 @@ Object {
   "table": 9,
 }
 `;
+
+exports[`commit-mutliDB Test off master 1`] = `
+Object {
+  "_fake": true,
+  "_id": "ObjectID",
+  "items": Array [],
+  "table": 10,
+}
+`;
+
+exports[`commit-mutliDB Test off master 2`] = `null`;
+
+exports[`commit-mutliDB Test off master 3`] = `null`;
+
+exports[`commit-mutliDB Test off master 4`] = `
+Object {
+  "_id": "ObjectID",
+  "items": Array [],
+  "table": 10,
+}
+`;
