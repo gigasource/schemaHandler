@@ -3,59 +3,54 @@ const AwaitLock = require('await-lock').default;
 module.exports = function (orm) {
   //todo: layer transport implement
   orm.on('initSyncForClient', (clientSocket, dbName) => {
-    const transportToMaster = async (commit, _dbName) => {
+    const off1 = orm.onQueue('transport:toMaster', async (commit, _dbName) => {
       if (dbName !== _dbName) return
       clientSocket.emit('commitRequest', commit)
-    }
-    const transportSync = async () => {
-      // orm.emit('transport:sync');
+    }).off
+
+    clientSocket.on('transport:sync',  async () => {
       const {value: highestId} = await orm.emit('getHighestCommitId', dbName);
       orm.emit('transport:require-sync', highestId);
-    }
-    const transportRequireSync = (highestId) => {
+    })
+
+    const off2 = orm.onQueue('transport:require-sync', (highestId) => {
       const args = [highestId];
       orm.emit('commit:sync:args', args);
       clientSocket.emit('transport:require-sync', args, async (commits) => {
         commits.forEach(commit => commit.dbName = dbName)
         await orm.emit('transport:requireSync:callback', commits)
       })
-    }
-
-    orm.onQueue('transport:toMaster', transportToMaster)
-    clientSocket.on('transport:sync', transportSync)
-    orm.onQueue('transport:require-sync', transportRequireSync)
+    }).off
 
     orm.on('offClient', (_dbName) => {
       if (dbName !== _dbName) return
-      orm.off('transport:toMaster', transportToMaster)
-      clientSocket.off('transport:sync', transportSync)
-      orm.off('transport:require-sync', transportRequireSync)
+      off1()
+      off2()
+      clientSocket.removeAllListeners('transport:sync');
     })
   })
 
   orm.on('initSyncForMaster', (socket, dbName) => {
-    const transportSync = (id, _dbName) => {
+    const off1 = orm.on('master:transport:sync', (id, _dbName) => {
       if (dbName !== _dbName) return
       socket.emit('transport:sync')
-    }
-    const commitRequest = async (commit) => {
+    }).off;
+
+    socket.on('commitRequest', async (commit) => {
       commit.dbName = dbName
       await orm.emit('commitRequest', commit);
-    }
-    const transportRequireSync = async function ([clientHighestId = 0], cb) {
+    });
+
+    socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
       const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
       cb(commits);
-    }
-
-    orm.on('master:transport:sync', transportSync);
-    socket.on('commitRequest', commitRequest);
-    socket.on('transport:require-sync', transportRequireSync);
+    });
 
     orm.on('offMaster', (_dbName) => {
       if (dbName !== _dbName) return
-      orm.off('master:transport:sync', transportSync)
-      socket.off('commitRequest', commitRequest)
-      socket.off('transport:require-sync', transportRequireSync)
+      off1()
+      socket.removeAllListeners('commitRequest')
+      socket.removeAllListeners('transport:require-sync')
     })
   })
 

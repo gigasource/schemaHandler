@@ -104,7 +104,7 @@ describe('commit-mutliDB', function () {
 		ormB.emit('initSyncForClient', s1)
 		ormD.emit('initSyncForClient', s2)
 		ormC.emit('initSyncForMaster', s3)
-		ormD.emit('initSyncForClient', s4)
+		ormE.emit('initSyncForClient', s4)
 		toMasterLockB = ormB.getLock('transport:toMaster')
 	})
 
@@ -155,17 +155,17 @@ describe('commit-mutliDB', function () {
 	}, 30000)
 
 	it('Case cloud to client as master', async function (done) {
-		let docD = await ormD('Model').create({ table: 9, items: [] })
+		let docE = await ormE('Model').create({ table: 9, items: [] })
 		await delay(50)
-		ormD.onCount('transport:require-sync', count => {
+		ormE.onCount('transport:require-sync', count => {
 			console.log('Counting for transport:require-sync', count)
 		})
-		let docA = await ormA('Model', 'db2').findOne({ _id: docD._id })
+		let docA = await ormA('Model', 'db2').findOne({ _id: docE._id })
 		expect(stringify(docA)).toMatchSnapshot()
-		let docC = await ormC('Model').findOne({ _id: docD._id })
+		let docC = await ormC('Model').findOne({ _id: docE._id })
 		expect(stringify(docC)).toMatchSnapshot()
 		docC = await ormC('Model').findOneAndUpdate({
-			_id: docD._id
+			_id: docE._id
 		}, {
 			$push: {
 				items: {
@@ -175,9 +175,9 @@ describe('commit-mutliDB', function () {
 		})
 		await delay(50)
 		expect(stringify(docC)).toMatchSnapshot()
-		docD = await ormD('Model').findOne({_id: docC._id})
+		docE = await ormE('Model').findOne({_id: docC._id})
 		docA = await ormA('Model', 'db2').findOne({ _id: docC._id })
-		expect(stringify(docD)).toEqual(stringify(docC))
+		expect(stringify(docE)).toEqual(stringify(docC))
 		expect(stringify(docA)).toEqual(stringify((docC)))
 		expect(docA.items[0]._id.toString()).toEqual(docC.items[0]._id.toString())
 		done()

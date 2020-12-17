@@ -4,6 +4,7 @@ exports[`commit-mutliDB Case client to cloud as master 1`] = `
 Object {
   "_fake": true,
   "_id": "ObjectID",
+  "items": Array [],
   "table": 10,
 }
 `;
@@ -16,6 +17,7 @@ Array [
     "doc": Object {
       "_fake": true,
       "_id": "ObjectID",
+      "items": Array [],
       "table": 10,
     },
     "type": "create",
@@ -27,6 +29,7 @@ Array [
 exports[`commit-mutliDB Case client to cloud as master 3`] = `
 Object {
   "_id": "ObjectID",
+  "items": Array [],
   "table": 10,
 }
 `;
@@ -34,6 +37,7 @@ Object {
 exports[`commit-mutliDB Case client to cloud as master 4`] = `
 Object {
   "_id": "ObjectID",
+  "items": Array [],
   "table": 10,
 }
 `;
@@ -41,6 +45,7 @@ Object {
 exports[`commit-mutliDB Case client to cloud as master 5`] = `
 Object {
   "_id": "ObjectID",
+  "items": Array [],
   "status": "inProgress",
   "table": 10,
 }
