@@ -244,7 +244,7 @@ const syncPlugin = function (orm) {
   })
 
   orm.onQueue('commitRequest', async function (commit) {
-    if (!commit.tag) {
+    if (!commit.tags) {
       await orm.emit('process:commit', commit)
     } else {
       for (const tag of commit.tags) {
