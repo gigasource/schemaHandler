@@ -88,6 +88,7 @@ module.exports = function (orm, role) {
     let query = orm.getQuery(commit)
     if (commit.dbName) query.name += `@${commit.dbName}`
     const result = await orm.execChain(query)
+    orm.emit(`commit:result:${commit.collectionName}`, result);
     orm.emit(`commit:result:${commit.uuid}`, result);
     orm.emit('master:transport:sync', commit.id, commit.dbName);
     orm.emit('commit:handler:finish');
