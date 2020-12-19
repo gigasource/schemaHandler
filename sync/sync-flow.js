@@ -58,8 +58,8 @@ module.exports = function (orm, role) {
     }
     if (_commit && _commit.chain !== commit.chain) {
       exec = async () => await orm.execChain(orm.getQuery(_commit))
-      commit = _commit;
     }
+    commit = _commit;
 
     let value
     if (!checkMaster(commit.dbName)) {
