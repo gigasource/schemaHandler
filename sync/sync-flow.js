@@ -91,6 +91,6 @@ module.exports = function (orm, role) {
     orm.emit(`commit:result:${commit.uuid}`, result);
     orm.emit('master:transport:sync', commit.id, commit.dbName);
     orm.emit(`commit:handler:finish:${commit.collectionName}`, result, commit);
-    orm.emit('commit:handler:finish');
+    orm.emit('commit:handler:finish', commit);
   })
 }
