@@ -10,13 +10,15 @@ class Socket extends Hooks {
     if (address.includes('?')) {
       [address, args] = address.split('?')
     }
-    args = args.split('&')
     this.address = address;
     const bindingSocket = this.bindingSocket = new BindingSocket();
-    args.forEach(arg => {
-      const [val, key] = arg.split('=')
-      bindingSocket[val] = key
-    })
+    if (args) {
+      args = args.split('&')
+      args.forEach(arg => {
+        const [val, key] = arg.split('=')
+        bindingSocket[val] = key
+      })
+    }
     bindingSocket.name = name
     bindingSocket.address = address;
     bindingSocket.bindingSocket = this;
