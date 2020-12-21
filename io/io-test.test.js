@@ -103,5 +103,16 @@ describe("test io", function() {
     s2.connect("local");
   });
 
+  it('case8: emit to', function (done) {
+    io.listen('local')
 
+    s1.connect(`local?clientId=s1`, 's1')
+    s2.connect(`local?clientId=s2`, 's2')
+
+    s2.on('a', function () {
+      done()
+    })
+
+    s1.emitTo('s2', 'a')
+  })
 });

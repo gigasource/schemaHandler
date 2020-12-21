@@ -6,8 +6,17 @@ const hooks = new Hooks();
 class Socket extends Hooks {
   hooks = hooks
   connect(address, name) {
+    let args
+    if (address.includes('?')) {
+      [address, args] = address.split('?')
+    }
+    args = args.split('&')
     this.address = address;
     const bindingSocket = this.bindingSocket = new BindingSocket();
+    args.forEach(arg => {
+      const [val, key] = arg.split('=')
+      bindingSocket[val] = key
+    })
     bindingSocket.name = name
     bindingSocket.address = address;
     bindingSocket.bindingSocket = this;
@@ -29,6 +38,10 @@ class Socket extends Hooks {
   disconnect() {
     hooks.emit(`disconnect:${this.address}`, this.bindingSocket);
   }
+
+  emitTo(target, event, ...args) {
+    this.emit('emitToMock', target, event, ...args)
+  }
 }
 
 class BindingSocket extends Socket {
@@ -49,6 +62,13 @@ class Io extends Socket {
       const cb = function () {
         return socket.emit(...arguments);
       }
+      socket.on('emitToMock', function (target, eventName, ...args) {
+        _this.sockets.forEach((mapValue, _socket) => {
+          if (_socket.clientId && _socket.clientId === target) {
+            _socket.emit(eventName, ...args)
+          }
+        })
+      })
       hooks.on(`emit:${address}`, cb);
       mapValue.off = function () {
         hooks.off(`emit:${address}`, cb);
