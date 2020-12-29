@@ -12,7 +12,7 @@ module.exports = {
   moduleDirectories: [
     'node_modules'
   ],
-  testEnvironment: "node",
+  //testEnvironment: "node",
   /*moduleNameMapper: {
     '^@/(.*)$': "<rootDir>/src/$1"
   },*/
