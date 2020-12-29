@@ -85,6 +85,7 @@ describe("render", function() {
 
   it("case 2", async function() {
     const { fn, hooks } = hoc();
+    //ui customization
     hooks.on("r:payPrintBtnFn", function(
       payPrintBtnFn,
       payBtnLabel,
@@ -108,5 +109,5 @@ describe("render", function() {
     expect(wrapper.html()).toMatchInlineSnapshot(
       `"<button class=\\"btn-blur\\">print</button><p></p>"`
     );
-  });
+  }, 80000);
 });
