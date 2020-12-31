@@ -197,11 +197,12 @@ class Hooks extends EE {
       const _eval = _.last(args);
       _this.update = function (_var, value) {
         const _value = [value];
-        if (window) {
+
+        try {
           window['___value___'] = value;
           _eval(`${_var} = window['___value___'];`)
           delete window['___value___'];
-        } else if (global) {
+        } catch (e) {
           global['___value___'] = value;
           _eval(`${_var} = global['___value___'];`)
           delete global['___value___'];
