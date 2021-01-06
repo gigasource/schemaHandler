@@ -242,7 +242,9 @@ const isArrowFn = (fn) => {
   }
 };
 
-['getPreHandler', 'preEe', 'on', 'pre', 'onDefault', 'emit', 'emitPrepare', 'emitDefault'].forEach(
+['getPreHandler', 'preEe', 'on', 'pre', 'onDefault',
+  'emit', 'emitPrepare', 'emitDefault', '__emit', 'sortLayer', 'once',
+  'onQueue', 'off', 'onCount', 'removeListener', 'onQueueCount'].forEach(
   p => Object.defineProperty(Hooks.prototype, p, {enumerable: true})
 )
 

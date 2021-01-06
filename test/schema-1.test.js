@@ -118,4 +118,49 @@ describe("checkEqual", function() {
       }
     `);
   });
+
+  it("case5", async function() {
+    const m1 = await Model.create({
+      categories: [{ name: "a", products: [{ name: "a1" }] }]
+    });
+    const m2 = await Model.findOneAndUpdate(
+      {
+        _id: m1._id,
+        "categories._id": m1.categories["0"]._id
+      },
+      { $push: { "categories.$.products": { name: "fanta" } } }
+    );
+    /*const m3 = await Model.findOneAndUpdate(
+      {_id: m1._id},
+      {$push: {items: {$each: [{name: "fanta"}, {name: "Pepsi"}]}}}
+    );*/
+    expect(stringify(m2)).toMatchInlineSnapshot(`
+      Object {
+        "_id": "ObjectID",
+        "author": "ObjectID",
+        "b": 100,
+        "categories": Array [
+          Object {
+            "_id": "ObjectID",
+            "name": "a",
+            "products": Array [
+              Object {
+                "_id": "ObjectID",
+                "items": Array [],
+                "name": "a1",
+              },
+              Object {
+                "_id": "ObjectID",
+                "items": Array [],
+                "name": "fanta",
+              },
+            ],
+          },
+        ],
+        "groups": Array [],
+        "items": Array [],
+        "strArr": Array [],
+      }
+    `);
+  });
 });

@@ -183,7 +183,7 @@ hooks.on('processNode', function ({paths, path, pathFilter, pathsInLevel2, _node
     if (pathsInLevel.find(({pathSchema}) => pathSchema.$type === 'Array')) {
       for (let {relative, absolute, pathSchema} of pathsInLevel) {
         if (relative === '0') {
-          let prefixPath = [..._path, '0'];
+          let prefixPath = [...filterMongoOperators(pathFilter, true, true), '0'];
           const convert = item => parseSchema(paths, item, {prefixPath});
           if (_node.$each) {
             _node.$each = _node.$each.map(item => convert(item));
@@ -274,7 +274,7 @@ function filterMongoOperators2(paths, keepLast = true) {
   }, [])
 }
 
-function filterMongoOperators(paths, keepLast = true) {
+function filterMongoOperators(paths, keepLast = true, keepDollar = false) {
   let rememberPrevent = false;
   return paths.reduce((list, item, index) => {
     if (logicArrayOperators.includes(item)) {
@@ -283,6 +283,8 @@ function filterMongoOperators(paths, keepLast = true) {
       if (!rememberPrevent) {
         if (!item.includes('$')) {
           list.push(item);
+        } else if (keepDollar && item === '$') {
+          list.push('0');
         }
       }
       rememberPrevent = false;
