@@ -80,7 +80,9 @@ function convertSchemaToPaths(schema, collectionName) {
           _$options = {default: {}}
         }
         paths[_path] = merge({}, {$options: _$options}, parent.node, {$type: 'Object'});
-        paths[`${_path}._id`] = {$type: 'ObjectID', $options: {default: () => new ObjectID()}};
+        if (_.endsWith(_path, '.0')) {
+          paths[`${_path}._id`] = {$type: 'ObjectID', $options: {default: () => new ObjectID()}};
+        }
       }
     }
   })
@@ -314,11 +316,12 @@ function convertPathParentSchema(node, pathSchema) {
 }
 
 function initDefaultValue(node, pathSchema, _path) {
-  if (pathSchema.$type === 'ObjectID') {
+  /*if (pathSchema.$type === 'ObjectID') {
     if (!_.get(node, _path)) {
       _.set(node, _path, new ObjectID());
     }
-  } else if (pathSchema.$options && pathSchema.$options.default) {
+  } else */
+  if (pathSchema.$options && pathSchema.$options.default) {
     let _default = pathSchema.$options.default;
     _default = typeof _default === 'function' ? _default() : _default
     if (!_.get(node, _path)) {
