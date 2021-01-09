@@ -37,6 +37,9 @@ describe("checkEqual", function() {
         type: Number,
         default: 100
       },
+      obj: {
+        c: Number
+      },
       items: [{}],
       date: Date,
       strArr: [String],
@@ -162,5 +165,41 @@ describe("checkEqual", function() {
         "strArr": Array [],
       }
     `);
+  });
+
+  it("case6", async function() {
+    const m1 = await Model.create({
+      categories: [{ name: "a", products: [{ name: "a1" }] }]
+    });
+    expect(stringify(m1)).toMatchInlineSnapshot(`
+      Object {
+        "_id": "ObjectID",
+        "b": 100,
+        "categories": Array [
+          Object {
+            "_id": "ObjectID",
+            "name": "a",
+            "products": Array [
+              Object {
+                "_id": "ObjectID",
+                "items": Array [],
+                "name": "a1",
+              },
+            ],
+          },
+        ],
+        "groups": Array [],
+        "items": Array [],
+        "obj": Object {},
+        "strArr": Array [],
+      }
+    `);
+  });
+
+  it("case7 test chain", async function() {
+    const m1 = Model.create({
+      categories: [{ name: "a", products: [{ name: "a1" }] }]
+    }).chain;
+    expect(stringify(m1)).toMatchInlineSnapshot();
   });
 });
