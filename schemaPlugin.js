@@ -110,7 +110,7 @@ module.exports = function (orm) {
         target.condition = _parseCondition;
         if (key.includes('Update') || key.includes('Modify') || key === 'updateMany') {
           let updateValue = args.shift();
-          let arrayFilters;
+          let arrayFilters = [];
           if (args.length > 0 && args[0].arrayFilters) {
             arrayFilters = args[0].arrayFilters;
           }
