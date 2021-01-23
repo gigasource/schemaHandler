@@ -67,4 +67,5 @@ orm.cache
 
 models['collection@db']
 
-
+[x] object in object don't need gen
+[x] object id should not gen auto
