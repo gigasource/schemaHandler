@@ -18,7 +18,7 @@ function stringify() {
         if (typeof this[k] === "string" && this[k].length === 24 && ObjectID.isValid(this[k])) {
           return "ObjectID";
         }
-        if (k === 'chain') {
+        if (k === 'chain' || k === 'condition') {
           let result = stringify(JSON.parse(this[k]));
           result = JSON.stringify(result);
           return result;

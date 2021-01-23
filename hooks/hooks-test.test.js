@@ -334,4 +334,25 @@ describe("test hooks", function () {
     off();
     hooks.emit('test');
   })
+
+  it('test async and sync run at the same time', function () {
+    let arr = [];
+    hooks.on("test", () => {
+      arr.push(0);
+    });
+
+    let cb = async () => {
+      await new Promise(resolve => resolve(arr.push(-1)))
+    };
+
+    hooks.on("test", -1, cb);
+
+    hooks.emit("test");
+    expect(arr).toMatchInlineSnapshot(`
+      Array [
+        -1,
+        0,
+      ]
+    `);
+  })
 });
