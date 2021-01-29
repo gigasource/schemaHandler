@@ -55,10 +55,10 @@ const syncPlugin = function (orm) {
       };
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
-        commit.condition = JsonFn.stringify(target.condition);
+        commit.condition = JSON.stringify(target.condition);
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
-        commit.chain = JsonFn.stringify(_query.chain);
+        commit.chain = JSON.stringify(_query.chain);
         if (_.get(_query, "chain[0].args[0]._id")) {
           commit.data.docId = _.get(_query, "chain[0].args[0]._id");
         }
