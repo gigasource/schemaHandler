@@ -144,7 +144,7 @@ const syncPlugin = function (orm) {
         }*/
         let value = await exec();
         if (value) {
-          value = await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}}).direct();
+          value = await orm(query.name).updateOne({_id: value._id}, {$set: {_fake: true}}).direct();
         }
         this.update('value', value);
       } else {
