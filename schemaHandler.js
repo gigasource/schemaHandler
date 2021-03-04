@@ -311,6 +311,8 @@ function convertPathParentSchema(node, pathSchema) {
     return value.toString;
   } else if (value && typeof value !== 'number' && pathSchema.$type === 'Number') {
     return Number(value);
+  } else if (value && typeof value !== 'date' && pathSchema.$type === 'Date') {
+    return new Date(value);
   }
   return value;
 }
