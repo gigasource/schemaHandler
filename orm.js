@@ -391,6 +391,8 @@ async function resultPostProcess(result, target) {
       _result = result.value;
     } else if (_.get(result, 'result.message.documents')) {
       _result = _.get(result, 'result.message.documents');
+    } else if (target.cmd === 'aggregate') {
+      _result = await _result.toArray()
     }
   } else {
     _result = result;
