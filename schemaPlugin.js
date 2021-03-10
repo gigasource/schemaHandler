@@ -1,7 +1,7 @@
 const ObjectID = require('bson').ObjectID;
 const _ = require('lodash');
 const traverse = require("traverse");
-const {convertNameToTestFunction} = require("./utils");
+const {convertNameToTestFunction, clearUndefined} = require("./utils");
 
 const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require("./schemaHandler")
 
@@ -139,7 +139,7 @@ module.exports = function (orm) {
         if (Array.isArray(obj)) {
           target.returnSingleDocument = false;
           let objs = obj;
-          objs = objs.map(obj => parseSchema(schema, obj));
+          objs = objs.map(obj => parseSchema(schema, obj)).map(clearUndefined);
           if (objs.length !== 0) {
             args.unshift(objs);
             target.cursor = target.cursor['insertMany'](...args);
@@ -148,7 +148,9 @@ module.exports = function (orm) {
             target.returnValueWhenIgnore = [];
           }
         } else {
-          args.unshift(parseSchema(schema, obj));
+          let _obj = parseSchema(schema, obj);
+          _obj = clearUndefined(_obj);
+          args.unshift(_obj);
           target.cursor = target.cursor['insertOne'](...args);
         }
         return proxy;
@@ -159,7 +161,7 @@ module.exports = function (orm) {
         const args = [...arguments];
         const obj = args.shift();
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
-        args.unshift(parseSchema(schema, obj));
+        args.unshift(clearUndefined(parseSchema(schema, obj)));
         return defaultFn(...args)
       }
     } else if (key === 'insertMany') {
@@ -168,7 +170,7 @@ module.exports = function (orm) {
         const args = [...arguments];
         let objs = args.shift();
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
-        objs = objs.map(obj => parseSchema(schema, obj));
+        objs = objs.map(obj => parseSchema(schema, obj)).map(clearUndefined);
         if (objs.length !== 0) {
           args.unshift(objs);
           return defaultFn(...args)
