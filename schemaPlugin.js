@@ -119,6 +119,7 @@ module.exports = function (orm) {
           } catch (e) {
             console.warn(e);
           }
+          updateValue = clearUndefined(updateValue);
           args.unshift(updateValue);
         }
         args.unshift(_parseCondition);

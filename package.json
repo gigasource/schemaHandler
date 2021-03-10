@@ -1,6 +1,6 @@
 {
   "name": "schemahandler",
-  "version": "1.0.0",
+  "version": "1.0.97",
   "description": "",
   "main": "orm.js",
   "scripts": {
