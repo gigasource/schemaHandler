@@ -320,5 +320,6 @@ module.exports = function (orm) {
     let [collectionName, dbName] = target.modelName.split('@');
     const schema = orm.getSchema(collectionName, dbName);
     this.value = parseSchema(schema, args[0]);
+    this.value._id = new ObjectID();
   })
 }
