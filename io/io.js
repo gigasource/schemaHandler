@@ -30,7 +30,7 @@ class Socket extends Hooks {
   }
 
   emit(event, ...args) {
-    this.bindingSocket._emit(...arguments);
+    this.bindingSocket && this.bindingSocket._emit(...arguments);
   }
 
   on(event, listener) {

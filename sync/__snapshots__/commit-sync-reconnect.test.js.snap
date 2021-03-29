@@ -1,0 +1,19 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`commit-sync Case queue query from client 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "commit": Object {
+      "approved": false,
+      "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"value\\":\\"test\\"}]}]",
+      "collectionName": "Model",
+      "data": Object {},
+      "tags": Array [],
+      "uuid": "uuid-v1",
+    },
+  },
+]
+`;
+
+exports[`commit-sync Case queue query from client 2`] = `Array []`;

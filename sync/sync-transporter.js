@@ -1,11 +1,55 @@
 const AwaitLock = require('await-lock').default;
+const QUEUE_COMMIT_MODEL = 'QueueCommit'
+const SENT_TIMEOUT = 10000
+const MAX_TIMEOUT = 60000
+const _ = require('lodash')
+
+let queueCommit = []
 
 module.exports = function (orm) {
-  //todo: layer transport implement
+  orm.on('transport:loadQueueCommit', async function () {
+    queueCommit = await orm(QUEUE_COMMIT_MODEL).find({})
+    queueCommit.forEach(commit => {
+      commit = commit.commit
+    })
+  })
+  // This must run outside initSyncForClient hook because
+  // hook commit must be written into queue db first
+  orm.onQueue('transport:toMaster', async (commit, _dbName) => {
+    await orm(QUEUE_COMMIT_MODEL).create({
+      commit,
+      dbName: _dbName
+    })
+    queueCommit.push(commit)
+    orm.emit('transport:send', _dbName)
+  })
+
   orm.on('initSyncForClient', (clientSocket, dbName) => {
-    const off1 = orm.onQueue('transport:toMaster', async (commit, _dbName) => {
+    const off1 = orm.on('transport:send', async (_dbName) => {
       if (dbName !== _dbName) return
-      clientSocket.emit('commitRequest', commit)
+      let sent = false
+      let currentTimeout = 0
+
+      const send = function () {
+        currentTimeout += SENT_TIMEOUT
+        currentTimeout = Math.min(currentTimeout, MAX_TIMEOUT)
+        setTimeout(() => {
+          if (!sent) {
+            console.log('Retry sending commit !')
+            send()
+          }
+        }, currentTimeout)
+        const sentCommits = _.cloneDeep(queueCommit)
+        clientSocket.emit('commitRequest', sentCommits, async () => {
+          sent = true
+          _.remove(queueCommit, commit => !!sentCommits.find(_commit => _commit.uuid === commit.uuid))
+          const removedCommitUUID = sentCommits.map(commit => commit.uuid)
+          await orm(QUEUE_COMMIT_MODEL).remove({ 'commit.uuid': { $in: removedCommitUUID } })
+          orm.emit('transport:send')
+        })
+      }
+      if (queueCommit.length)
+        send()
     }).off
 
     clientSocket.on('transport:sync',  async () => {
@@ -28,6 +72,8 @@ module.exports = function (orm) {
       off2()
       clientSocket.removeAllListeners('transport:sync');
     })
+
+    orm.emit('transport:send')
   })
 
   orm.on('initSyncForMaster', (socket, dbName) => {
@@ -36,9 +82,12 @@ module.exports = function (orm) {
       socket.emit('transport:sync')
     }).off;
 
-    socket.on('commitRequest', async (commit) => {
-      commit.dbName = dbName
-      await orm.emit('commitRequest', commit);
+    socket.on('commitRequest', async (commits, cb) => {
+      for (let commit of commits) {
+        commit.dbName = dbName
+        await orm.emit('commitRequest', commit);
+      }
+      cb && cb()
     });
 
     socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
