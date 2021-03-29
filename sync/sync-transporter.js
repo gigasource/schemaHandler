@@ -13,6 +13,10 @@ module.exports = function (orm) {
       commit = commit.commit
     })
   })
+  orm.on('transport:removeQueue', async function () {
+    queueCommit = []
+    await orm(QUEUE_COMMIT_MODEL).remove({})
+  })
   // This must run outside initSyncForClient hook because
   // hook commit must be written into queue db first
   orm.onQueue('transport:toMaster', async (commit, _dbName) => {
@@ -25,7 +29,10 @@ module.exports = function (orm) {
   })
 
   orm.on('initSyncForClient', (clientSocket, dbName) => {
+    const lockSend = new AwaitLock()
     const off1 = orm.on('transport:send', async (_dbName) => {
+      if (lockSend.acquired) return
+      lockSend.tryAcquire()
       if (dbName !== _dbName) return
       let sent = false
       let currentTimeout = 0
@@ -34,7 +41,7 @@ module.exports = function (orm) {
         currentTimeout += SENT_TIMEOUT
         currentTimeout = Math.min(currentTimeout, MAX_TIMEOUT)
         setTimeout(() => {
-          if (!sent) {
+          if (!sent && !orm.getMaster(_dbName)) {
             console.log('Retry sending commit !')
             send()
           }
@@ -50,6 +57,8 @@ module.exports = function (orm) {
       }
       if (queueCommit.length)
         send()
+      else
+        lockSend.release()
     }).off
 
     clientSocket.on('transport:sync',  async () => {
