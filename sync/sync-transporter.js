@@ -52,6 +52,7 @@ module.exports = function (orm) {
           _.remove(queueCommit, commit => !!sentCommits.find(_commit => _commit.uuid === commit.uuid))
           const removedCommitUUID = sentCommits.map(commit => commit.uuid)
           await orm(QUEUE_COMMIT_MODEL).remove({ 'commit.uuid': { $in: removedCommitUUID } })
+          lockSend.release()
           orm.emit('transport:send')
         })
       }

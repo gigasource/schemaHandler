@@ -143,6 +143,9 @@ const syncPlugin = function (orm) {
           });
         }*/
         let value = await exec();
+        if (!doc) {
+          await orm('Recovery').create({collectionName: query.name, ..._uuid, type: 'create', doc: value})
+        }
         if (value) {
           value = await orm(query.name).updateOne({_id: value._id}, {$set: {_fake: true}}).direct();
         }
@@ -198,6 +201,10 @@ const syncPlugin = function (orm) {
       }
 
     });
+
+    orm.on('commit:remove-all-recovery', 'fake-channel', async function () {
+      await orm('Recovery').remove({})
+    })
   })
 
   //should transparent
