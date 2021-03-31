@@ -279,8 +279,6 @@ const syncPlugin = function (orm) {
     for (const collection of whitelist) {
       await orm(collection).remove().direct()
     }
-    await orm.emit('transport:removeQueue')
-    await orm.emit('commit:remove-all-recovery')
   }
 
   // this must be called after master is set
@@ -289,6 +287,8 @@ const syncPlugin = function (orm) {
       await removeFake()
     else
       await removeAll()
+    await orm.emit('transport:removeQueue')
+    await orm.emit('commit:remove-all-recovery')
   })
 
   // if (isMaster) {
