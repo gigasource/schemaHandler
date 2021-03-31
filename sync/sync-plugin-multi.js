@@ -262,6 +262,35 @@ const syncPlugin = function (orm) {
     await orm.emit('createCommit', commit);
   })
 
+  async function removeFake() {
+    for (const collection of whitelist) {
+      const docs = await orm(collection).find()
+      for (const doc of docs) {
+        if (doc._fake) {
+          await orm(collection).remove({_id: doc._id}).direct()
+          delete doc._fake
+          await orm(collection).create(doc)
+        }
+      }
+    }
+  }
+
+  async function removeAll() {
+    for (const collection of whitelist) {
+      await orm(collection).remove().direct()
+    }
+    await orm.emit('transport:removeQueue')
+    await orm.emit('commit:remove-all-recovery')
+  }
+
+  // this must be called after master is set
+  orm.on('setUpNewMaster', async function (isMaster) {
+    if (isMaster)
+      await removeFake()
+    else
+      await removeAll()
+  })
+
   // if (isMaster) {
   //   //use only for master
   //
