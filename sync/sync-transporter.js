@@ -8,9 +8,8 @@ let queueCommit = []
 
 module.exports = function (orm) {
   orm.on('transport:loadQueueCommit', async function () {
-    queueCommit = await orm(QUEUE_COMMIT_MODEL).find({})
-    queueCommit.forEach(commit => {
-      commit = commit.commit
+    queueCommit = (await orm(QUEUE_COMMIT_MODEL).find({})).map(commit => {
+      return commit.commit
     })
   })
   orm.on('transport:removeQueue', async function () {
