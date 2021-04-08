@@ -2,7 +2,7 @@ const _ = require('lodash');
 const {parseCondition} = require("../schemaHandler");
 const uuid = require('uuid').v1;
 const JsonFn = require('json-fn');
-const {ObjectId} = require('bson');
+const { ObjectID } = require('bson')
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -39,7 +39,7 @@ const syncPlugin = function (orm) {
   orm.on('commit:auto-assign', function (commit, _query, target) {
     if (target.cmd === "create" || target.cmd === "insertOne") {
       if (!_query.chain["0"].args["0"]._id)
-        _query.chain["0"].args["0"]._id = new ObjectId();
+        _query.chain["0"].args["0"]._id = new ObjectID();
     }
   })
 
@@ -63,6 +63,7 @@ const syncPlugin = function (orm) {
       };
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
+        commit._id = new ObjectID()
         commit.condition = JSON.stringify(target.condition);
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
@@ -242,7 +243,7 @@ const syncPlugin = function (orm) {
       this.value = await orm(`Commit`, commit.dbName).create(commit);
     } catch (e) {
       if (e.message.slice(0, 6) === 'E11000') {
-        console.log('sync two fast')
+        //console.log('sync two fast')
       }
     }
     // if (isMaster) {
