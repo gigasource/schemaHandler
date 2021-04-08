@@ -8,6 +8,7 @@ const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require(
 module.exports = function (orm) {
   const defaultSchema = convertSchemaToPaths({});
   orm.schemas = orm.schemas || [];
+  orm.defaultSchema = defaultSchema;
 
   orm.registerSchema = function (collectionName, dbName, schema) {
     if (orm.mode === 'single') {

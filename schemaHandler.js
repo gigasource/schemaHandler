@@ -49,7 +49,7 @@ function convertSchemaToPaths(schema, collectionName) {
     const {key, path, isRoot, parent, isLeaf} = this;
     const _path = path.filter(p => p !== '$type').join('.');
     if (isRoot) {
-      paths['_id'] = {$type: 'ObjectID'};
+      paths['_id'] = {$type: 'ObjectID', $options: {default: () => new ObjectID()}};
     }
     if (key === '$options') {
       this.block();

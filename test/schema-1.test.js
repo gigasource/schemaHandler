@@ -5,6 +5,7 @@ const {
   parseCondition
 } = require("../schemaHandler");
 const orm = require("../orm");
+const {parseSchema} = require("../schemaHandler");
 const { ObjectID } = require("bson");
 
 let id = () => "5fb7f13453d00d8aace1d89b";
@@ -201,5 +202,12 @@ describe("checkEqual", function() {
       categories: [{ name: "a", products: [{ name: "a1" }] }]
     }).chain;
     expect(stringify(m1)).toMatchInlineSnapshot();
+  });
+
+  it("case 8 parse schema", async function() {
+    const m1 = {items: [{a: 1}]}
+    const schema = orm.getSchema('Model');
+    const m2 = parseSchema(schema, m1);
+    expect(!!m2._id).toBe(true);
   });
 });

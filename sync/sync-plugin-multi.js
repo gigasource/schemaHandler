@@ -1,5 +1,5 @@
 const _ = require('lodash');
-const {parseCondition} = require("../schemaHandler");
+const {parseCondition, parseSchema} = require("../schemaHandler");
 const uuid = require('uuid').v1;
 const JsonFn = require('json-fn');
 const { ObjectID } = require('bson')
@@ -38,8 +38,8 @@ const syncPlugin = function (orm) {
 
   orm.on('commit:auto-assign', function (commit, _query, target) {
     if (target.cmd === "create" || target.cmd === "insertOne") {
-      if (!_query.chain["0"].args["0"]._id)
-        _query.chain["0"].args["0"]._id = new ObjectID();
+      const schema = orm.getSchema(target.collectionName, target.dbName) || orm.defaultSchema;
+      _query.chain["0"].args["0"] = parseSchema(schema, _query.chain["0"].args["0"]);
     }
   })
 

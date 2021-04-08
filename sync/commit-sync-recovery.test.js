@@ -73,6 +73,9 @@ describe("commit-sync", function() {
     //await enableC();
 
     for (const orm of orms) {
+      orm.registerSchema("Model", {
+        items: [{}]
+      })
       orm.registerCommitBaseCollection("Model");
       orm.on(`commit:auto-assign:Model`, (commit, _query, target) => {
         if (target.cmd === "create") {
@@ -214,7 +217,7 @@ describe("commit-sync", function() {
 
   it("case 2 auto gen _id", async function(done) {
     const m1 = await ormA("Model")
-      .create({ table: 10, items: [] })
+      .create({ table: 10, items: [{a: 1}] })
       .commit("create", {
         table: 10
       });
@@ -223,6 +226,7 @@ describe("commit-sync", function() {
 
     const m2 = await ormB("Model").findOne({});
     expect(m1._id.toString() === m2._id.toString()).toBe(true);
+    expect(m1.items[0]._id.toString() === m2.items[0]._id.toString()).toBe(true);
     done()
   }, 30000);
 
