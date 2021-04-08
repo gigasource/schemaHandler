@@ -212,6 +212,20 @@ describe("commit-sync", function() {
     //await toMasterLockA.release();
   }, 30000);
 
+  it("case 2 auto gen _id", async function(done) {
+    const m1 = await ormA("Model")
+      .create({ table: 10, items: [] })
+      .commit("create", {
+        table: 10
+      });
+
+    await delay(50);
+
+    const m2 = await ormB("Model").findOne({});
+    expect(m1._id.toString() === m2._id.toString()).toBe(true);
+    done()
+  }, 30000);
+
   it("case basic client create no master", async function() {
     toMasterLockA.acquireAsync();
     const m1 = await Model.create({ table: 10 }).commit("create", {

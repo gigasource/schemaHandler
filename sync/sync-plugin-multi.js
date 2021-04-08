@@ -2,6 +2,7 @@ const _ = require('lodash');
 const {parseCondition} = require("../schemaHandler");
 const uuid = require('uuid').v1;
 const JsonFn = require('json-fn');
+const {ObjectId} = require('bson');
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -32,6 +33,13 @@ const syncPlugin = function (orm) {
           query.chain.push({fn: 'commit', args: []})
         }
       }
+    }
+  })
+
+  orm.on('commit:auto-assign', function (commit, _query, target) {
+    if (target.cmd === "create" || target.cmd === "insertOne") {
+      if (!_query.chain["0"].args["0"]._id)
+        _query.chain["0"].args["0"]._id = new ObjectId();
     }
   })
 
