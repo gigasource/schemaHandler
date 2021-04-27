@@ -1,6 +1,7 @@
 const EE = require('events');
 const _ = require('lodash');
 let AwaitLock;
+let Queue;
 
 class Hooks extends EE {
   getPreHandler(event) {
@@ -34,45 +35,51 @@ class Hooks extends EE {
     return this.on(event, _listener);
   }
 
-  locks = {}
+  queues = {}
 
-  getLock(channel) {
-    if (this.locks) {
-      return this.locks[channel];
-    }
+  getQueue(channel) {
+    return this.queues[channel];
   }
 
   onQueue(event, channel, listener) {
+    if (!Queue) Queue = require('queue');
     if (!AwaitLock) AwaitLock = require('await-lock').default; //lazy
-
     [channel, listener] = !listener ? [event, channel] : [channel, listener];
-    const lock = this.locks[channel] = this.locks[channel] || new AwaitLock();
+    const queue = this.queues[channel] = this.queues[channel] || Queue({autostart: true, concurrency: 1});
     const _listener = async function () {
-      event;
+      let result;
+      const lock = new AwaitLock();
+      const args = arguments;
+      lock.tryAcquire();
+      queue.push(async (cb) => {
+        result = await listener.bind(this)(...args);
+        lock.release();
+        cb();
+      })
       await lock.acquireAsync();
-      const result = await listener.bind(this)(...arguments);
-      lock.release()
       return result;
     }
     return this.on(event, _listener);
   }
 
   onQueueCount(event, channel, listener) {
+    if (!Queue) Queue = require('queue');
     if (!AwaitLock) AwaitLock = require('await-lock').default; //lazy
-
     [channel, listener] = !listener ? [event, channel] : [channel, listener];
-    const lock = this.locks[channel] = this.locks[channel] || new AwaitLock();
+    const queue = this.queues[channel] = this.queues[channel] || Queue({autostart: true, concurrency: 1});
     let called = 0;
     const _listener = async function () {
+      let result;
+      const lock = new AwaitLock();
+      const args = arguments;
+      lock.tryAcquire();
+      queue.push(async (cb) => {
+        called++;
+        result = await listener.bind(this)(called, ...args);
+        lock.release();
+        cb();
+      })
       await lock.acquireAsync();
-      called++;
-      this.keepLock = function () {
-        this._keepLock = true;
-      }
-      const result = await listener.bind(this)(called, ...arguments);
-      if (!this._keepLock) {
-        lock.release()
-      }
       return result;
     }
     return this.on(event, _listener);
@@ -211,15 +218,25 @@ class Hooks extends EE {
     }
 
     const promises = []
+    let restHandlers = []
+    let shouldAwait = false;
     if (typeof handler === 'function') {
       const p = Reflect.apply(handler, _this, args);
       if (p instanceof Promise) promises.push(p);
     } else {
       let _handler = [...handler];
       for (let i = 0; i < _handler.length; i += 1) {
-        const p = Reflect.apply(_handler[i], _this, args);
+        let p;
+        if (shouldAwait) {
+          restHandlers.push(_handler[i]);
+        } else {
+          p = Reflect.apply(_handler[i], _this, args);
+        }
         if (_this._stop) break;
-        if (p instanceof Promise) promises.push(p);
+        if (p instanceof Promise) {
+          shouldAwait = true;
+          promises.push(p);
+        }
       }
     }
 
@@ -227,6 +244,9 @@ class Hooks extends EE {
       return new Promise(async (resolve, reject) => {
         for (const promise of promises) {
           await promise;
+        }
+        for (const handler of restHandlers) {
+          await Reflect.apply(handler, _this, args);
         }
         resolve(_this.hasOwnProperty('_value') ? _this._value : _this)
       });

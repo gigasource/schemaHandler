@@ -88,6 +88,8 @@ module.exports = function (orm, role) {
     if (!checkMaster(commit.dbName)) {
       await orm.emit('commit:remove-fake', commit);
     }
+    await orm.emit(`commit:handler:before:exec:${commit.collectionName}`, commit);
+    await orm.emit('commit:handler:before:exec', commit);
     let query = orm.getQuery(commit)
     if (commit.dbName) query.name += `@${commit.dbName}`
     const result = await orm.execChain(query)

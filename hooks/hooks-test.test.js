@@ -166,6 +166,12 @@ describe("test hooks", function () {
       arr.push("c");
       await delay(2000);
       arr.push("d");
+    });
+
+    hooks.onQueue("test", "test", async function () {
+      arr.push("e");
+      await delay(2000);
+      arr.push("f");
       hooks.emit("done");
     });
 
@@ -183,7 +189,7 @@ describe("test hooks", function () {
       `);
       done();
     });
-  });
+  }, 80000);
 
   it("serialize design", async function () {
     let _fn;
@@ -355,4 +361,27 @@ describe("test hooks", function () {
       ]
     `);
   })
+
+  it('test multiple async', async function (done) {
+    let arr = [];
+    hooks.on("test", async () => {
+      await delay(5000);
+      console.log('test');
+      arr.push(0);
+    });
+
+    hooks.on("test", async () => {
+      await delay(5000);
+      console.log('test');
+      arr.push(0);
+    });
+
+    await hooks.emit("test");
+    expect(arr).toMatchInlineSnapshot(`
+      Array [
+        -1,
+        0,
+      ]
+    `);
+  }, 80000)
 });
