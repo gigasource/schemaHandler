@@ -84,7 +84,7 @@ module.exports = function (orm, role) {
     this.value = value
   })
 
-  orm.on('update:Commit:c', async function (commit) {
+  orm.onQueue('update:Commit:c', 'fake-channel', async function (commit) {
     if (!checkMaster(commit.dbName)) {
       await orm.emit('commit:remove-fake', commit);
     }

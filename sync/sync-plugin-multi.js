@@ -189,7 +189,7 @@ const syncPlugin = function (orm) {
       // console.log('fake : ', doc);
     });
 
-    orm.onQueue("commit:remove-fake", 'fake-channel', async function (commit) {
+    orm.on("commit:remove-fake", async function (commit) {
       //if (orm.name !== 'A') return;
       let _parseCondition = commit.condition ? JsonFn.parse(commit.condition) : {}
       let recoveries = await orm('Recovery').find({uuid: commit.uuid});
