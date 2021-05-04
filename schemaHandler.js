@@ -308,7 +308,7 @@ function convertPathParentSchema(node, pathSchema) {
       }
     }
   } else if (value && typeof value !== 'string' && pathSchema.$type === 'String') {
-    return value.toString;
+    return value.toString();
   } else if (value && typeof value !== 'number' && pathSchema.$type === 'Number') {
     return Number(value);
   } else if (value && typeof value !== 'date' && pathSchema.$type === 'Date') {
