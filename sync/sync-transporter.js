@@ -62,16 +62,23 @@ module.exports = function (orm) {
     }).off
 
     clientSocket.on('transport:sync',  async () => {
-      const {value: highestId} = await orm.emit('getHighestCommitId', dbName);
-      orm.emit('transport:require-sync', highestId);
+      orm.emit('transport:require-sync');
     })
 
-    const off2 = orm.onQueue('transport:require-sync', (highestId) => {
+    const off2 = orm.onQueue('transport:require-sync', async () => {
+      const {value: highestId} = await orm.emit('getHighestCommitId', dbName)
       const args = [highestId];
       orm.emit('commit:sync:args', args);
-      clientSocket.emit('transport:require-sync', args, async (commits) => {
-        commits.forEach(commit => commit.dbName = dbName)
-        await orm.emit('transport:requireSync:callback', commits)
+      await new Promise((resolve) => {
+        const wait = setTimeout(() => {
+          resolve()
+        }, 10000)
+        clientSocket.emit('transport:require-sync', args, async (commits) => {
+          clearTimeout(wait)
+          commits.forEach(commit => commit.dbName = dbName)
+          await orm.emit('transport:requireSync:callback', commits)
+          resolve()
+        })
       })
     }).off
 
