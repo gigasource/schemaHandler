@@ -119,10 +119,15 @@ module.exports = function (orm) {
       transporterLock.tryAcquire()
     })
 
+    const off3 = orm.on('unblock-sync', () => {
+      transporterLock.release()
+    })
+
     orm.on('offMaster', (_dbName) => {
       if (dbName !== _dbName) return
       off1()
       off2()
+      off3()
       socket.removeAllListeners('commitRequest')
       socket.removeAllListeners('transport:require-sync')
     })

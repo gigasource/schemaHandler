@@ -3,6 +3,7 @@ const _ = require('lodash');
 
 module.exports = function (orm, role) {
   let masterDbMap = (orm.mode === 'multi' ? {} : false)
+  let unsavedCommitCollection = {}
 
   orm.on('commit:flow:setMaster', function (_isMaster, dbName) {
     // 0: same
@@ -44,6 +45,10 @@ module.exports = function (orm, role) {
 
   orm.isMaster = checkMaster
 
+  orm.setUnsavedCommitCollection = (collection) => {
+    unsavedCommitCollection[collection] = true
+  }
+
   // customize
   orm.onQueue('commit:flow:execCommit', async function (query, target, exec, commit) {
     if (orm.mode === 'multi' && !commit.dbName) {
@@ -82,6 +87,12 @@ module.exports = function (orm, role) {
     }
     if (value) delete value._fake;
     this.value = value
+  })
+
+  orm.onQueue('commit:handler:finish', async (commit) => {
+    // end of commit's flow, delete all commits which have smaller id than this commit
+    if (!checkMaster(commit.dbName) && unsavedCommitCollection[commit.collectionName])
+      await orm('Commit').deleteMany({ id: { $lt: commit.id }, collectionName: commit.collectionName })
   })
 
   orm.onQueue('update:Commit:c', 'fake-channel', async function (commit) {

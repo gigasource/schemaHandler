@@ -236,8 +236,13 @@ const syncPlugin = function (orm) {
   //customize
   orm.onDefault('createCommit', async function (commit) {
     if (!commit.id) {
-      let {value: highestId} = await orm.emit('getHighestCommitId', commit.dbName);
+      const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName);
       commit.id = highestId + 1;
+    } else {
+      // commit with id smaller than highestId has been already created
+      const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName)
+      if (commit.id <= highestId)
+        return // Commit exists
     }
     try {
       this.value = await orm(`Commit`, commit.dbName).create(commit);
