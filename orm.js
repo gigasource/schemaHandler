@@ -385,7 +385,7 @@ async function resultPostProcess(result, target) {
       }
     } else if (target.cmd === 'insertMany' || (target.cmd === 'create' && !target.returnSingleDocument)) {
       _result = result.ops;
-    } else if (target.cmd === 'insertOne' || (target.cmd === 'create' && target.returnSingleDocument)) {
+    } else if (target.cmd === 'insertOne' || target.cmd === 'replaceOne' || (target.cmd === 'create' && target.returnSingleDocument)) {
       _result = result.ops[0];
     } else if (result && result.ok === 1 && result.value) {
       _result = result.value;
@@ -415,7 +415,7 @@ async function resultPostProcess(result, target) {
       _result = result.ops;
     }
 
-    if (target.cmd === 'insertOne') {
+    if (target.cmd === 'insertOne' || target.cmd === 'replaceOne') {
       _result = result.ops[0];
     }
 

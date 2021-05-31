@@ -67,7 +67,7 @@ module.exports = function (orm) {
 
     if (key.includes('Update') || key.includes('Modify') || key.includes('create')
       || key.includes('update') || key.includes('insert') || key.includes('delete')
-      || key.includes('remove')) {
+      || key.includes('remove') || key.includes('replace')) {
       target.isMutateCmd = true;
     }
 
