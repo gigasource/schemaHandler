@@ -201,10 +201,10 @@ const syncPlugin = function (orm) {
         recoveries = await orm('Recovery').find(condition);
       }
       for (const recovery of recoveries) {
-        await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
         if (recovery.type === 'create') {
+          await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
         } else {
-          await orm(recovery.collectionName).create(recovery.doc).direct();
+          await orm(recovery.collectionName).replaceOne({_id: recovery.doc._id}, recovery.doc).direct();
         }
         await orm('Recovery').remove({_id: recovery._id});
       }
