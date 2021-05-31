@@ -67,7 +67,7 @@ module.exports = function (orm) {
 
     if (key.includes('Update') || key.includes('Modify') || key.includes('create')
       || key.includes('update') || key.includes('insert') || key.includes('delete')
-      || key.includes('remove')) {
+      || key.includes('remove') || key.includes('replace')) {
       target.isMutateCmd = true;
     }
 
@@ -198,7 +198,7 @@ module.exports = function (orm) {
   function checkMainCmd(key) {
     if (key.includes('find') || key.includes('create') || key.includes('update')
       || key.includes('insert') || key.includes('delete') || key.includes('remove')
-      || key.includes('count') || key.includes('aggregate')
+      || key.includes('count') || key.includes('aggregate') || key.includes('replaceOne')
       || key.includes('indexes') || key.includes('Index')) return true;
 
     return false;
