@@ -166,6 +166,15 @@ module.exports = function (orm) {
         args.unshift(clearUndefined(parseSchema(schema, obj)));
         return defaultFn(...args)
       }
+    } else if (key === 'replaceOne') {
+      returnResult.ok = true;
+      returnResult.value = function () {
+        const args = [...arguments];
+        const obj = args.pop();
+        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
+        args.push(clearUndefined(parseSchema(schema, obj)));
+        return defaultFn(...args)
+      }
     } else if (key === 'insertMany') {
       returnResult.ok = true;
       returnResult.value = function () {
