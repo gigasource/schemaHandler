@@ -285,6 +285,7 @@ const syncPlugin = function (orm) {
   }
 
   async function removeAll() {
+    await orm('Commit').remove()
     for (const collection of whitelist) {
       await orm(collection).remove().direct()
     }
