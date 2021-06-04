@@ -1,6 +1,12 @@
 const syncSnapshot = function (orm, collection) {
-	orm.startSnapshot = async function () {
-		orm.emit('block-sync')
+	orm.on(`process:commit:${collection}`, () => {
+		if (collection) {
+
+		}
+	})
+
+	const startSnapshot = async function () {
+		orm.emit('block-sync', collection)
 		const currentHighestId = (await orm('Commit').find().sort({ id: -1 }).limit(1)).id
 		await orm('Commit').deleteMany({ collectionName: collection })
 		await orm(collection).update({}, { snapshot: true })
@@ -10,7 +16,7 @@ const syncSnapshot = function (orm, collection) {
 			await orm(collection).delete({ _id: doc._id }).direct()
 			await orm(collection).create(doc)
 		}
-		orm.emit('unblock-sync')
+		orm.emit('unblock-sync', collection)
 		orm.emit('snapshot-done')
 	}
 }
