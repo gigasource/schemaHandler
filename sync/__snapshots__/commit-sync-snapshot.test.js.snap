@@ -1,0 +1,52 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`commit-sync-snapshot Case 1: Client with highest commit id sync with master 1`] = `
+Array [
+  Object {
+    "_id": "60bdf62289437a8b4af9a74c",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"deleteOne\\",\\"args\\":[{\\"_id\\":\\"60bdf62289437a8b4af9a73f\\"}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"_id\\":\\"60bdf62289437a8b4af9a73f\\"}",
+    "data": Object {
+      "docId": "60bdf62289437a8b4af9a73f",
+      "snapshot": true,
+    },
+    "fromMaster": true,
+    "id": 1,
+    "tags": Array [],
+    "uuid": "e575f5b0-c77b-11eb-b3f5-1dc28c9780a1",
+  },
+  Object {
+    "_id": "60bdf62289437a8b4af9a74f",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"60bdf62289437a8b4af9a73f\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "60bdf62289437a8b4af9a73f",
+      "snapshot": true,
+    },
+    "fromMaster": true,
+    "id": 2,
+    "tags": Array [],
+    "uuid": "e57691f1-c77b-11eb-b3f5-1dc28c9780a1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 1: Client with highest commit id sync with master 2`] = `
+Array [
+  Object {
+    "_id": "60bdf62289437a8b4af9a744",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Testing\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"table\\":10}",
+    "data": Object {},
+    "fromMaster": true,
+    "id": 2,
+    "tags": Array [],
+    "uuid": "e569c0b1-c77b-11eb-b3f5-1dc28c9780a1",
+  },
+]
+`;

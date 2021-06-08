@@ -14,7 +14,12 @@ const s2 = new Socket()
 
 const delay = require("delay");
 
+const syncSnapshot = require('./sync-snapshot')
+
 describe('commit-sync-snapshot', function () {
+
+	let startSnapshotA
+
 	beforeAll(async () => {
 		ormA.connect({ uri: "mongodb://localhost:27017" }, "myproject1")
 		ormB.connect({ uri: "mongodb://localhost:27017" }, "myproject2")
@@ -30,6 +35,14 @@ describe('commit-sync-snapshot', function () {
 		ormA.plugin(require('./sync-flow'), 'master')
 		ormB.plugin(require('./sync-flow'), 'client')
 		ormC.plugin(require('./sync-flow'), 'client')
+
+		ormA.setUnsavedCommitCollection('Model')
+		ormB.setUnsavedCommitCollection('Model')
+		ormC.setUnsavedCommitCollection('Model')
+
+		startSnapshotA = syncSnapshot(ormA, 'Model').startSnapshot
+		syncSnapshot(ormB, 'Model')
+		syncSnapshot(ormC, 'Model')
 
 		ormB.emit('initSyncForClient', s1)
 		ormC.emit('initSyncForClient', s2)
@@ -55,12 +68,13 @@ describe('commit-sync-snapshot', function () {
 	})
 
 	it('Case 1: Client with highest commit id sync with master', async (done) => {
-		await ormA('Model').create({ table: 10, items: [] })
+		const a = await ormA('Model').create({ table: 10, items: [] })
 		await ormA('Model').updateOne({ table: 10 }, { name: 'Testing' })
 		await delay(50)
+		const m1 = await ormA('Model').find({ table: 10 })
 		const m2 = await ormB('Model').find({ table: 10 })
 		expect(m1).toEqual(m2)
-		ormA.startSnapshot()
+		startSnapshotA()
 
 		ormA.on('snapshot-done', async () => {
 			await delay(50)
@@ -70,5 +84,7 @@ describe('commit-sync-snapshot', function () {
 			expect(commitsB).toMatchSnapshot()
 			done()
 		})
-	})
+	}, 80000)
+
+	it('Case 2: Client with ')
 })

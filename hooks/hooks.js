@@ -197,6 +197,18 @@ class Hooks extends EE {
       },
       stop() {
         this._stop = true;
+      },
+      mergeValueAnd(val) {
+        if (!this._value)
+          this._value = val
+        else
+          this._value &&= val
+      },
+      mergeValueOr(val) {
+        if (!this._value)
+          this._value = val
+        else
+          this._value ||= val
       }
     }
 

@@ -31,11 +31,6 @@ module.exports = function (orm, role) {
     }
   })
 
-  orm.getMaster = (dbName) => {
-    if (dbName) return masterDbMap[dbName]
-    return masterDbMap
-  }
-
   const checkMaster = (dbName) => {
     if (role === 'master') return true;
     if (role === 'client') return false;

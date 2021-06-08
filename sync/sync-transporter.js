@@ -40,7 +40,7 @@ module.exports = function (orm) {
         currentTimeout += SENT_TIMEOUT
         currentTimeout = Math.min(currentTimeout, MAX_TIMEOUT)
         setTimeout(() => {
-          if (!sent && !orm.getMaster(_dbName)) {
+          if (!sent && !orm.isMaster(_dbName)) {
             console.log('Retry sending commit !')
             send()
           }
