@@ -26,3 +26,14 @@ Array [
   },
 ]
 `;
+
+exports[`commit-sync case create + findOneAndUpdate 2 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "items": Array [],
+    "status": "paid",
+    "table": 10,
+  },
+]
+`;

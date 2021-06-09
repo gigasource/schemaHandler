@@ -3,33 +3,35 @@
 exports[`commit-sync-snapshot Case 1: Client with highest commit id sync with master 1`] = `
 Array [
   Object {
-    "_id": "60bdf62289437a8b4af9a74c",
+    "_id": "ObjectID",
     "approved": false,
-    "chain": "[{\\"fn\\":\\"deleteOne\\",\\"args\\":[{\\"_id\\":\\"60bdf62289437a8b4af9a73f\\"}]}]",
+    "chain": "[{\\"fn\\":\\"deleteOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\"}]}]",
     "collectionName": "Model",
-    "condition": "{\\"_id\\":\\"60bdf62289437a8b4af9a73f\\"}",
+    "condition": "{\\"_id\\":\\"ObjectID\\"}",
     "data": Object {
-      "docId": "60bdf62289437a8b4af9a73f",
+      "docId": "ObjectID",
       "snapshot": true,
+      "syncUUID": "syncUUID",
     },
     "fromMaster": true,
-    "id": 1,
+    "id": 3,
     "tags": Array [],
-    "uuid": "e575f5b0-c77b-11eb-b3f5-1dc28c9780a1",
+    "uuid": "uuid-v1",
   },
   Object {
-    "_id": "60bdf62289437a8b4af9a74f",
+    "_id": "ObjectID",
     "approved": false,
-    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"60bdf62289437a8b4af9a73f\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
     "collectionName": "Model",
     "data": Object {
-      "docId": "60bdf62289437a8b4af9a73f",
+      "docId": "ObjectID",
       "snapshot": true,
+      "syncUUID": "syncUUID",
     },
     "fromMaster": true,
-    "id": 2,
+    "id": 4,
     "tags": Array [],
-    "uuid": "e57691f1-c77b-11eb-b3f5-1dc28c9780a1",
+    "uuid": "uuid-v1",
   },
 ]
 `;
@@ -37,7 +39,7 @@ Array [
 exports[`commit-sync-snapshot Case 1: Client with highest commit id sync with master 2`] = `
 Array [
   Object {
-    "_id": "60bdf62289437a8b4af9a744",
+    "_id": "ObjectID",
     "approved": false,
     "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Testing\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
     "collectionName": "Model",
@@ -46,7 +48,137 @@ Array [
     "fromMaster": true,
     "id": 2,
     "tags": Array [],
-    "uuid": "e569c0b1-c77b-11eb-b3f5-1dc28c9780a1",
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 2: Client need to be resync 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"deleteOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\"}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"_id\\":\\"ObjectID\\"}",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 3,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 4,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 2: Client need to be resync 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 4,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 3: Client create commit during snapshot progress 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"deleteOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\"}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"_id\\":\\"ObjectID\\"}",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 3,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 4,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Updated\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"table\\":10}",
+    "data": Object {},
+    "id": 5,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 3: Client create commit during snapshot progress 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Updated\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"table\\":10}",
+    "data": Object {},
+    "id": 5,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 3: Client create commit during snapshot progress 3`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "items": Array [],
+    "name": "Updated",
+    "table": 10,
   },
 ]
 `;

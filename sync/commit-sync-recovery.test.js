@@ -43,9 +43,9 @@ describe("commit-sync", function() {
     ormB.plugin(require("./sync-flow"), "master");
 
     ormA.emit("initSyncForClient", s1);
-    masterIo.on('connect', (socket) => {
-      ormB.emit('initSyncForMaster', socket)
-    })
+    masterIo.on("connect", socket => {
+      ormB.emit("initSyncForMaster", socket);
+    });
 
     s1.connect("local");
 
@@ -75,7 +75,7 @@ describe("commit-sync", function() {
     for (const orm of orms) {
       orm.registerSchema("Model", {
         items: [{}]
-      })
+      });
       orm.registerCommitBaseCollection("Model");
       orm.on(`commit:auto-assign:Model`, (commit, _query, target) => {
         if (target.cmd === "create") {
@@ -109,9 +109,6 @@ describe("commit-sync", function() {
       ormA.on(hook, () => hooks.emit(hook));
       ormC.on(hook, () => hooks.emit(hook));
     });*/
-
-    toMasterLockA = ormA.getLock("transport:toMaster");
-    toMasterLockC = ormC.getLock("transport:toMaster");
   });
   //</editor-fold>
 
@@ -121,10 +118,8 @@ describe("commit-sync", function() {
         done();
       }
     });
-    await toMasterLockA.acquireAsync();
     const m1 = await ormA("Model").create({ table: 10, items: [] });
     const m2 = await ormA("Model").create({ table: 10, items: [] });
-    toMasterLockA.release();
   }, 30000);
 
   it("case only master", async function(done) {
@@ -153,7 +148,6 @@ describe("commit-sync", function() {
       }
     });
 
-    await toMasterLockA.acquireAsync();
     const m1 = await ormA("Model")
       .create({ table: 10, items: [] })
       .commit("create", {
@@ -179,7 +173,6 @@ describe("commit-sync", function() {
       .commit("addItem", {
         table: 10
       });
-    await toMasterLockA.release();
     const lock = new AwaitLock();
     await lock.acquireAsync();
     ormA.onQueueCount("transport:requireSync:callback", function(
@@ -217,7 +210,7 @@ describe("commit-sync", function() {
 
   it("case 2 auto gen _id", async function(done) {
     const m1 = await ormA("Model")
-      .create({ table: 10, items: [{a: 1}] })
+      .create({ table: 10, items: [{ a: 1 }] })
       .commit("create", {
         table: 10
       });
@@ -226,8 +219,10 @@ describe("commit-sync", function() {
 
     const m2 = await ormB("Model").findOne({});
     expect(m1._id.toString() === m2._id.toString()).toBe(true);
-    expect(m1.items[0]._id.toString() === m2.items[0]._id.toString()).toBe(true);
-    done()
+    expect(m1.items[0]._id.toString() === m2.items[0]._id.toString()).toBe(
+      true
+    );
+    done();
   }, 30000);
 
   it("case basic client create no master", async function() {
@@ -351,6 +346,64 @@ describe("commit-sync", function() {
           "condition": Object {
             "table": 10,
           },
+          "data": Object {},
+          "id": 2,
+          "tags": Array [],
+          "uuid": "uuid-v1",
+        },
+      ]
+    `);
+  });
+
+  it("case create + findOneAndUpdate 2", async function() {
+    const m1 = await Model.create({ table: 10 }).commit("create", {
+      table: 10
+    });
+
+    const m1a = await Model.findOneAndUpdate({ table: 10 }, { status: "paid" });
+    await delay(50);
+    expect(stringify(await Model.find())).toMatchSnapshot();
+    await delay(500);
+    const models = await Model.find();
+    expect(stringify(models)).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "items": Array [],
+          "status": "paid",
+          "table": 10,
+        },
+      ]
+    `);
+    expect(stringify(await orm("Recovery").find())).toMatchInlineSnapshot(
+      `Array []`
+    );
+    const data = await ormB("Model").findOne({ _id: m1._id });
+    expect(data).toEqual(m1a);
+    expect(stringify(await orm("Commit").find())).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "approved": false,
+          "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"table\\":10,\\"_id\\":\\"ObjectID\\",\\"items\\":[]}]}]",
+          "collectionName": "Model",
+          "data": Object {
+            "docId": "ObjectID",
+            "table": 10,
+          },
+          "id": 1,
+          "tags": Array [
+            "create",
+            "create",
+          ],
+          "uuid": "uuid-v1",
+        },
+        Object {
+          "_id": "ObjectID",
+          "approved": false,
+          "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"status\\":\\"paid\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+          "collectionName": "Model",
+          "condition": "{\\"table\\":10}",
           "data": Object {},
           "id": 2,
           "tags": Array [],

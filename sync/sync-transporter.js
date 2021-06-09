@@ -93,10 +93,11 @@ module.exports = function (orm) {
   })
 
   orm.on('initSyncForMaster', (socket, dbName) => {
-    const transporterLock = new AwaitLock()
-
     const off1 = orm.on('master:transport:sync', (id, _dbName) => {
-      if (dbName !== _dbName || transporterLock.acquired) return
+      if (dbName !== _dbName) return
+      const isBlockSync = orm.emit('block-sync')
+      if (isBlockSync)
+        return
       socket.emit('transport:sync')
     }).off;
 
@@ -109,25 +110,16 @@ module.exports = function (orm) {
     });
 
     socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
-      if (transporterLock.acquired)
+      const isBlockSync = orm.emit('block-sync')
+      if (isBlockSync)
         cb([])
       const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
       cb(commits);
     });
 
-    const off2 = orm.on('block-sync', () => {
-      transporterLock.tryAcquire()
-    })
-
-    const off3 = orm.on('unblock-sync', () => {
-      transporterLock.release()
-    })
-
     orm.on('offMaster', (_dbName) => {
       if (dbName !== _dbName) return
       off1()
-      off2()
-      off3()
       socket.removeAllListeners('commitRequest')
       socket.removeAllListeners('transport:require-sync')
     })

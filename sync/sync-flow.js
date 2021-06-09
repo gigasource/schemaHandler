@@ -94,6 +94,7 @@ module.exports = function (orm, role) {
     if (!checkMaster(commit.dbName)) {
       await orm.emit('commit:remove-fake', commit);
     }
+    await orm('CommitData').findOneAndUpdate({}, { highestCommitId: commit.id }, { upsert: true })
     const run = !(await orm.emit(`commit:handler:shouldNotExecCommand:${commit.collectionName}`, commit));
     let result
     if (run) {

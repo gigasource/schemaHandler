@@ -222,7 +222,12 @@ const syncPlugin = function (orm) {
   //   orm.emit('transport:require-sync', highestId);
   // });
   orm.on('getHighestCommitId', async function (dbName) {
-    const {id: highestCommitId} = await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0};
+    let highestCommitId
+    const commitData = await orm('CommitData', dbName).findOne({})
+    if (!commitData)
+      highestCommitId = (await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0}).id;
+    else
+      highestCommitId = commitData.highestCommitId
     this.value = highestCommitId;
   })
 
