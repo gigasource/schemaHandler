@@ -35,7 +35,7 @@ module.exports = function (orm) {
 				if (highestCommit.uuid === currentHighestUUID) {
 					_syncData.needReSync = false
 				}
-				await orm('CommitData').updateOne({ _syncData }, { upsert: true })
+				await orm('CommitData').updateOne({}, { syncData: _syncData }, { upsert: true })
 				return this.mergeValueAnd(!_syncData.needReSync)
 			}
 		})
@@ -82,7 +82,7 @@ module.exports = function (orm) {
 			promises.push(handler())
 		}
 		await Promise.all(promises)
-		await orm('CommitData').updateOne({}, { $set: { 'syncData.isSyncing': false } })
+		await orm('CommitData').updateOne({}, { $set: { syncData: { isSyncing: false } } })
 		syncLock.release()
 		orm.emit('master:transport:sync')
 		orm.emit('snapshot-done')
