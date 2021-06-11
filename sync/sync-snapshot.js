@@ -29,7 +29,7 @@ module.exports = function (orm) {
 				// client only has highest id commit
 				const highestCommit = await orm('Commit').findOne()
 				const _syncData = {
-					id: commit.data.syncUUID,
+					uuid: commit.data.syncUUID,
 					needReSync: true
 				}
 				if (highestCommit.uuid === currentHighestUUID) {
