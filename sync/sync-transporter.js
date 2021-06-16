@@ -3,6 +3,7 @@ const QUEUE_COMMIT_MODEL = 'QueueCommit'
 const SENT_TIMEOUT = 10000
 const MAX_TIMEOUT = 60000
 const _ = require('lodash')
+const { v1 } = require('uuid')
 
 let queueCommit = []
 
@@ -91,8 +92,16 @@ module.exports = function (orm) {
 
     orm.emit('transport:send')
   })
+  orm.on('reset-session', async function () {
+    await orm('CommitData').updateOne({}, { sessionId: v1() }, { upsert: true })
+  })
 
-  orm.on('initSyncForMaster', (socket, dbName) => {
+  async function doSessionCheck(socket) {
+    const commitData = await orm('CommitData').findOne()
+    socket.emit('session-check', commitData ? commitData.sessionId : null)
+  }
+
+  orm.onQueue('initSyncForMaster', (socket, dbName) => {
     const off1 = orm.on('master:transport:sync', (id, _dbName) => {
       if (dbName !== _dbName) return
       socket.emit('transport:sync')
@@ -117,6 +126,8 @@ module.exports = function (orm) {
       socket.removeAllListeners('commitRequest')
       socket.removeAllListeners('transport:require-sync')
     })
+
+    doSessionCheck(socket).then(r => r)
   })
 
   orm.on('initSyncForMasterIo', io => {
