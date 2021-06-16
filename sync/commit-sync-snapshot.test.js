@@ -122,4 +122,23 @@ describe('commit-sync-snapshot', function () {
 		ormA.startSyncSnapshot()
 		await delay(50)
 	}, 80000)
+
+	it('Case 4: Snapshot twice, but only 1 order is recreated', async () => {
+		const a = await ormA('Model').create({ table: 10, items: [] })
+		await ormA('Model').updateOne({ table: 10 }, { name: 'Testing' })
+		await delay(50)
+		const m1 = await ormA('Model').find({ table: 10 })
+		const m2 = await ormB('Model').find({ table: 10 })
+		expect(m1).toEqual(m2)
+		ormA.startSyncSnapshot()
+
+		ormA.on('snapshot-done', async () => {
+			await delay(200)
+			const commitsA = await ormA('Commit').find()
+			expect(stringify(commitsA)).toMatchSnapshot()
+			const commitsB = await ormB('Commit').find()
+			expect(stringify(commitsB)).toMatchSnapshot()
+
+		})
+	}, 80000)
 })

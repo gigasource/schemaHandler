@@ -40,13 +40,20 @@ module.exports = function (orm) {
 			}
 		})
 
+		// add lastTimeModified field
+		orm.on(`commit:finish:handler:${collection}`, -1, async function (result, commit) {
+			if (!orm.isMaster()) return
+			await orm(collection).updateOne(commit.condition, { snapshot: true }).direct()
+		})
+
 		const startSnapshot = async function () {
 			if (!orm.isMaster()) return
 			orm.emit('block-sync', collection)
 			const { syncData } = await orm('CommitData').findOne()
 			const currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1)).uuid
 			await orm('Commit').deleteMany({ collectionName: collection })
-			await orm(collection).update({}, { snapshot: true }).direct()
+			if (syncData.firstTimeSync)
+				await orm(collection).update({}, { snapshot: true }).direct()
 			while (true) {
 				const doc = await orm(collection).findOne({ snapshot: true })
 				if (!doc)
@@ -72,9 +79,11 @@ module.exports = function (orm) {
 		if (syncLock.acquired)
 			return
 		syncLock.tryAcquire()
+		const oldCommitData = await orm('CommitData').findOne()
 		const syncData = {
 			id: uuid.v4(),
-			isSyncing: true
+			isSyncing: true,
+			firstTimeSync: !(oldCommitData && oldCommitData.syncData)
 		}
 		await orm('CommitData').updateOne({}, { syncData }, { upsert: true })
 		const promises = []
