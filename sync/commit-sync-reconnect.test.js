@@ -5,7 +5,6 @@ ormA.name = "A";
 let ormB = new Orm();
 let ormC = new Orm();
 ormC.name = "C";
-const orm = ormA;
 const { ObjectID } = require("bson");
 const { stringify } = require("../utils");
 const _ = require("lodash");
@@ -37,17 +36,18 @@ describe("commit-sync", function() {
 
 		let orms = [ormA, ormB];
 
-		await ormA("Model").remove({});
-		await ormA("Commit").remove({});
-		await ormA("Recovery").remove({});
-		await ormA(QUEUE_COMMIT_MODEL).remove({})
-		await ormB("Model").remove({});
-		await ormB("Commit").remove({});
-		await ormB("Recovery").remove({});
-		await ormB(QUEUE_COMMIT_MODEL).remove({})
+		await ormA("Model").remove({}).direct();
+		await ormA("Commit").remove({}).direct();
+		await ormA("Recovery").remove({}).direct();
+		await ormA(QUEUE_COMMIT_MODEL).remove({}).direct()
+		await ormB("Model").remove({}).direct();
+		await ormB("Commit").remove({}).direct();
+		await ormB("Recovery").remove({}).direct();
+		await ormB(QUEUE_COMMIT_MODEL).remove({}).direct()
 
 		for (const orm of orms) {
 			orm.plugin(syncPlugin);
+			orm.plugin(require('./sync-queue-commit'))
 			orm.plugin(require("./sync-transporter"));
 			await orm.emit('transport:loadQueueCommit')
 		}
@@ -67,14 +67,14 @@ describe("commit-sync", function() {
 	})
 
 	afterEach(async () => {
-		await ormA("Model").remove({});
-		await ormA("Commit").remove({});
-		await ormA("Recovery").remove({});
-		await ormA(QUEUE_COMMIT_MODEL).remove({})
-		await ormB("Model").remove({});
-		await ormB("Commit").remove({});
-		await ormB("Recovery").remove({});
-		await ormB(QUEUE_COMMIT_MODEL).remove({})
+		await ormA("Model").remove({}).direct();
+		await ormA("Commit").remove({}).direct();
+		await ormA("Recovery").remove({}).direct();
+		await ormA(QUEUE_COMMIT_MODEL).remove({}).direct()
+		await ormB("Model").remove({}).direct();
+		await ormB("Commit").remove({}).direct();
+		await ormB("Recovery").remove({}).direct();
+		await ormB(QUEUE_COMMIT_MODEL).remove({}).direct()
 	})
 
 	it("Case queue query from client", async () => {
@@ -82,7 +82,7 @@ describe("commit-sync", function() {
 			value: "test"
 		})
 		await delay(100)
-		const queueCommits = await orm(QUEUE_COMMIT_MODEL).find({})
+		const queueCommits = await ormA(QUEUE_COMMIT_MODEL).find({})
 		expect(stringify(queueCommits)).toMatchSnapshot()
 
 		s1.connect('local')
@@ -91,7 +91,7 @@ describe("commit-sync", function() {
 		await delay(12000)
 		console.log('Finish delaying')
 
-		const newQueueCommits = await orm(QUEUE_COMMIT_MODEL).find({})
+		const newQueueCommits = await ormA(QUEUE_COMMIT_MODEL).find({})
 		expect(stringify(newQueueCommits)).toMatchSnapshot()
 	})
 })
