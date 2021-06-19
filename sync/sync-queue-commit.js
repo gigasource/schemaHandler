@@ -7,12 +7,17 @@ const dayjs = require('dayjs')
 module.exports = function (orm) {
 	const lockSend = new AwaitLock()
 
-	const intervalClearQueue = setInterval(async () => {
+	const clearQueue = async () => {
 		const clearDate = dayjs().subtract(1, 'hour').toDate()
+		await orm(QUEUE_COMMIT_MODEL).deleteMany({
+			dateAdded: { '$exists': false }
+		})
 		await orm(QUEUE_COMMIT_MODEL).deleteMany({
 			dateAdded: { '$lte': clearDate }
 		})
-	}, 60 * 60 * 1000)
+	}
+
+	const intervalClearQueue = setInterval(clearQueue, 60 * 60 * 1000)
 
 	orm.on('transport:removeQueue', async function () {
 		clearInterval(intervalClearQueue)
@@ -66,4 +71,6 @@ module.exports = function (orm) {
 		else
 			lockSend.acquired && lockSend.release()
 	}
+
+	clearQueue()
 }
