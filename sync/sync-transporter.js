@@ -4,41 +4,14 @@ const { v1 } = require('uuid')
 
 module.exports = function (orm) {
   orm.on('initSyncForClient', (clientSocket, dbName) => {
-    // const off1 = orm.on('transport:send', async (_dbName, queueCommit) => {
-    //   if (lockSend.acquired) return
-    //   lockSend.tryAcquire()
-    //   if (dbName !== _dbName) return
-    //   let sent = false
-    //   let currentTimeout = 0
-    //
-    //   const send = function () {
-    //     currentTimeout += SENT_TIMEOUT
-    //     currentTimeout = Math.min(currentTimeout, MAX_TIMEOUT)
-    //     setTimeout(() => {
-    //       if (!sent && !orm.getMaster(_dbName)) {
-    //         console.log('Retry sending commit !')
-    //         send()
-    //       }
-    //     }, currentTimeout)
-    //     const sentCommits = _.cloneDeep(queueCommit)
-    //     clientSocket.emit('commitRequest', sentCommits, async () => {
-    //       sent = true
-    //       _.remove(queueCommit, commit => !!sentCommits.find(_commit => _commit.uuid === commit.uuid))
-    //       const removedCommitUUID = sentCommits.map(commit => commit.uuid)
-    //       await orm(QUEUE_COMMIT_MODEL).remove({ 'commit.uuid': { $in: removedCommitUUID } })
-    //       lockSend.acquired && lockSend.release()
-    //       orm.emit('transport:send')
-    //     })
-    //   }
-    //   if (queueCommit.length)
-    //     send()
-    //   else
-    //     lockSend.acquired && lockSend.release()
-    // }).off
-
     const off1 = orm.on('transport:send', async (_dbName, queueCommit) => {
+      if (!queueCommit)
+        queueCommit = _dbName
+      if (!queueCommit || !queueCommit.length)
+        return
       await new Promise(resolve => {
         clientSocket.emit('commitRequest', queueCommit, () => {
+          orm.emit('transport:finish:send', queueCommit)
           resolve(queueCommit)
         })
       })
@@ -144,7 +117,7 @@ module.exports = function (orm) {
     socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
       const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
       const commitData = await orm('CommitData').findOne({})
-      const highestCommitId = commitData.highestCommitId ? commitData.highestCommitId : 0
+      const highestCommitId = (commitData && commitData.highestCommitId) ? commitData.highestCommitId : 0
       const needSync = (clientHighestId + commits.length < highestCommitId)
       cb(commits, needSync);
     });

@@ -24,17 +24,32 @@ const syncPlugin = require("./sync-plugin-multi");
 let toMasterLockA, toMasterLockC;
 const AwaitLock = require("await-lock").default;
 const QUEUE_COMMIT_MODEL = 'QueueCommit'
+const mockdate = require('mockdate').default
 //</editor-fold>
 
 jest.setTimeout(60000)
-
+const tick = () => new Promise(res => setImmediate(res));
+jest.useFakeTimers()
 describe("commit-sync", function() {
 	//<editor-fold desc="Description">
-	beforeAll(async () => {
+	beforeAll(async (done) => {
 		ormA.connect({uri: "mongodb://localhost:27017"}, "myproject");
 		ormB.connect({uri: "mongodb://localhost:27017"}, "myproject2");
 
 		let orms = [ormA, ormB];
+
+		for (const orm of orms) {
+			orm.plugin(syncPlugin);
+			orm.plugin(require('./sync-queue-commit'))
+			orm.plugin(require("./sync-transporter"));
+		}
+
+		ormA.plugin(require("./sync-flow"), "client");
+		ormB.plugin(require("./sync-flow"), "master");
+		ormA.emit("initSyncForClient", s1);
+		masterIo.on('connect', (socket) => {
+			ormB.emit('initSyncForMaster', socket)
+		})
 
 		await ormA("Model").remove({}).direct();
 		await ormA("Commit").remove({}).direct();
@@ -45,25 +60,12 @@ describe("commit-sync", function() {
 		await ormB("Recovery").remove({}).direct();
 		await ormB(QUEUE_COMMIT_MODEL).remove({}).direct()
 
-		for (const orm of orms) {
-			orm.plugin(syncPlugin);
-			orm.plugin(require('./sync-queue-commit'))
-			orm.plugin(require("./sync-transporter"));
-			await orm.emit('transport:loadQueueCommit')
-		}
-
-		ormA.plugin(require("./sync-flow"), "client");
-		ormB.plugin(require("./sync-flow"), "master");
-		ormA.emit("initSyncForClient", s1);
-		masterIo.on('connect', (socket) => {
-			ormB.emit('initSyncForMaster', socket)
-		})
-
 		Model = ormA("Model");
 
 		for (const orm of orms) {
 			orm.registerCommitBaseCollection("Model");
 		}
+		done()
 	})
 
 	afterEach(async () => {
@@ -78,6 +80,9 @@ describe("commit-sync", function() {
 	})
 
 	it("Case queue query from client", async () => {
+		jest.useRealTimers()
+		mockdate.set('2020-01-01')
+		Date.now = jest.fn(() => new Date(Date.UTC(2020, 1, 15)).valueOf())
 		await ormA("Model").create({
 			value: "test"
 		})
@@ -94,4 +99,21 @@ describe("commit-sync", function() {
 		const newQueueCommits = await ormA(QUEUE_COMMIT_MODEL).find({})
 		expect(stringify(newQueueCommits)).toMatchSnapshot()
 	})
+
+	it('Delete queue commit interval', async (done) => {
+		mockdate.set('2020-01-01')
+		await ormA("Model").create({
+			value: "test"
+		})
+		const queueCommits = await ormA(QUEUE_COMMIT_MODEL).find({})
+		expect(stringify(queueCommits)).toMatchSnapshot()
+		// await delay(100)
+		mockdate.set('2020-01-02')
+		jest.advanceTimersByTime(60 * 60 * 1000)
+		jest.useRealTimers()
+		await delay(200)
+		const _queueCommits = await ormA(QUEUE_COMMIT_MODEL).find({})
+		expect(stringify(_queueCommits)).toMatchSnapshot()
+		done()
+	}, 30000)
 })
