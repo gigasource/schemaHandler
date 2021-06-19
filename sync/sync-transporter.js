@@ -17,9 +17,14 @@ module.exports = function (orm) {
       })
     })
 
-    clientSocket.on('transport:sync',  async () => {
+    const debounceRequireSync = _.debounce(() => {
       orm.emit('transport:require-sync');
+    }, 3000)
+
+    clientSocket.on('transport:sync',  async () => {
+      debounceRequireSync()
     })
+
     clientSocket.on('transport:sync:progress', async (_dbName, cb) => {
       if (_dbName !== dbName) {
         cb(null, null)
@@ -107,11 +112,11 @@ module.exports = function (orm) {
     }).off()
 
     socket.on('commitRequest', async (commits, cb) => {
+      cb && cb()
       for (let commit of commits) {
         commit.dbName = dbName
         await orm.emit('commitRequest', commit);
       }
-      cb && cb()
     });
 
     socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {

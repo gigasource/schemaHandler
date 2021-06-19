@@ -5,8 +5,6 @@ const AwaitLock = require('await-lock').default
 const dayjs = require('dayjs')
 
 module.exports = function (orm) {
-	const lockSend = new AwaitLock()
-
 	const clearQueue = async () => {
 		const clearDate = dayjs().subtract(1, 'hour').toDate()
 		await orm(QUEUE_COMMIT_MODEL).deleteMany({
@@ -21,7 +19,7 @@ module.exports = function (orm) {
 
 	orm.on('transport:removeQueue', async function () {
 		clearInterval(intervalClearQueue)
-		await orm(QUEUE_COMMIT_MODEL).remove({})
+		await orm(QUEUE_COMMIT_MODEL).deleteMany({})
 	})
 	// This must run outside initSyncForClient hook because
 	// hook commit must be written into queue db first
@@ -30,47 +28,52 @@ module.exports = function (orm) {
 			commit,
 			dateAdded: new Date()
 		})
-		send()
-	})
-	orm.onQueue('transport:finish:send', async function (_queueCommit) {
-    const removedCommitUUID = _queueCommit.map(({ commit }) => {
-    	if (!commit.uuid)
-		    console.error('Commit uuid is null')
-    	return commit.uuid
-    })
-    await orm(QUEUE_COMMIT_MODEL).remove({ 'commit.uuid': { $in: removedCommitUUID } })
-		lockSend.acquired && lockSend.release()
-		await send()
+		if (!orm.getQueue('queue:send').length)
+			orm.emit('queue:send')
 	})
 
-	async function send() {
-		if (lockSend.acquired) {
-			console.log('Lock send is acquired', dayjs().toDate())
-			return
+	orm.onQueue('transport:finish:send', async function (_queueCommit) {
+		const removedCommitUUID = _queueCommit.map((commit) => {
+			if (!commit.uuid)
+				console.error('Commit uuid is null')
+			return commit.uuid
+		})
+		await orm(QUEUE_COMMIT_MODEL).deleteMany({ 'commit.uuid': { $in: removedCommitUUID } })
+	})
+
+	async function tryResend() {
+		const remainCommit = await orm(QUEUE_COMMIT_MODEL).count()
+		if (!orm.isMaster() && remainCommit && !orm.getQueue('queue:send').length) {
+			console.log('Retry sending commit !', dayjs().toDate())
+			orm.emit('queue:send')
 		}
-		let currentTimeout = 0
+		lockSend.acquired && lockSend.release()
+	}
+	setInterval(() => {
+		tryResend()
+	}, 10000)
+
+	orm.onQueue('queue:send', async function () {
+		console.log('Try to send to master')
 
 		async function doSend() {
-			console.log('Try to send to master')
-			currentTimeout += SENT_TIMEOUT
-			currentTimeout = Math.min(currentTimeout, MAX_TIMEOUT)
-			setTimeout(async () => {
-				const remainCommit = await orm(QUEUE_COMMIT_MODEL).find()
-	      if (!orm.isMaster() && remainCommit) {
-	        console.log('Retry sending commit !', dayjs().toDate())
-	        doSend()
-	      }
-			}, currentTimeout)
 			const data = await orm(QUEUE_COMMIT_MODEL).find()
-			orm.emit('transport:send', data)
+			await orm.emit('transport:send', data.map(item => item.commit))
 		}
 
-		const remainCommit = await orm(QUEUE_COMMIT_MODEL).find()
-		if (remainCommit)
-			doSend()
-		else
-			lockSend.acquired && lockSend.release()
-	}
+		const remainCommit = await orm(QUEUE_COMMIT_MODEL).count()
+		if (remainCommit) {
+			await new Promise(async (resolve, reject) => {
+				try {
+					setTimeout(() => resolve(), 10000)
+					await doSend()
+					resolve()
+				} catch (e) {
+					reject(e)
+				}
+			})
+		}
+	})
 
 	clearQueue()
 }
