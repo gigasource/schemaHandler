@@ -19,6 +19,7 @@ module.exports = function (orm) {
 
 	orm.on('transport:removeQueue', async function () {
 		clearInterval(intervalClearQueue)
+		clearInterval(tryResendInterval)
 		await orm(QUEUE_COMMIT_MODEL).deleteMany({})
 	})
 	// This must run outside initSyncForClient hook because
@@ -47,9 +48,8 @@ module.exports = function (orm) {
 			console.log('Retry sending commit !', dayjs().toDate())
 			orm.emit('queue:send')
 		}
-		lockSend.acquired && lockSend.release()
 	}
-	setInterval(() => {
+	const tryResendInterval = setInterval(() => {
 		tryResend()
 	}, 10000)
 
