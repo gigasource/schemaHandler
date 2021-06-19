@@ -17,18 +17,19 @@
   },
   "homepage": "https://github.com/gigasource/schemaHandler#readme",
   "dependencies": {
+    "await-lock": "^2.1.0",
     "bson": "^4.2.0",
     "combine-errors": "^3.0.3",
+    "dayjs": "^1.8.14",
     "extend": "^3.0.2",
     "kareem": "^2.3.1",
     "lodash": "^4.17.20",
     "mongoose-legacy-pluralize": "^1.0.2",
     "mquery": "^3.2.2",
     "node-cache": "^5.1.2",
+    "queue": "^6.0.2",
     "traverse": "^0.6.6",
-    "uuid": "^8.3.1",
-    "await-lock": "^2.1.0",
-    "queue": "^6.0.2"
+    "uuid": "^8.3.1"
   },
   "devDependencies": {
     "@gigasource/socket.io-p2p-plugin": "^1.11.1",
@@ -44,6 +45,7 @@
     "jest": "^26.6.3",
     "jest-serializer-html": "^7.0.0",
     "jest-worker": "^26.6.2",
+    "mockdate": "^3.0.5",
     "mocha": "^8.2.1",
     "mongodb": "github:gigasource/node-mongodb-native#v3.5.8-1",
     "prettier": "^1.18.2",

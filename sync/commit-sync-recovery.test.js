@@ -36,6 +36,7 @@ describe("commit-sync", function() {
     let orms = [ormA, ormB];
     for (const orm of orms) {
       orm.plugin(syncPlugin);
+      orm.plugin(require('./sync-queue-commit'))
       orm.plugin(require("./sync-transporter"));
     }
 
