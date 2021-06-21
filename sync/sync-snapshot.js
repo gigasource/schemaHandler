@@ -40,10 +40,18 @@ module.exports = function (orm) {
 			}
 		})
 
+		orm.on(`process:commit:${collection}:snapshot`, async function (commit) {
+			if (!commit.data || !commit.data.snapshot) return
+			await orm(collection).deleteOne({ _id: commit.data.docId }).direct()
+		})
+
 		// add lastTimeModified field
-		orm.on(`commit:finish:handler:${collection}`, -1, async function (result, commit) {
-			if (!orm.isMaster()) return
-			await orm(collection).updateOne(commit.condition, { snapshot: true }).direct()
+		orm.on(`commit:handler:finish:${collection}`, -1, async function (result, commit) {
+			if ((commit.data && commit.data.snapshot)) return
+			if (commit.condition)
+				await orm(collection).updateOne(JSON.parse(commit.condition), { snapshot: true }).direct()
+			else if (commit.data && commit.data.docId)
+				await orm(collection).updateOne({ _id: commit.data.docId }, { snapshot: true }).direct()
 		})
 
 		const startSnapshot = async function () {
@@ -51,16 +59,16 @@ module.exports = function (orm) {
 			orm.emit('block-sync', collection)
 			const { syncData } = await orm('CommitData').findOne()
 			const currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1)).uuid
-			await orm('Commit').deleteMany({ collectionName: collection })
+			await orm('Commit').deleteMany({ collectionName: collection, 'data.snapshot': {$exists: false } })
 			if (syncData.firstTimeSync)
-				await orm(collection).update({}, { snapshot: true }).direct()
+				await orm(collection).updateMany({}, { snapshot: true }).direct()
 			while (true) {
 				const doc = await orm(collection).findOne({ snapshot: true })
 				if (!doc)
 					break
 				delete doc.snapshot
-				await orm(collection).deleteOne({ _id: doc._id }).commit({ currentHighestUUID, syncUUID: syncData.id, snapshot: true })
-				await orm(collection).create(doc).commit({ currentHighestUUID, syncUUID: syncData.id, snapshot: true })
+				await orm('Commit').deleteMany({ 'data.docId': doc._id, 'data.snapshot': true })
+				await orm(collection).create(doc).commit(`${collection}:snapshot`, { currentHighestUUID, syncUUID: syncData.id, snapshot: true })
 			}
 		}
 

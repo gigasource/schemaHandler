@@ -102,6 +102,7 @@ describe('commit-sync-snapshot', function () {
 	}, 80000)
 
 	it('Case 3: Client create commit during snapshot progress', async (done) => {
+		await ormA('Model').create({ table: 8 })
 		await ormA('Model').create({ table: 10})
 		await ormA('Model').updateOne({ table: 10 }, { name: 'Testing' })
 		ormA.on('snapshot-done', async () => {
@@ -141,4 +142,26 @@ describe('commit-sync-snapshot', function () {
 
 		})
 	}, 80000)
+
+	it('Case 4: Delete only commit of manipulated doc', async (done) => {
+		await ormA('Model').create({ table: 10 })
+		await ormA('Model').create({ table: 9 })
+		ormA.once('snapshot-done', async () => {
+			await delay(50)
+			let commitsA = await ormA('Commit').find()
+			expect(stringify(commitsA)).toMatchSnapshot()
+			await ormA('Model').updateOne({ table: 10 }, { name: 'Testing' })
+			await ormA('Model').create({ table: 11 })
+			await delay(50)
+			commitsA = await ormA('Commit').find()
+			expect(stringify(commitsA)).toMatchSnapshot()
+			ormA.once('snapshot-done', async () => {
+				const commitsA = await ormA('Commit').find()
+				expect(stringify(commitsA)).toMatchSnapshot()
+				done()
+			})
+			ormA.startSyncSnapshot()
+		})
+		ormA.startSyncSnapshot()
+	}, 30000)
 })
