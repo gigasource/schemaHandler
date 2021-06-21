@@ -260,15 +260,20 @@ const syncPlugin = function (orm) {
     this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}});
   })
 
-  orm.onQueue('commitRequest', async function (commit) {
-    if (!commit.tags) {
-      await orm.emit('process:commit', commit)
-    } else {
-      for (const tag of commit.tags) {
-        await orm.emit(`process:commit:${tag}`, commit)
+  orm.onQueue('commitRequest', async function (commits) {
+    if (!commits || !commits.length)
+      return
+    for (let commit of commits) {
+      if (!commit.tags) {
+        await orm.emit('process:commit', commit)
+      } else {
+        for (const tag of commit.tags) {
+          await orm.emit(`process:commit:${tag}`, commit)
+        }
       }
+      await orm.emit('createCommit', commit);
     }
-    await orm.emit('createCommit', commit);
+    console.log('Done commitRequest', commits.length, commits[0]._id, new Date())
   })
 
   async function removeFake() {

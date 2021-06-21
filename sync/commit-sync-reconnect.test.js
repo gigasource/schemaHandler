@@ -5,7 +5,6 @@ ormA.name = "A";
 let ormB = new Orm();
 let ormC = new Orm();
 ormC.name = "C";
-const orm = ormA;
 const { ObjectID } = require("bson");
 const { stringify } = require("../utils");
 const _ = require("lodash");
@@ -25,31 +24,24 @@ const syncPlugin = require("./sync-plugin-multi");
 let toMasterLockA, toMasterLockC;
 const AwaitLock = require("await-lock").default;
 const QUEUE_COMMIT_MODEL = 'QueueCommit'
+const mockdate = require('mockdate').default
 //</editor-fold>
 
 jest.setTimeout(60000)
-
+const tick = () => new Promise(res => setImmediate(res));
+jest.useFakeTimers()
 describe("commit-sync", function() {
 	//<editor-fold desc="Description">
-	beforeAll(async () => {
+	beforeAll(async (done) => {
 		ormA.connect({uri: "mongodb://localhost:27017"}, "myproject");
 		ormB.connect({uri: "mongodb://localhost:27017"}, "myproject2");
 
 		let orms = [ormA, ormB];
 
-		await ormA("Model").remove({});
-		await ormA("Commit").remove({});
-		await ormA("Recovery").remove({});
-		await ormA(QUEUE_COMMIT_MODEL).remove({})
-		await ormB("Model").remove({});
-		await ormB("Commit").remove({});
-		await ormB("Recovery").remove({});
-		await ormB(QUEUE_COMMIT_MODEL).remove({})
-
 		for (const orm of orms) {
 			orm.plugin(syncPlugin);
+			orm.plugin(require('./sync-queue-commit'))
 			orm.plugin(require("./sync-transporter"));
-			await orm.emit('transport:loadQueueCommit')
 		}
 
 		ormA.plugin(require("./sync-flow"), "client");
@@ -59,30 +51,43 @@ describe("commit-sync", function() {
 			ormB.emit('initSyncForMaster', socket)
 		})
 
+		await ormA("Model").remove({}).direct();
+		await ormA("Commit").remove({}).direct();
+		await ormA("Recovery").remove({}).direct();
+		await ormA(QUEUE_COMMIT_MODEL).remove({}).direct()
+		await ormB("Model").remove({}).direct();
+		await ormB("Commit").remove({}).direct();
+		await ormB("Recovery").remove({}).direct();
+		await ormB(QUEUE_COMMIT_MODEL).remove({}).direct()
+
 		Model = ormA("Model");
 
 		for (const orm of orms) {
 			orm.registerCommitBaseCollection("Model");
 		}
+		done()
 	})
 
 	afterEach(async () => {
-		await ormA("Model").remove({});
-		await ormA("Commit").remove({});
-		await ormA("Recovery").remove({});
-		await ormA(QUEUE_COMMIT_MODEL).remove({})
-		await ormB("Model").remove({});
-		await ormB("Commit").remove({});
-		await ormB("Recovery").remove({});
-		await ormB(QUEUE_COMMIT_MODEL).remove({})
+		await ormA("Model").remove({}).direct();
+		await ormA("Commit").remove({}).direct();
+		await ormA("Recovery").remove({}).direct();
+		await ormA(QUEUE_COMMIT_MODEL).remove({}).direct()
+		await ormB("Model").remove({}).direct();
+		await ormB("Commit").remove({}).direct();
+		await ormB("Recovery").remove({}).direct();
+		await ormB(QUEUE_COMMIT_MODEL).remove({}).direct()
 	})
 
 	it("Case queue query from client", async () => {
+		jest.useRealTimers()
+		mockdate.set('2020-01-01')
+		Date.now = jest.fn(() => new Date(Date.UTC(2020, 1, 15)).valueOf())
 		await ormA("Model").create({
 			value: "test"
 		})
 		await delay(100)
-		const queueCommits = await orm(QUEUE_COMMIT_MODEL).find({})
+		const queueCommits = await ormA(QUEUE_COMMIT_MODEL).find({})
 		expect(stringify(queueCommits)).toMatchSnapshot()
 
 		s1.connect('local')
@@ -91,7 +96,24 @@ describe("commit-sync", function() {
 		await delay(12000)
 		console.log('Finish delaying')
 
-		const newQueueCommits = await orm(QUEUE_COMMIT_MODEL).find({})
+		const newQueueCommits = await ormA(QUEUE_COMMIT_MODEL).find({})
 		expect(stringify(newQueueCommits)).toMatchSnapshot()
 	})
+
+	it('Delete queue commit interval', async (done) => {
+		mockdate.set('2020-01-01')
+		await ormA("Model").create({
+			value: "test"
+		})
+		const queueCommits = await ormA(QUEUE_COMMIT_MODEL).find({})
+		expect(stringify(queueCommits)).toMatchSnapshot()
+		// await delay(100)
+		mockdate.set('2020-01-02')
+		jest.advanceTimersByTime(60 * 60 * 1000)
+		jest.useRealTimers()
+		await delay(200)
+		const _queueCommits = await ormA(QUEUE_COMMIT_MODEL).find({})
+		expect(stringify(_queueCommits)).toMatchSnapshot()
+		done()
+	}, 30000)
 })

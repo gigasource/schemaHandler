@@ -50,6 +50,7 @@ describe('commit-mutliDB', function () {
 		for (const orm of orms) {
 			orm.plugin(syncPlugin)
 			orm.plugin(syncFlow)
+			orm.plugin(require('./sync-queue-commit'))
 			orm.plugin(syncTransporter)
 			orm.registerCommitBaseCollection("Model");
 		}

@@ -5,15 +5,41 @@ Array [
   Object {
     "_id": "ObjectID",
     "commit": Object {
+      "_id": "ObjectID",
       "approved": false,
-      "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"value\\":\\"test\\"}]}]",
+      "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"value\\":\\"test\\",\\"_id\\":\\"ObjectID\\"}]}]",
       "collectionName": "Model",
-      "data": Object {},
+      "data": Object {
+        "docId": "ObjectID",
+      },
       "tags": Array [],
       "uuid": "uuid-v1",
     },
+    "dateAdded": "2020-01-01T00:00:00.000Z",
   },
 ]
 `;
 
 exports[`commit-sync Case queue query from client 2`] = `Array []`;
+
+exports[`commit-sync Delete queue commit interval 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "commit": Object {
+      "_id": "ObjectID",
+      "approved": false,
+      "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"value\\":\\"test\\",\\"_id\\":\\"ObjectID\\"}]}]",
+      "collectionName": "Model",
+      "data": Object {
+        "docId": "ObjectID",
+      },
+      "tags": Array [],
+      "uuid": "uuid-v1",
+    },
+    "dateAdded": "2020-01-01T00:00:00.000Z",
+  },
+]
+`;
+
+exports[`commit-sync Delete queue commit interval 2`] = `Array []`;
