@@ -249,7 +249,7 @@ const syncPlugin = function (orm) {
         if (recovery.type === 'create') {
           await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
         } else {
-          await orm(recovery.collectionName).replaceOne({_id: recovery.doc._id}, recovery.doc).direct();
+          await orm(recovery.collectionName).replaceOne({_id: recovery.doc._id}, recovery.doc, { upsert: true }).direct();
         }
         await orm('Recovery').remove({_id: recovery._id});
       }
