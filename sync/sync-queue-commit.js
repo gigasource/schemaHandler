@@ -53,14 +53,13 @@ module.exports = function (orm) {
 		tryResend()
 	}, 10000)
 
-	orm.onQueue('queue:send', async function () {
+	const doSend = _.debounce(async () => {
 		console.log('Try to send to master')
+		const data = await orm(QUEUE_COMMIT_MODEL).find()
+		await orm.emit('transport:send', data.map(item => item.commit))
+	}, 2000)
 
-		async function doSend() {
-			const data = await orm(QUEUE_COMMIT_MODEL).find()
-			await orm.emit('transport:send', data.map(item => item.commit))
-		}
-
+	orm.onQueue('queue:send', async function () {
 		const remainCommit = await orm(QUEUE_COMMIT_MODEL).count()
 		if (remainCommit) {
 			await new Promise(async (resolve, reject) => {

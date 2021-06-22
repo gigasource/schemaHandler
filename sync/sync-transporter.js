@@ -112,13 +112,13 @@ module.exports = function (orm) {
       }, 10000)
     }).off()
 
-    socket.on('commitRequest', async (commits, cb) => {
+    socket.on('commitRequest', (commits, cb) => {
       cb && cb()
       console.log('commitRequest', commits.length, commits[0]._id, new Date())
       for (let commit of commits) {
         commit.dbName = dbName
       }
-      await orm.emit('commitRequest', commits);
+      orm.emit('commitRequest', commits);
     });
 
     socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
