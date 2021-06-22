@@ -272,7 +272,7 @@ function createCollectionQuery(query) {
       if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
         || fn.includes('countDocuments') || fn.includes('aggregate')
         || fn.includes('Index') || fn.includes('indexes')
-        || fn.includes('findAndModify') || fn.includes('drop')) result = true;
+        || fn.includes('findAndModify') || fn.includes('drop') || fn.includes('bulkWrite')) result = true;
     }
     return result;
   }, false);
@@ -385,7 +385,7 @@ async function resultPostProcess(result, target) {
       }
     } else if (target.cmd === 'insertMany' || (target.cmd === 'create' && !target.returnSingleDocument)) {
       _result = result.ops;
-    } else if (target.cmd === 'insertOne' || (target.cmd === 'create' && target.returnSingleDocument)) {
+    } else if (target.cmd === 'insertOne' || target.cmd === 'replaceOne' || (target.cmd === 'create' && target.returnSingleDocument)) {
       _result = result.ops[0];
     } else if (result && result.ok === 1 && result.value) {
       _result = result.value;
@@ -415,7 +415,7 @@ async function resultPostProcess(result, target) {
       _result = result.ops;
     }
 
-    if (target.cmd === 'insertOne') {
+    if (target.cmd === 'insertOne' || target.cmd === 'replaceOne') {
       _result = result.ops[0];
     }
 

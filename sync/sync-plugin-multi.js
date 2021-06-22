@@ -2,7 +2,7 @@ const _ = require('lodash');
 const {parseCondition, parseSchema} = require("../schemaHandler");
 const uuid = require('uuid').v1;
 const JsonFn = require('json-fn');
-const { ObjectID } = require('bson')
+const {ObjectID} = require('bson')
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -10,6 +10,51 @@ const syncPlugin = function (orm) {
   orm.registerCommitBaseCollection = function () {
     whitelist.push(...arguments);
   }
+
+  orm.on('pre:execChain', -2, function (query) {
+    const last = _.last(query.chain);
+    if (last.fn === "batch") {
+      query.chain.pop();
+      this.stop();
+      query.mockCollection = true;
+      orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
+        const {fn, args} = _query.chain[0];
+        let value;
+        if (fn === 'insertOne') {
+          value = {insertOne: {document: args[0]}}
+        } else if (fn === 'findOneAndUpdate') {
+          value = {
+            updateOne: {
+              "filter": args[0],
+              "update": args[1],
+              ... args[2] && args[2]
+            }
+          }
+        } else if (fn === 'updateMany') {
+          value = {
+            updateMany: {
+              "filter": args[0],
+              "update": args[1],
+              ... args[2] && args[2]
+            }
+          }
+        } else if (fn === 'deleteOne') {
+          value = {deleteOne: {document: args[0]}}
+        } else if (fn === 'deleteMany') {
+          value = {deleteMany: {document: args[0]}}
+        } else if (fn === 'replaceOne') {
+          value = {
+            replaceOne: {
+              "filter": args[0],
+              "replacement": args[1],
+              ... args[2] && args[2]
+            }
+          }
+        }
+        this.value = value;
+      })
+    }
+  })
 
   orm.on('pre:execChain', -1, function (query) {
     const last = _.last(query.chain);
@@ -201,10 +246,10 @@ const syncPlugin = function (orm) {
         recoveries = await orm('Recovery').find(condition);
       }
       for (const recovery of recoveries) {
-        await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
         if (recovery.type === 'create') {
+          await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
         } else {
-          await orm(recovery.collectionName).create(recovery.doc).direct();
+          await orm(recovery.collectionName).replaceOne({_id: recovery.doc._id}, recovery.doc).direct();
         }
         await orm('Recovery').remove({_id: recovery._id});
       }
@@ -270,15 +315,20 @@ const syncPlugin = function (orm) {
     this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}});
   })
 
-  orm.onQueue('commitRequest', async function (commit) {
-    if (!commit.tags) {
-      await orm.emit('process:commit', commit)
-    } else {
-      for (const tag of commit.tags) {
-        await orm.emit(`process:commit:${tag}`, commit)
+  orm.onQueue('commitRequest', async function (commits) {
+    if (!commits || !commits.length)
+      return
+    for (let commit of commits) {
+      if (!commit.tags) {
+        await orm.emit('process:commit', commit)
+      } else {
+        for (const tag of commit.tags) {
+          await orm.emit(`process:commit:${tag}`, commit)
+        }
       }
+      await orm.emit('createCommit', commit);
     }
-    await orm.emit('createCommit', commit);
+    console.log('Done commitRequest', commits.length, commits[0]._id, new Date())
   })
 
   async function removeFake() {
@@ -295,6 +345,7 @@ const syncPlugin = function (orm) {
   }
 
   async function removeAll() {
+    await orm('Commit').remove()
     for (const collection of whitelist) {
       await orm(collection).remove().direct()
     }

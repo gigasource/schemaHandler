@@ -67,7 +67,7 @@ module.exports = function (orm) {
 
     if (key.includes('Update') || key.includes('Modify') || key.includes('create')
       || key.includes('update') || key.includes('insert') || key.includes('delete')
-      || key.includes('remove')) {
+      || key.includes('remove') || key.includes('replace')) {
       target.isMutateCmd = true;
     }
 
@@ -166,6 +166,15 @@ module.exports = function (orm) {
         args.unshift(clearUndefined(parseSchema(schema, obj)));
         return defaultFn(...args)
       }
+    } else if (key === 'replaceOne') {
+      returnResult.ok = true;
+      returnResult.value = function () {
+        const args = [...arguments];
+        const obj = args.pop();
+        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
+        args.push(clearUndefined(parseSchema(schema, obj)));
+        return defaultFn(...args)
+      }
     } else if (key === 'insertMany') {
       returnResult.ok = true;
       returnResult.value = function () {
@@ -189,7 +198,7 @@ module.exports = function (orm) {
   function checkMainCmd(key) {
     if (key.includes('find') || key.includes('create') || key.includes('update')
       || key.includes('insert') || key.includes('delete') || key.includes('remove')
-      || key.includes('count') || key.includes('aggregate')
+      || key.includes('count') || key.includes('aggregate') || key.includes('replace')
       || key.includes('indexes') || key.includes('Index')) return true;
 
     return false;
@@ -314,6 +323,9 @@ module.exports = function (orm) {
   orm.on('proxyPostQueryHandler', function ({target, proxy}) {
     if (target.new) {
       proxy.setOptions({new: true});
+    }
+    if (target.cmd === 'find')  {
+      proxy.batchSize(1000000);
     }
   })
 

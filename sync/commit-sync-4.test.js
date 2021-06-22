@@ -97,9 +97,8 @@ describe("commit-sync", function () {
 
   it("case update one", async function (done) {
     //toMasterLock.acquireAsync();
-    orm.on("transport:requireSync:callback:2", done);
+    //orm.on("transport:requireSync:callback:2", done);
     const m1 = await Model.create({table: 10});
-    const m2 = await Model.findOneAndUpdate({table: 10}, {status: 'paid'}).commit({table: 10});
   }, 20000);
 
 

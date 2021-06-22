@@ -3,6 +3,7 @@ const Orm = require("../orm");
 let ormA = new Orm();
 ormA.name = "A";
 let ormB = new Orm();
+ormB.name = "B";
 let ormC = new Orm();
 ormC.name = "C";
 const orm = ormA;
@@ -23,7 +24,7 @@ const hooks = new Hooks();
 const Queue = require("queue");
 const delay = require("delay");
 const syncPlugin = require("./sync-plugin-multi");
-let toMasterLockA, toMasterLockC;
+let toMasterQueueA, toMasterQueueC;
 const AwaitLock = require("await-lock").default;
 //</editor-fold>
 
@@ -36,6 +37,7 @@ describe("commit-sync", function() {
     let orms = [ormA, ormB];
     for (const orm of orms) {
       orm.plugin(syncPlugin);
+      orm.plugin(require("./sync-queue-commit"));
       orm.plugin(require("./sync-transporter"));
     }
 
@@ -84,7 +86,7 @@ describe("commit-sync", function() {
         }
       });
 
-      orm.onQueue("process:commit", async function(commit) {
+      /*orm.onQueue("process:commit:create", async function(commit) {
         const { chain } = orm.getQuery(commit);
         const isMaster = orm.isMaster();
         if (commit.tags.includes("create")) {
@@ -102,13 +104,16 @@ describe("commit-sync", function() {
           }
         }
         this.value = commit;
-      });
+      });*/
     }
 
     /*["transport:requireSync:callback", "transport:toMaster"].forEach(hook => {
       ormA.on(hook, () => hooks.emit(hook));
       ormC.on(hook, () => hooks.emit(hook));
     });*/
+
+    toMasterQueueA = ormA.getQueue("transport:toMaster");
+    toMasterQueueC = ormC.getQueue("transport:toMaster");
   });
   //</editor-fold>
 
@@ -118,8 +123,14 @@ describe("commit-sync", function() {
         done();
       }
     });
+    await toMasterQueueA.stop();
     const m1 = await ormA("Model").create({ table: 10, items: [] });
     const m2 = await ormA("Model").create({ table: 10, items: [] });
+    toMasterQueueA.start();
+  }, 30000);
+
+  it("flow", async function(done) {
+    const m1 = await ormA("Model").create({ table: 10, items: [] });
   }, 30000);
 
   it("case only master", async function(done) {
@@ -127,9 +138,27 @@ describe("commit-sync", function() {
     //const m2 = await ormB("Model").create({table: 10, items: []});
   }, 30000);
 
+  it("sync bug", async function(done) {
+    const greenTea = { name: "greenTea", quantity: 1, _id: new ObjectID() };
+    const soda = { name: "soda", quantity: 1, _id: new ObjectID() };
+    const _id = new ObjectID();
+    const Model = ormA("Model");
+    await Model.create({ _id, table: 10, items: [greenTea] });
+    await Model.updateOne({ _id }, { $push: { items: { $each: [soda] } } });
+    await Model.updateOne({ _id }, { $set: { table: 1 } });
+    await Model.updateOne(
+      { _id },
+      { $pull: { items: { _id: { $in: [greenTea._id] } } } }
+    );
+    await Model.updateOne({ _id }, { $set: { sum: 5 } });
+    //await delay(200);
+    const m2 = await Model.findOne();
+    debugger;
+  });
+
   it("case 1", async function(done) {
-    const fakeChannelA = ormA.getLock("fake-channel");
-    const callbackLockA = ormA.getLock("transport:requireSync:callback");
+    const fakeChannelA = ormA.getQueue("fake-channel");
+    const callbackLockA = ormA.getQueue("transport:requireSync:callback");
     let arr = [];
     ormA.onCount("commit:handler:finish", count => {
       if (count === 4) {
@@ -148,6 +177,7 @@ describe("commit-sync", function() {
       }
     });
 
+    await toMasterQueueA.stop();
     const m1 = await ormA("Model")
       .create({ table: 10, items: [] })
       .commit("create", {
@@ -173,6 +203,7 @@ describe("commit-sync", function() {
       .commit("addItem", {
         table: 10
       });
+    await toMasterQueueA.start();
     const lock = new AwaitLock();
     await lock.acquireAsync();
     ormA.onQueueCount("transport:requireSync:callback", function(
@@ -180,7 +211,7 @@ describe("commit-sync", function() {
       commits
     ) {
       if (count === 1) {
-        this.keepLock();
+        //this.keepLock();
         lock.release();
       } else if (count > 1) {
         const a = 5;
@@ -195,12 +226,16 @@ describe("commit-sync", function() {
         table: 10
       });
 
+    //await delay(1000);
+    //const models = await ormB('Model').find();
+    //debugger
+
     expect(m5.items).toMatchInlineSnapshot(`
       Array [
         "item3",
       ]
     `);
-    callbackLockA.release();
+    //callbackLockA.release();
 
     //await callbackLockA.release();
 
@@ -226,7 +261,7 @@ describe("commit-sync", function() {
   }, 30000);
 
   it("case basic client create no master", async function() {
-    toMasterLockA.acquireAsync();
+    toMasterQueueA.acquireAsync();
     const m1 = await Model.create({ table: 10 }).commit("create", {
       table: 10
     });
@@ -256,7 +291,7 @@ describe("commit-sync", function() {
       ]
     `);
     expect(stringify(await orm("Commit").find())).toMatchObject([]);
-    toMasterLockA.release();
+    toMasterQueueA.release();
     await delay(50);
     expect(stringify(await Model.find())).toMatchInlineSnapshot(`
       Array [
@@ -294,7 +329,7 @@ describe("commit-sync", function() {
   });
 
   it("case create + findOneAndUpdate", async function() {
-    toMasterLockA.acquireAsync();
+    toMasterQueueA.acquireAsync();
     const m1 = await Model.create({ table: 10 }).commit("create", {
       table: 10
     });
@@ -304,7 +339,7 @@ describe("commit-sync", function() {
     expect(stringify(await Model.find())).toMatchSnapshot();
     expect(stringify(await orm("Recovery").find())).toMatchSnapshot();
     expect(stringify(await orm("Commit").find())).toMatchObject([]);
-    toMasterLockA.release();
+    toMasterQueueA.release();
     await delay(500);
     const models = await Model.find();
     expect(stringify(models)).toMatchInlineSnapshot(`
@@ -424,6 +459,62 @@ describe("commit-sync", function() {
       Object {
         "_id": "ObjectID",
         "table": 10,
+      }
+    `);
+  });
+
+  it("test batch", async function() {
+    //const raw = await ormA("Model").create({ table: 10 }).batch();
+    await ormA("Model").create({ table: 10 });
+    //const raw = await ormA("Model").updateOne({ table: 10 }, {name: 'A'}, {upsert: true}).batch();
+    //const raw = await ormA("Model").updateMany({ table: 10 }, {name: 'A'}, {upsert: true}).batch();
+    const raw = await ormA("Model")
+      .replaceOne({ table: 10 }, { table: 11 })
+      .batch();
+
+    expect(stringify(raw)).toMatchInlineSnapshot(`
+      Object {
+        "replaceOne": Object {
+          "filter": Object {
+            "table": 10,
+          },
+          "replacement": Object {
+            "_id": "ObjectID",
+            "items": Array [],
+            "table": 11,
+          },
+        },
+      }
+    `);
+  });
+
+  it("test batch2", async function() {
+    const raw1 = await ormA("Model")
+      .create({ table: 10 })
+      .batch();
+    const raw2 = await ormA("Model")
+      .updateOne({ table: 10 }, { $set: { name: "A" } })
+      .batch();
+
+    const result = await ormA("Model").bulkWrite([raw1, raw2]);
+    const models = await ormA("Model").find();
+    expect(stringify(result)).toMatchInlineSnapshot(`
+      Object {
+        "insertedIds": Array [
+          Object {
+            "_id": "ObjectID",
+            "index": 0,
+          },
+        ],
+        "nInserted": 1,
+        "nMatched": 1,
+        "nModified": 1,
+        "nRemoved": 0,
+        "nUpserted": 0,
+        "ok": 1,
+        "upserted": Array [],
+        "writeConcernErrors": Array [],
+        "writeErrors": Array [],
       }
     `);
   });
