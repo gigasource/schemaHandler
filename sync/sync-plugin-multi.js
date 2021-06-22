@@ -357,7 +357,7 @@ const syncPlugin = function (orm) {
       await removeFake()
     else
       await removeAll()
-    const highestCommitId = (await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0}).id;
+    const highestCommitId = (await orm('Commit').findOne({}).sort('-id') || {id: 0}).id;
     await orm('CommitData').updateOne({}, { highestCommitId }, { upsert: true })
     await orm.emit('transport:removeQueue')
     await orm.emit('commit:remove-all-recovery')
