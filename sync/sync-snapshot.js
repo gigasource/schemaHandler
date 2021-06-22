@@ -87,19 +87,23 @@ module.exports = function (orm) {
 		if (syncLock.acquired)
 			return
 		syncLock.tryAcquire()
-		const oldCommitData = await orm('CommitData').findOne()
-		const syncData = {
-			id: uuid.v4(),
-			isSyncing: true,
-			firstTimeSync: !(oldCommitData && oldCommitData.syncData)
+		try {
+			const oldCommitData = await orm('CommitData').findOne()
+			const syncData = {
+				id: uuid.v4(),
+				isSyncing: true,
+				firstTimeSync: !(oldCommitData && oldCommitData.syncData)
+			}
+			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
+			const promises = []
+			for (const handler of handlers) {
+				promises.push(handler())
+			}
+			await Promise.all(promises)
+			await orm('CommitData').updateOne({}, {$set: {syncData: {isSyncing: false}}})
+		} catch (err) {
+			console.error(err)
 		}
-		await orm('CommitData').updateOne({}, { syncData }, { upsert: true })
-		const promises = []
-		for (const handler of handlers) {
-			promises.push(handler())
-		}
-		await Promise.all(promises)
-		await orm('CommitData').updateOne({}, { $set: { syncData: { isSyncing: false } } })
 		syncLock.release()
 		orm.emit('master:transport:sync')
 		orm.emit('snapshot-done')
