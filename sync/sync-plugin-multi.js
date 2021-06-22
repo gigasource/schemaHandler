@@ -2,7 +2,7 @@ const _ = require('lodash');
 const {parseCondition, parseSchema} = require("../schemaHandler");
 const uuid = require('uuid').v1;
 const JsonFn = require('json-fn');
-const { ObjectID } = require('bson')
+const {ObjectID} = require('bson')
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -10,6 +10,51 @@ const syncPlugin = function (orm) {
   orm.registerCommitBaseCollection = function () {
     whitelist.push(...arguments);
   }
+
+  orm.on('pre:execChain', -2, function (query) {
+    const last = _.last(query.chain);
+    if (last.fn === "batch") {
+      query.chain.pop();
+      this.stop();
+      query.mockCollection = true;
+      orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
+        const {fn, args} = _query.chain[0];
+        let value;
+        if (fn === 'insertOne') {
+          value = {insertOne: {document: args[0]}}
+        } else if (fn === 'findOneAndUpdate') {
+          value = {
+            updateOne: {
+              "filter": args[0],
+              "update": args[1],
+              ... args[2] && args[2]
+            }
+          }
+        } else if (fn === 'updateMany') {
+          value = {
+            updateMany: {
+              "filter": args[0],
+              "update": args[1],
+              ... args[2] && args[2]
+            }
+          }
+        } else if (fn === 'deleteOne') {
+          value = {deleteOne: {document: args[0]}}
+        } else if (fn === 'deleteMany') {
+          value = {deleteMany: {document: args[0]}}
+        } else if (fn === 'replaceOne') {
+          value = {
+            replaceOne: {
+              "filter": args[0],
+              "replacement": args[1],
+              ... args[2] && args[2]
+            }
+          }
+        }
+        this.value = value;
+      })
+    }
+  })
 
   orm.on('pre:execChain', -1, function (query) {
     const last = _.last(query.chain);
