@@ -202,13 +202,13 @@ class Hooks extends EE {
         if (!this._value)
           this._value = val
         else
-          this._value &&= val
+          this._value = (this._value && val)
       },
       mergeValueOr(val) {
         if (!this._value)
           this._value = val
         else
-          this._value ||= val
+          this._value = (this._value || val)
       }
     }
 
