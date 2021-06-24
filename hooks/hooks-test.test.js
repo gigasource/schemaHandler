@@ -384,4 +384,37 @@ describe("test hooks", function () {
       ]
     `);
   }, 80000)
+
+  it('Sync with or', async function () {
+    hooks.on('test', async function () {
+      this.mergeValueOr(true)
+    })
+    hooks.on('test', function () {
+      this.mergeValueOr(false)
+    })
+
+    let ans = await hooks.emit('test')
+    expect(ans).toBe(true)
+
+    hooks.on('test1', function () {
+      this.mergeValueOr(false)
+    })
+    hooks.on('test1', function () {
+      this.mergeValueOr(false)
+    })
+    let ans1 = await hooks.emit('test1')
+    expect(ans1).toBe(false)
+  }, 80000)
+
+  it('Sync with and', async function () {
+    hooks.on('test', async function () {
+      this.mergeValueAnd(true)
+    })
+    hooks.on('test', function () {
+      this.mergeValueAnd(false)
+    })
+
+    let ans = await hooks.emit('test')
+    expect(ans).toBe(false)
+  })
 });

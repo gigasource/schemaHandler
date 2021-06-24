@@ -75,7 +75,9 @@ class Io extends Socket {
       mapValue.off = function () {
         hooks.off(`emit:${address}`, cb);
       }
-      _this._emit('connect', socket);
+      setTimeout(() => {
+        _this._emit('connect', socket);
+      }, 100)
     });
 
     hooks.on(`disconnect:${address}`, function (socket) {

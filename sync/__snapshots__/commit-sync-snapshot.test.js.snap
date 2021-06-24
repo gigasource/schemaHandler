@@ -1,0 +1,326 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`commit-sync-snapshot Case 1: Client with highest commit id sync with master 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 3,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 1: Client with highest commit id sync with master 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 3,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 2: Client need to be resync 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 3,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 2: Client need to be resync 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 3,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 3: Client create commit during snapshot progress 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":8,\\"items\\":[]}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 4,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 5,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Updated\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"table\\":10}",
+    "data": Object {},
+    "id": 6,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 3: Client create commit during snapshot progress 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Updated\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"table\\":10}",
+    "data": Object {},
+    "id": 6,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 3: Client create commit during snapshot progress 3`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "items": Array [],
+    "name": "Updated",
+    "snapshot": true,
+    "table": 10,
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 4: Delete only commit of manipulated doc 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[]}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 3,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":9,\\"items\\":[]}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 4,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 4: Delete only commit of manipulated doc 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[]}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 3,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":9,\\"items\\":[]}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 4,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Testing\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"table\\":10}",
+    "data": Object {},
+    "fromMaster": true,
+    "id": 5,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"table\\":11,\\"_id\\":\\"ObjectID\\",\\"items\\":[]}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+    },
+    "fromMaster": true,
+    "id": 6,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`commit-sync-snapshot Case 4: Delete only commit of manipulated doc 3`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":9,\\"items\\":[]}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 4,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 7,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":11,\\"items\\":[]}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 8,
+    "tags": Array [
+      "Model:snapshot",
+    ],
+    "uuid": "uuid-v1",
+  },
+]
+`;

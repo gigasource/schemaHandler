@@ -390,6 +390,64 @@ describe("commit-sync", function() {
     `);
   });
 
+  it("case create + findOneAndUpdate 2", async function() {
+    const m1 = await Model.create({ table: 10 }).commit("create", {
+      table: 10
+    });
+
+    const m1a = await Model.findOneAndUpdate({ table: 10 }, { status: "paid" });
+    await delay(50);
+    expect(stringify(await Model.find())).toMatchSnapshot();
+    await delay(500);
+    const models = await Model.find();
+    expect(stringify(models)).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "items": Array [],
+          "status": "paid",
+          "table": 10,
+        },
+      ]
+    `);
+    expect(stringify(await orm("Recovery").find())).toMatchInlineSnapshot(
+      `Array []`
+    );
+    const data = await ormB("Model").findOne({ _id: m1._id });
+    expect(data).toEqual(m1a);
+    expect(stringify(await orm("Commit").find())).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "approved": false,
+          "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"table\\":10,\\"_id\\":\\"ObjectID\\",\\"items\\":[]}]}]",
+          "collectionName": "Model",
+          "data": Object {
+            "docId": "ObjectID",
+            "table": 10,
+          },
+          "id": 1,
+          "tags": Array [
+            "create",
+            "create",
+          ],
+          "uuid": "uuid-v1",
+        },
+        Object {
+          "_id": "ObjectID",
+          "approved": false,
+          "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"status\\":\\"paid\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+          "collectionName": "Model",
+          "condition": "{\\"table\\":10}",
+          "data": Object {},
+          "id": 2,
+          "tags": Array [],
+          "uuid": "uuid-v1",
+        },
+      ]
+    `);
+  });
+
   it("test raw", async function() {
     const raw = await ormA("Model")
       .create({ table: 10 })

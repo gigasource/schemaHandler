@@ -30,11 +30,6 @@ module.exports = function (orm, role) {
     }
   })
 
-  orm.getMaster = (dbName) => {
-    if (dbName) return masterDbMap[dbName]
-    return masterDbMap
-  }
-
   const checkMaster = (dbName) => {
     if (role === 'master') return true;
     if (role === 'client') return false;
@@ -84,10 +79,17 @@ module.exports = function (orm, role) {
     this.value = value
   })
 
+  orm.onQueue('commit:handler:finish', async (commit) => {
+    // end of commit's flow, delete all commits which have smaller id than this commit
+    if (!checkMaster(commit.dbName))
+      await orm('Commit').deleteMany({ id: { $lt: commit.id } })
+  })
+
   orm.onQueue('update:Commit:c', 'fake-channel', async function (commit) {
     if (!checkMaster(commit.dbName)) {
       await orm.emit('commit:remove-fake', commit);
     }
+    await orm('CommitData').findOneAndUpdate({}, { highestCommitId: commit.id }, { upsert: true })
     const run = !(await orm.emit(`commit:handler:shouldNotExecCommand:${commit.collectionName}`, commit));
     let result
     if (run) {

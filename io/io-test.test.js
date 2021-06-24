@@ -115,4 +115,14 @@ describe("test io", function() {
 
     s1.emitTo('s2', 'a')
   })
+
+  it('case on after connect', function (done) {
+    io.listen('local')
+    io.on('connect', socket => {
+      socket.emit('test')
+    })
+    s1.connect(`local?clientId=s1`, 's1')
+
+    s1.on('test', done)
+  })
 });

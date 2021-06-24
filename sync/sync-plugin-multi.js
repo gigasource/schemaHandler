@@ -249,7 +249,7 @@ const syncPlugin = function (orm) {
         if (recovery.type === 'create') {
           await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
         } else {
-          await orm(recovery.collectionName).replaceOne({_id: recovery.doc._id}, recovery.doc).direct();
+          await orm(recovery.collectionName).replaceOne({_id: recovery.doc._id}, recovery.doc, { upsert: true }).direct();
         }
         await orm('Recovery').remove({_id: recovery._id});
       }
@@ -267,7 +267,12 @@ const syncPlugin = function (orm) {
   //   orm.emit('transport:require-sync', highestId);
   // });
   orm.on('getHighestCommitId', async function (dbName) {
-    const {id: highestCommitId} = await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0};
+    let highestCommitId
+    const commitData = await orm('CommitData', dbName).findOne({})
+    if (!commitData || !commitData.highestCommitId)
+      highestCommitId = (await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0}).id;
+    else
+      highestCommitId = commitData.highestCommitId
     this.value = highestCommitId;
   })
 
@@ -281,8 +286,13 @@ const syncPlugin = function (orm) {
   //customize
   orm.onDefault('createCommit', async function (commit) {
     if (!commit.id) {
-      let {value: highestId} = await orm.emit('getHighestCommitId', commit.dbName);
+      const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName);
       commit.id = highestId + 1;
+    } else {
+      // commit with id smaller than highestId has been already created
+      const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName)
+      if (commit.id <= highestId)
+        return // Commit exists
     }
     try {
       this.value = await orm(`Commit`, commit.dbName).create(commit);
@@ -347,6 +357,8 @@ const syncPlugin = function (orm) {
       await removeFake()
     else
       await removeAll()
+    const highestCommitId = (await orm('Commit').findOne({}).sort('-id') || {id: 0}).id;
+    await orm('CommitData').updateOne({}, { highestCommitId }, { upsert: true })
     await orm.emit('transport:removeQueue')
     await orm.emit('commit:remove-all-recovery')
   })
