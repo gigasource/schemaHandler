@@ -258,7 +258,11 @@ class Hooks extends EE {
           await promise;
         }
         for (const handler of restHandlers) {
-          await Reflect.apply(handler, _this, args);
+          if (_this._stop) break
+          try {
+            await Reflect.apply(handler, _this, args);
+          } catch (err) {
+          }
         }
         resolve(_this.hasOwnProperty('_value') ? _this._value : _this)
       });

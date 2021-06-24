@@ -4,9 +4,14 @@ const uuid = require('uuid')
 module.exports = function (orm) {
 	const syncLock = new AwaitLock()
 	const handlers = []
+	const unusedCollections = []
+
+	orm.setUnusedCollection = function (collections) {
+		unusedCollections.push(...collections)
+	}
 
 	orm.setSyncCollection = function (collections) {
-		if (typeof collections === 'array') {
+		if (Array.isArray(collections)) {
 			for (const collection of collections)
 				orm._setSyncCollection(collection)
 		} else {
@@ -77,8 +82,11 @@ module.exports = function (orm) {
 
 	orm.checkSnapshotProgress = async function () {
 		if (!orm.isMaster()) return
-		const { syncData } = await orm('CommitData').findOne()
-		if (syncData.isSyncing) {
+		const commitData = await orm('CommitData').findOne({})
+		if (!commitData)
+			return
+		const { syncData } = commitData
+		if (syncData && syncData.isSyncing) {
 			await orm.startSyncSnapshot()
 		}
 	}
@@ -87,6 +95,7 @@ module.exports = function (orm) {
 		if (syncLock.acquired)
 			return
 		syncLock.tryAcquire()
+		console.log(`Start snapshot ${new Date()}`)
 		try {
 			const oldCommitData = await orm('CommitData').findOne()
 			const syncData = {
@@ -95,6 +104,9 @@ module.exports = function (orm) {
 				firstTimeSync: !(oldCommitData && oldCommitData.syncData)
 			}
 			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
+			for (let collection of unusedCollections) {
+				await orm('Commit').deleteMany({ collectionName: collection })
+			}
 			const promises = []
 			for (const handler of handlers) {
 				promises.push(handler())
@@ -105,6 +117,7 @@ module.exports = function (orm) {
 			console.error(err)
 		}
 		syncLock.release()
+		console.log(`Finish snapshot ${new Date()}`)
 		orm.emit('master:transport:sync')
 		orm.emit('snapshot-done')
 	}

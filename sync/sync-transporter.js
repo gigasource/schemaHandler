@@ -3,7 +3,14 @@ const _ = require('lodash')
 const { v1 } = require('uuid')
 
 module.exports = function (orm) {
-  orm.on('initSyncForClient', (clientSocket, dbName) => {
+  const connectedClientSocket = {}
+  const connectedMasterSocket = {}
+
+  orm.on('initSyncForClient', function (clientSocket, dbName) {
+    if (connectedClientSocket[clientSocket.id])
+      return
+    connectedClientSocket[clientSocket.id] = true
+
     const off1 = orm.on('transport:send', async (_dbName, queueCommit) => {
       if (!queueCommit)
         queueCommit = _dbName
@@ -16,14 +23,14 @@ module.exports = function (orm) {
           resolve(queueCommit)
         })
       })
-    })
+    }).off
 
-    const debounceRequireSync = _.debounce(() => {
+    const throttleRequireSync = _.throttle(() => {
       orm.emit('transport:require-sync');
-    }, 3000)
+    }, 300, { trailing: true })
 
     clientSocket.on('transport:sync',  async () => {
-      debounceRequireSync()
+      throttleRequireSync()
     })
 
     clientSocket.on('transport:sync:progress', async (_dbName, cb) => {
@@ -49,6 +56,8 @@ module.exports = function (orm) {
           clearTimeout(wait)
           commits.forEach(commit => commit.dbName = dbName)
           await orm.emit('transport:requireSync:callback', commits)
+          // clear all queued require sync commands because all "possible" commits is synced
+          throttleRequireSync.cancel()
           if (needSync && !orm.getQueue('transport:require-sync').length)
             orm.emit('transport:require-sync')
           resolve()
@@ -56,30 +65,34 @@ module.exports = function (orm) {
       })
     }).off
 
-    const off3 = orm.onQueue('health-check', async () => {
+    const off3 = orm.on('health-check', async function () {
       let hasDone = false
       await new Promise(resolve => {
         const wait = setTimeout(() => {
           hasDone = true
-          resolve()
         }, 5000)
         clientSocket.emit('transport:health-check', () => {
           if (hasDone) return
           clearTimeout(wait)
           orm.emit('health-check-done')
-          orm.getQueue('health-check').end()
+          this.stop()
           resolve()
         })
       })
     }).off
 
-    orm.on('offClient', (_dbName) => {
-      if (dbName !== _dbName) return
-      off1()
-      off2()
-      off3()
+    function closeAllConnection() {
+      delete connectedClientSocket[clientSocket.id]
+      off1 && off1()
+      off2 && off2()
+      off3 && off3()
       clientSocket.removeAllListeners('transport:sync');
       clientSocket.removeAllListeners('transport:sync:progress')
+    }
+
+    orm.on('offClient', (_dbName) => {
+      if (dbName !== _dbName) return
+      closeAllConnection()
     })
 
     orm.emit('transport:send')
@@ -94,6 +107,9 @@ module.exports = function (orm) {
   }
 
   orm.onQueue('initSyncForMaster', (socket, dbName) => {
+    if (connectedMasterSocket[socket.id])
+      return
+    connectedMasterSocket[socket.id] = true
     const off1 = orm.on('master:transport:sync', (id, _dbName) => {
       if (dbName !== _dbName) return
       const isBlockSync = orm.emit('block-sync')
@@ -139,12 +155,17 @@ module.exports = function (orm) {
       cb()
     })
 
-    orm.on('offMaster', (_dbName) => {
-      if (dbName !== _dbName) return
-      off1()
-      off2()
+    function closeAllConnection() {
+      delete connectedMasterSocket[socket.id]
+      off1 && off1()
+      off2 && off2()
       socket.removeAllListeners('commitRequest')
       socket.removeAllListeners('transport:require-sync')
+    }
+
+    orm.on('offMaster', (_dbName) => {
+      if (dbName !== _dbName) return
+      closeAllConnection()
     })
 
     doSessionCheck(socket).then(r => r)
