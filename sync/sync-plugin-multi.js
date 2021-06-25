@@ -278,10 +278,17 @@ const syncPlugin = function (orm) {
 
   //should transparent
   orm.onQueue('transport:requireSync:callback', async function (commits) {
-    for (const commit of commits) {
-      //replace behaviour here
-      await orm.emit('createCommit', commit)
+    if (!commits || !commits.length) return
+    try {
+      for (const commit of commits) {
+        //replace behaviour here
+        await orm.emit('createCommit', commit)
+      }
+    } catch (err) {
+      console.log('Error in hook transport:requireSync:callback')
     }
+    orm.emit('commit:handler:doneAllCommits')
+    console.log('Done requireSync', commits.length, commits[0]._id, new Date())
   })
   //customize
   orm.onDefault('createCommit', async function (commit) {
@@ -316,18 +323,24 @@ const syncPlugin = function (orm) {
   })
 
   orm.onQueue('commitRequest', async function (commits) {
-    if (!commits || !commits.length)
-      return
-    for (let commit of commits) {
-      if (!commit.tags) {
-        await orm.emit('process:commit', commit)
-      } else {
-        for (const tag of commit.tags) {
-          await orm.emit(`process:commit:${tag}`, commit)
+    try {
+      if (!commits || !commits.length)
+        return
+      for (let commit of commits) {
+        if (!commit.tags) {
+          await orm.emit('process:commit', commit)
+        } else {
+          for (const tag of commit.tags) {
+            await orm.emit(`process:commit:${tag}`, commit)
+          }
         }
+        await orm.emit('createCommit', commit);
       }
-      await orm.emit('createCommit', commit);
+    } catch (err) {
+      console.log('Error in commitRequest')
     }
+
+    orm.emit('commit:handler:doneAllCommits')
     console.log('Done commitRequest', commits.length, commits[0]._id, new Date())
   })
 
