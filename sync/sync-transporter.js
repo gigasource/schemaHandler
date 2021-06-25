@@ -54,10 +54,10 @@ module.exports = function (orm) {
         }, 10000)
         clientSocket.emit('transport:require-sync', args, async (commits, needSync) => {
           clearTimeout(wait)
+          throttleRequireSync.cancel()
           commits.forEach(commit => commit.dbName = dbName)
           await orm.emit('transport:requireSync:callback', commits)
           // clear all queued require sync commands because all "possible" commits is synced
-          throttleRequireSync.cancel()
           if (needSync && !orm.getQueue('transport:require-sync').length)
             orm.emit('transport:require-sync')
           resolve()

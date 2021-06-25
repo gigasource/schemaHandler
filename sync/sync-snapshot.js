@@ -113,7 +113,7 @@ module.exports = function (orm) {
 		if (syncLock.acquired)
 			return
 		syncLock.tryAcquire()
-		console.log(`Start snapshot ${new Date()}`)
+		console.log(`[Snapshot] Start snapshot ${new Date()}`)
 		try {
 			const oldCommitData = await orm('CommitData').findOne()
 			const syncData = {
@@ -121,6 +121,7 @@ module.exports = function (orm) {
 				isSyncing: true,
 				firstTimeSync: !(oldCommitData && oldCommitData.syncData)
 			}
+			console.log('[Snapshot] Is first time sync', syncData.firstTimeSync)
 			await createCommitCache()
 			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
 			for (let collection of unusedCollections) {
@@ -136,7 +137,7 @@ module.exports = function (orm) {
 			console.error(err)
 		}
 		syncLock.release()
-		console.log(`Finish snapshot ${new Date()}`)
+		console.log(`[Snapshot] Finish snapshot ${new Date()}`)
 		orm.emit('master:transport:sync')
 		orm.emit('snapshot-done')
 	}
