@@ -1,5 +1,6 @@
 const {ObjectID} = require("bson");
 const traverse = require('traverse');
+const uuid = require('uuid')
 
 function convertNameToTestFunction(name) {
   return typeof name === 'function' ? name : _name => name === _name;
@@ -26,6 +27,8 @@ function stringify() {
           result = JSON.stringify(result);
           return result;
         }
+        if (uuid.validate(this[k]))
+          return "UUID"
         return v;
       },
       4

@@ -1,5 +1,6 @@
 const EE = require('events');
 const Hooks = require('../hooks/hooks');
+const uuid = require('uuid')
 
 const hooks = new Hooks();
 
@@ -19,6 +20,7 @@ class Socket extends Hooks {
         bindingSocket[val] = key
       })
     }
+    bindingSocket.id = uuid.v4()
     bindingSocket.name = name
     bindingSocket.address = address;
     bindingSocket.bindingSocket = this;

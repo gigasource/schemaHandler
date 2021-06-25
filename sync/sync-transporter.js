@@ -94,8 +94,6 @@ module.exports = function (orm) {
       if (dbName !== _dbName) return
       closeAllConnection()
     })
-
-    orm.emit('transport:send')
   })
   orm.on('reset-session', async function () {
     await orm('CommitData').updateOne({}, { sessionId: v1() }, { upsert: true })
@@ -110,12 +108,14 @@ module.exports = function (orm) {
     if (connectedMasterSocket[socket.id])
       return
     connectedMasterSocket[socket.id] = true
+
+    const debounceTransportSync = _.debounce(() => {
+      socket.emit('transport:sync')
+    }, 300)
+
     const off1 = orm.on('master:transport:sync', (id, _dbName) => {
       if (dbName !== _dbName) return
-      const isBlockSync = orm.emit('block-sync')
-      if (isBlockSync)
-        return
-      socket.emit('transport:sync')
+      debounceTransportSync()
     }).off;
 
     const off2 = orm.on('transport:checkProgress', async (cb) => {
@@ -141,10 +141,11 @@ module.exports = function (orm) {
     });
 
     socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
-      const isBlockSync = orm.emit('block-sync')
-      if (isBlockSync)
-        cb([])
-      const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
+      let commits = (await orm.emit('transport:require-sync:preProcess', clientHighestId, cb)).value
+      if (!commits || !Array.isArray(commits))
+        commits = []
+      commits.push(...(await orm.emit('commit:sync:master', clientHighestId, dbName)).value)
+      // const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
       const commitData = await orm('CommitData').findOne({})
       const highestCommitId = (commitData && commitData.highestCommitId) ? commitData.highestCommitId : 0
       const needSync = (clientHighestId + commits.length < highestCommitId)

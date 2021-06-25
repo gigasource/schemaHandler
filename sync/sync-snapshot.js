@@ -6,6 +6,21 @@ module.exports = function (orm) {
 	const handlers = []
 	const unusedCollections = []
 
+	async function createCommitCache() {
+		const cachedCommits = await orm('Commit').find().sort({ id: -1 }).limit(300)
+		await orm('CommitCache').deleteMany({})
+		await orm('CommitCache').create(cachedCommits)
+	}
+
+	// only for master
+	orm.on('transport:require-sync:preProcess', async function (clientHighestId) {
+		if (!this.value) this.value = []
+		const foundCommit = await orm('CommitCache').findOne({ id: clientHighestId })
+		if (foundCommit) {
+			this.value.push(...(await orm('CommitCache').find({id: {$gt: clientHighestId}}).sort({ id: 1 })))
+		}
+	})
+
 	orm.setUnusedCollection = function (collections) {
 		unusedCollections.push(...collections)
 	}
@@ -27,32 +42,34 @@ module.exports = function (orm) {
 			}
 			const { syncData } = await orm('CommitData').findOne()
 			if (syncData && syncData.id === commit.data.syncUUID) {
+				if (syncData.needReSync) {
+					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
+				}
 				return this.mergeValueAnd(!syncData.needReSync)
 			} else {
 				const currentHighestUUID = commit.data.currentHighestUUID
 
-				// client only has highest id commit
-				const highestCommit = await orm('Commit').findOne()
+				// because command create has been ran, so the second highest id commit
+				// will be the one with uuid we are looking for
+				const highestCommits = await orm('Commit').find({}).sort({ id: - 1}).limit(2)
 				const _syncData = {
 					id: commit.data.syncUUID,
 					needReSync: true
 				}
-				if (highestCommit.uuid === currentHighestUUID) {
+				if (highestCommits.length > 1 && highestCommits[1].uuid === currentHighestUUID) {
 					_syncData.needReSync = false
 				}
 				await orm('CommitData').updateOne({}, { syncData: _syncData }, { upsert: true })
+				if (_syncData.needReSync) {
+					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
+				}
 				return this.mergeValueAnd(!_syncData.needReSync)
 			}
 		})
 
-		orm.on(`process:commit:${collection}:snapshot`, async function (commit) {
-			if (!commit.data || !commit.data.snapshot) return
-			await orm(collection).deleteOne({ _id: commit.data.docId }).direct()
-		})
-
 		// add lastTimeModified field
 		orm.on(`commit:handler:finish:${collection}`, -1, async function (result, commit) {
-			if ((commit.data && commit.data.snapshot)) return
+			if (((commit.data && commit.data.snapshot) || !orm.isMaster())) return
 			if (commit.condition)
 				await orm(collection).updateOne(JSON.parse(commit.condition), { snapshot: true }).direct()
 			else if (commit.data && commit.data.docId)
@@ -63,7 +80,7 @@ module.exports = function (orm) {
 			if (!orm.isMaster()) return
 			orm.emit('block-sync', collection)
 			const { syncData } = await orm('CommitData').findOne()
-			const currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1)).uuid
+			const currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1))[0].uuid
 			await orm('Commit').deleteMany({ collectionName: collection, 'data.snapshot': {$exists: false } })
 			if (syncData.firstTimeSync)
 				await orm(collection).updateMany({}, { snapshot: true }).direct()
@@ -73,7 +90,8 @@ module.exports = function (orm) {
 					break
 				delete doc.snapshot
 				await orm('Commit').deleteMany({ 'data.docId': doc._id, 'data.snapshot': true })
-				await orm(collection).create(doc).commit(`${collection}:snapshot`, { currentHighestUUID, syncUUID: syncData.id, snapshot: true })
+				await orm(collection).deleteOne({ _id: doc._id }).direct()
+				await orm(collection).create(doc).commit({ currentHighestUUID, syncUUID: syncData.id, snapshot: true })
 			}
 		}
 
@@ -103,6 +121,7 @@ module.exports = function (orm) {
 				isSyncing: true,
 				firstTimeSync: !(oldCommitData && oldCommitData.syncData)
 			}
+			await createCommitCache()
 			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
 			for (let collection of unusedCollections) {
 				await orm('Commit').deleteMany({ collectionName: collection })
