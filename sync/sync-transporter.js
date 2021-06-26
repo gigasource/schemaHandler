@@ -50,8 +50,6 @@ module.exports = function (orm) {
       orm.emit('commit:sync:args', args);
       await new Promise((resolve) => {
         const wait = setTimeout(() => {
-          console.log('Client sync failed, retrying !')
-          throttleRequireSync()
           resolve()
         }, 10000)
         clientSocket.emit('transport:require-sync', args, async (commits, needSync) => {
