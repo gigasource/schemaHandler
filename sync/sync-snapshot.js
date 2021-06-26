@@ -67,9 +67,28 @@ module.exports = function (orm) {
 			}
 		})
 
+		orm.on(`process:commit:${collection}`, async function (commit, target) {
+			// deleteOne must be used with specific condition such as _id
+			if (!target || (!target.cmd.includes('delete') && !target.cmd.includes('remove')))
+				return
+			if (!commit.condition)
+				commit.condition = {}
+			const deletedDoc = await orm(collection).find(JSON.parse(commit.condition))
+			if (!commit.data)
+				commit.data = {}
+			commit.data.snapshot = true
+			commit.data.deletedDoc = deletedDoc.map(doc => doc._id)
+		})
+
 		// add lastTimeModified field
 		orm.on(`commit:handler:finish:${collection}`, -1, async function (result, commit) {
-			if (((commit.data && commit.data.snapshot) || !orm.isMaster())) return
+			if (commit.data && commit.data.snapshot) {
+				if (commit.data.deletedDoc) {
+					await orm('Commit').deleteMany({'data.docId': {$in: commit.data.deletedDoc}, 'data.snapshot': true})
+				}
+				return
+			}
+			if (!orm.isMaster()) return
 			if (commit.condition)
 				await orm(collection).updateOne(JSON.parse(commit.condition), { snapshot: true }).direct()
 			else if (commit.data && commit.data.docId)
@@ -78,7 +97,6 @@ module.exports = function (orm) {
 
 		const startSnapshot = async function () {
 			if (!orm.isMaster()) return
-			orm.emit('block-sync', collection)
 			const { syncData } = await orm('CommitData').findOne()
 			const currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1))[0].uuid
 			await orm('Commit').deleteMany({ collectionName: collection, 'data.snapshot': {$exists: false } })
@@ -141,8 +159,4 @@ module.exports = function (orm) {
 		orm.emit('master:transport:sync')
 		orm.emit('snapshot-done')
 	}
-
-	orm.on('block-sync', function () {
-		this.mergeValueAnd(syncLock.acquired)
-	})
 }

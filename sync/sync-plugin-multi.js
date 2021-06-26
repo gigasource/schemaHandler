@@ -328,7 +328,7 @@ const syncPlugin = function (orm) {
         return
       for (let commit of commits) {
         if (!commit.tags) {
-          await orm.emit('process:commit', commit)
+          await orm.emit(`process:commit:${commit.collectionName}`, commit)
         } else {
           for (const tag of commit.tags) {
             await orm.emit(`process:commit:${tag}`, commit)
@@ -358,7 +358,7 @@ const syncPlugin = function (orm) {
   }
 
   async function removeAll() {
-    await orm('Commit').remove()
+    await orm('Commit').deleteMany()
     for (const collection of whitelist) {
       await orm(collection).remove().direct()
     }
