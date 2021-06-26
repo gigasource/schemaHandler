@@ -84,7 +84,8 @@ module.exports = function (orm) {
 		orm.on(`commit:handler:finish:${collection}`, -1, async function (result, commit) {
 			if (commit.data && commit.data.snapshot) {
 				if (commit.data.deletedDoc) {
-					await orm('Commit').deleteMany({'data.docId': {$in: commit.data.deletedDoc}, 'data.snapshot': true})
+					await orm('Commit').deleteMany({'data.docId': {$in: commit.data.deletedDoc},
+						'data.snapshot': true, 'data.deletedDoc': {$exists: false}})
 				}
 				return
 			}
