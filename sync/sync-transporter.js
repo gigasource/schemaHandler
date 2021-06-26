@@ -45,6 +45,8 @@ module.exports = function (orm) {
     })
 
     const off2 = orm.onQueue('transport:require-sync', async () => {
+      console.log('[Require sync]')
+      throttleRequireSync.cancel()
       const {value: highestId} = await orm.emit('getHighestCommitId', dbName)
       const args = [highestId];
       orm.emit('commit:sync:args', args);
