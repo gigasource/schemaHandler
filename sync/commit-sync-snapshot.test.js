@@ -78,7 +78,6 @@ describe('commit-sync-snapshot', function () {
 				}
 			}, 100)
 		})
-		expect(m1).toEqual(m2)
 		ormA.startSyncSnapshot()
 
 		ormA.on('snapshot-done', async () => {
@@ -168,8 +167,9 @@ describe('commit-sync-snapshot', function () {
 			expect(stringify(commitsC)).toMatchSnapshot()
 			const a = await ormA('Model').find({ table: 10 })
 			const c = await ormC('Model').find({ table: 10 })
-			expect(a).toEqual(c)
 			expect(stringify(a)).toMatchSnapshot()
+			delete a[0].snapshot
+			expect(a).toEqual(c)
 			done()
 		})
 		ormA.startSyncSnapshot()

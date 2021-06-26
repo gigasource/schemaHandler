@@ -8,6 +8,7 @@ Array [
     "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"items\\":[],\\"name\\":\\"Testing\\"}]}]",
     "collectionName": "Model",
     "data": Object {
+      "currentHighestUUID": "UUID",
       "docId": "ObjectID",
       "snapshot": true,
       "syncUUID": "syncUUID",
