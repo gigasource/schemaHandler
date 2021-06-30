@@ -25,12 +25,15 @@ module.exports = function (orm) {
       })
     }).off
 
-    const throttleRequireSync = _.throttle(() => {
+    const debounceRequireSync = _.debounce(async (masterHighestId) => {
+      const commitData = await orm('CommitData').findOne()
+      if (commitData && masterHighestId <= commitData.highestCommitId)
+        return
       orm.emit('transport:require-sync');
     }, 300, { trailing: true })
 
-    clientSocket.on('transport:sync',  async () => {
-      throttleRequireSync()
+    clientSocket.on('transport:sync',  async (masterHighestId) => {
+      debounceRequireSync(masterHighestId)
     })
 
     clientSocket.on('transport:sync:progress', async (_dbName, cb) => {
@@ -38,31 +41,29 @@ module.exports = function (orm) {
         cb(null, null)
         return
       }
-      const commitData = await orm('CommitData').findOne()
+      const commitData = await orm('CommitData', dbName).findOne()
       // listen to this hook in your app to get your own id
       const clientId = orm.emit('transport:getDeviceClientId')
       cb(clientId, commitData && commitData.highestCommitId ? commitData.highestCommitId : 0)
     })
 
-    const off2 = orm.onQueue('transport:require-sync', async () => {
+    const off2 = orm.onQueue('transport:require-sync', async function () {
       console.log('[Require sync]')
-      throttleRequireSync.cancel()
       const {value: highestId} = await orm.emit('getHighestCommitId', dbName)
       const args = [highestId];
       orm.emit('commit:sync:args', args);
-      await new Promise((resolve) => {
+      this.value = await new Promise((resolve) => {
         const wait = setTimeout(() => {
-          resolve()
+          resolve(false)
         }, 10000)
         clientSocket.emit('transport:require-sync', args, async (commits, needSync) => {
           clearTimeout(wait)
-          throttleRequireSync.cancel()
           commits.forEach(commit => commit.dbName = dbName)
           await orm.emit('transport:requireSync:callback', commits)
           // clear all queued require sync commands because all "possible" commits is synced
-          if (needSync && !orm.getQueue('transport:require-sync').length)
-            orm.emit('transport:require-sync')
-          resolve()
+          if (needSync)
+            debounceRequireSync()
+          resolve(true)
         })
       })
     }).off
@@ -71,6 +72,7 @@ module.exports = function (orm) {
       let hasDone = false
       await new Promise(resolve => {
         const wait = setTimeout(() => {
+          console.log('[HealthCheck] Socket to master timeout')
           hasDone = true
         }, 5000)
         clientSocket.emit('transport:health-check', () => {
@@ -97,6 +99,7 @@ module.exports = function (orm) {
       closeAllConnection()
     })
   })
+  /*------Non server only-------*/
   orm.on('reset-session', async function () {
     await orm('CommitData').updateOne({}, { sessionId: v1() }, { upsert: true })
   })
@@ -105,15 +108,17 @@ module.exports = function (orm) {
     const commitData = await orm('CommitData').findOne()
     socket.emit('session-check', commitData ? commitData.sessionId : null)
   }
+  /*----------------------------*/
 
   orm.onQueue('initSyncForMaster', (socket, dbName) => {
     if (connectedMasterSocket[socket.id])
       return
     connectedMasterSocket[socket.id] = true
 
-    const debounceTransportSync = _.debounce(() => {
-      socket.emit('transport:sync')
-    }, 300)
+    const debounceTransportSync = _.debounce(async () => {
+      const commitData = await orm('CommitData').findOne()
+      socket.emit('transport:sync', commitData.highestCommitId)
+    }, 500)
 
     const off1 = orm.on('master:transport:sync', (id, _dbName) => {
       if (dbName !== _dbName) return
@@ -146,9 +151,10 @@ module.exports = function (orm) {
       let commits = (await orm.emit('transport:require-sync:preProcess', clientHighestId, cb)).value
       if (!commits || !Array.isArray(commits))
         commits = []
+      clientHighestId = Math.max(clientHighestId, commits.length ? _.last(commits).id : 0)
       commits.push(...(await orm.emit('commit:sync:master', clientHighestId, dbName)).value)
       // const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
-      const commitData = await orm('CommitData').findOne({})
+      const commitData = await orm('CommitData', dbName).findOne({})
       const highestCommitId = (commitData && commitData.highestCommitId) ? commitData.highestCommitId : 0
       const needSync = (clientHighestId + commits.length < highestCommitId)
       cb(commits, needSync);

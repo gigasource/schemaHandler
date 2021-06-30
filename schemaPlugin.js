@@ -324,9 +324,6 @@ module.exports = function (orm) {
     if (target.new) {
       proxy.setOptions({new: true});
     }
-    if (target.cmd === 'find')  {
-      proxy.batchSize(1000000);
-    }
   })
 
   orm.on('construct', function ({target, args}) {

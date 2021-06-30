@@ -24,6 +24,49 @@ const { Socket, Io } = require('../../io/io')
 module.exports = async function (plugins, options) {
 	const ormHook = new hooks()
 	const orm = new Orm()
+
+	//<editor-fold desc="Mock hooks">
+	const oldEmit = orm.emit
+	const oldOn = orm.on
+	let emitPromises = []
+	let emitPromisesId = {}
+	let hasBeenCalled = {}
+	const listEvents = {}
+	const isLock = {} // lock hooks
+	orm.emit = jest.fn(function ()  {
+		const event = arguments[0]
+		if (isLock[event])
+			return
+		if (!hasBeenCalled[event])
+			hasBeenCalled[event] = 0
+		hasBeenCalled[event] += 1
+		const result = oldEmit.call(orm, ...arguments)
+		if (result instanceof Promise) {
+			emitPromises.push(result)
+			if (!emitPromisesId[event])
+				emitPromisesId[event] = []
+			emitPromisesId[event].push(emitPromises.length - 1)
+		}
+		ormHook.emit(`event:${event}`)
+		return result
+	})
+	const onCalled = {}
+	orm.on = jest.fn(function () {
+		const event = arguments[0]
+		const fn = arguments[1]
+		const mockFn = jest.fn(function () {
+			if (!onCalled[event])
+				onCalled[event] = 0
+			onCalled[event] += 1
+			return fn.call(this, ...arguments)
+		})
+		if (fn.toString().trim().startsWith('async')) {
+			mockFn.isPromise = true
+		}
+		return oldOn.call(this, event, mockFn)
+	})
+	//</editor-fold>
+
 	if (plugins && plugins.length) {
 		plugins.forEach(plugin => {
 			orm.plugin(pluginsList[plugin])
@@ -31,49 +74,6 @@ module.exports = async function (plugins, options) {
 	} else if (typeof plugins === 'object') {
 		options = plugins
 	}
-
-	//<editor-fold desc="Mock hooks">
-	const oldEmit = orm.emit
-	const oldOn = orm.on
-	const emitPromises = []
-	const listEvents = {}
-	const isLock = {} // lock hooks
-	orm.emit = jest.fn(function ()  {
-		const event = arguments[0]
-		if (isLock[event])
-			return
-		const handlers = orm.emitPrepare('all', ...arguments);
-		let isPromise = false
-		if (Array.isArray(handlers)) {
-			for (let handler of handlers) {
-				if (handler instanceof Promise || handler.toString().trim().startsWith('async') || handler.isPromise)
-					isPromise = true
-			}
-		} else if (handlers) {
-			if (handlers instanceof Promise || handlers.toString().trim().startsWith('async') || handlers.isPromise)
-				isPromise = true
-		}
-		if (isPromise) {
-			const promise = new Promise(async (resolve) => {
-				const result = await oldEmit.call(orm, ...arguments)
-				resolve(result)
-			})
-			emitPromises.push(promise)
-			return promise
-		}
-		return oldEmit.call(orm, ...arguments)
-	})
-	orm.on = jest.fn(function () {
-		const fn = arguments[1]
-		const mockFn = jest.fn(function () {
-			return fn.call(this, ...arguments)
-		})
-		if (fn.toString().trim().startsWith('async')) {
-			mockFn.isPromise = true
-		}
-		return oldOn.call(this, arguments[0], mockFn)
-	})
-	//</editor-fold>
 
 	//<editor-fold desc="Handle options">
 	if (!options)
@@ -102,19 +102,57 @@ module.exports = async function (plugins, options) {
 	async function waitAllEmit(timeout) {
 		if (!timeout) {
 			const data = await Promise.all(emitPromises)
+			emitPromises = []
+			emitPromisesId = {}
 			return data
 		} else {
 			const data = await new Promise(async resolve => {
 				setTimeout(() => {
 					resolve(null)
 				}, timeout)
-				resolve(await Promise.all(emitPromises))
+				const result = await Promise.all(emitPromises)
+				emitPromisesId = {}
+				emitPromises = []
+				resolve(result)
 			})
 			return data
 		}
 	}
+
+	// get all promises of an event
+	function getPromisesOfEvent(event) {
+		if (!emitPromisesId[event])
+			return
+		const result = []
+		emitPromisesId[event].forEach(id => {
+			result.push(emitPromises[id])
+		})
+		return result
+	}
+
 	function setLockEvent(event, isLock) {
 		isLock[event] = isLock
+	}
+
+	async function waitEventIsCalled(event, numberOfTimes = 1) {
+		await new Promise(resolve => {
+			if (hasBeenCalled[event] >= numberOfTimes)
+				resolve()
+			const { off } = ormHook.on(`event:${event}`, () => {
+				if (hasBeenCalled[event] >= numberOfTimes) {
+					off()
+					resolve()
+				}
+			})
+		})
+	}
+
+	function getNumberOfTimesCalled(event) {
+		return hasBeenCalled[event]
+	}
+
+	function getNumberOfTimesOnCalled(event) {
+		return onCalled[event]
 	}
 
 	/**
@@ -173,15 +211,21 @@ module.exports = async function (plugins, options) {
 	let highestId = 0
 	orm.on('update:Commit:c', commit => {
 		highestId = Math.max(highestId, commit.id)
-		ormHook.emit('newCommit', commit)
+		ormHook.emit('newCommit')
+	})
+	orm.on('update:CommitData', result => {
+		highestId = Math.max(highestId, result.highestCommitId)
+		ormHook.emit('newCommit')
 	})
 	async function waitToSync(highestCommitId) {
 		await new Promise(async (resolve) => {
 			if (highestId === highestCommitId)
 				resolve()
-			ormHook.on('newCommit', () => {
-				if (highestId === highestCommitId)
+			const { off } = ormHook.on('newCommit', () => {
+				if (highestId === highestCommitId) {
 					resolve()
+					off()
+				}
 			})
 		})
 	}
@@ -189,10 +233,16 @@ module.exports = async function (plugins, options) {
 
 	return {
 		orm,
-		waitAllEmit,
-		setLockEvent,
-		mockCommits,
-		waitToSync,
-		setOrmAsMaster
+		utils: {
+			waitAllEmit,
+			setLockEvent,
+			mockCommits,
+			waitToSync,
+			setOrmAsMaster,
+			getPromisesOfEvent,
+			waitEventIsCalled,
+			getNumberOfTimesCalled,
+			getNumberOfTimesOnCalled
+		}
 	}
 }

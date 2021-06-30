@@ -5,6 +5,7 @@ const uuid = require('uuid')
 const hooks = new Hooks();
 
 class Socket extends Hooks {
+  isFakeDisconnect = false
   hooks = hooks
   connect(address, name) {
     let args
@@ -32,6 +33,8 @@ class Socket extends Hooks {
   }
 
   emit(event, ...args) {
+    if (this.isFakeDisconnect)
+      return
     this.bindingSocket && this.bindingSocket._emit(...arguments);
   }
 
@@ -45,6 +48,10 @@ class Socket extends Hooks {
 
   emitTo(target, event, ...args) {
     this.emit('emitToMock', target, event, ...args)
+  }
+
+  fakeDisconnect() {
+    this.isFakeDisconnect = true
   }
 }
 

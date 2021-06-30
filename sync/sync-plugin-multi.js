@@ -291,7 +291,7 @@ const syncPlugin = function (orm) {
     console.log('Done requireSync', commits.length, commits[0]._id, new Date())
   })
   //customize
-  orm.onDefault('createCommit', async function (commit) {
+  orm.onQueue('createCommit', async function (commit) {
     if (!commit.id) {
       const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName);
       commit.id = highestId + 1;
@@ -318,8 +318,28 @@ const syncPlugin = function (orm) {
     this.value = commit;
   })
 
+  let commitsCache = []
+  const CACHE_THRESHOLD = 1000
   orm.on('commit:sync:master', async function (clientHighestId, dbName) {
-    this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}});
+    if (!commitsCache.length) {
+      commitsCache = await orm('Commit').find().sort({ id: -1 }).limit(CACHE_THRESHOLD)
+      commitsCache.reverse()
+    }
+    if (commitsCache.length &&
+          clientHighestId >= commitsCache[0].id &&
+          clientHighestId <= _.last(commitsCache).id) {
+      this.value = commitsCache.filter(commit => {
+        return commit.id > clientHighestId
+      })
+    } else {
+      this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}}).limit(CACHE_THRESHOLD);
+    }
+  })
+  orm.on('commit:handler:finish', 1, async commit => {
+    const highestCachedId = _.last(commitsCache).id
+    commitsCache.push(await orm('Commit').find({id: {$gt: highestCachedId}}).limit(CACHE_THRESHOLD))
+    while (commitsCache.length > CACHE_THRESHOLD)
+      commitsCache.shift()
   })
 
   orm.onQueue('commitRequest', async function (commits) {
