@@ -319,7 +319,8 @@ const syncPlugin = function (orm) {
   })
 
   let commitsCache = []
-  const CACHE_THRESHOLD = 1000
+  let CACHE_THRESHOLD = 1000
+  let USE_CACHE = true
   orm.on('commit:sync:master', async function (clientHighestId, dbName) {
     if (!commitsCache.length) {
       commitsCache = await orm('Commit').find().sort({ id: -1 }).limit(CACHE_THRESHOLD)
@@ -327,7 +328,8 @@ const syncPlugin = function (orm) {
     }
     if (commitsCache.length &&
           clientHighestId >= commitsCache[0].id &&
-          clientHighestId <= _.last(commitsCache).id) {
+          clientHighestId <= _.last(commitsCache).id &&
+          USE_CACHE) {
       this.value = commitsCache.filter(commit => {
         return commit.id > clientHighestId
       })
@@ -336,11 +338,17 @@ const syncPlugin = function (orm) {
     }
   })
   orm.on('commit:handler:finish', 1, async commit => {
-    const highestCachedId = _.last(commitsCache).id
-    commitsCache.push(await orm('Commit').find({id: {$gt: highestCachedId}}).limit(CACHE_THRESHOLD))
+    const highestCachedId = commitsCache.length ? _.last(commitsCache).id : 0
+    commitsCache.push(...(await orm('Commit').find({id: {$gt: highestCachedId}}).limit(CACHE_THRESHOLD)))
     while (commitsCache.length > CACHE_THRESHOLD)
       commitsCache.shift()
   })
+  orm.on('commit:setUseCacheStatus', (value) => {
+    USE_CACHE = value
+    if (USE_CACHE)
+      commitsCache = [] //reset cache
+  })
+  orm.on('commit:cacheThreshold', threshold => CACHE_THRESHOLD = threshold)
 
   orm.onQueue('commitRequest', async function (commits) {
     try {

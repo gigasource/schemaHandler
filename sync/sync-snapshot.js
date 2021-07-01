@@ -5,12 +5,15 @@ module.exports = function (orm) {
 	const syncLock = new AwaitLock()
 	const handlers = []
 	const unusedCollections = []
+	let SNAPSHOT_COMMIT_CACHE = 300
 
 	async function createCommitCache() {
-		const cachedCommits = await orm('Commit').find().sort({ id: -1 }).limit(300)
+		const cachedCommits = await orm('Commit').find().sort({ id: -1 }).limit(SNAPSHOT_COMMIT_CACHE)
 		await orm('CommitCache').deleteMany({})
 		await orm('CommitCache').create(cachedCommits)
 	}
+
+	orm.on('commit:setSnapshotCache', value => SNAPSHOT_COMMIT_CACHE = value)
 
 	// only for master
 	orm.on('transport:require-sync:preProcess', async function (clientHighestId) {
@@ -141,6 +144,7 @@ module.exports = function (orm) {
 				firstTimeSync: !(oldCommitData && oldCommitData.syncData)
 			}
 			console.log('[Snapshot] Is first time sync', syncData.firstTimeSync)
+			orm.emit('commit:setUseCacheStatus', false)
 			await createCommitCache()
 			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
 			for (let collection of unusedCollections) {
@@ -157,6 +161,7 @@ module.exports = function (orm) {
 		}
 		syncLock.release()
 		console.log(`[Snapshot] Finish snapshot ${new Date()}`)
+		orm.emit('commit:setUseCacheStatus', true)
 		orm.emit('master:transport:sync')
 		orm.emit('snapshot-done')
 	}

@@ -21,7 +21,7 @@ const { Socket, Io } = require('../../io/io')
  *  setOrmAsMaster: (function())
  * }}
  */
-module.exports = async function (plugins, options) {
+async function ormGenerator(plugins, options) {
 	const ormHook = new hooks()
 	const orm = new Orm()
 
@@ -37,9 +37,6 @@ module.exports = async function (plugins, options) {
 		const event = arguments[0]
 		if (isLock[event])
 			return
-		if (!hasBeenCalled[event])
-			hasBeenCalled[event] = 0
-		hasBeenCalled[event] += 1
 		const result = oldEmit.call(orm, ...arguments)
 		if (result instanceof Promise) {
 			emitPromises.push(result)
@@ -47,13 +44,18 @@ module.exports = async function (plugins, options) {
 				emitPromisesId[event] = []
 			emitPromisesId[event].push(emitPromises.length - 1)
 		}
+		if (!hasBeenCalled[event])
+			hasBeenCalled[event] = 0
+		hasBeenCalled[event] += 1
 		ormHook.emit(`event:${event}`)
 		return result
 	})
 	const onCalled = {}
 	orm.on = jest.fn(function () {
 		const event = arguments[0]
-		const fn = arguments[1]
+		let fn = arguments[1]
+		if (typeof fn !== 'function')
+			fn = arguments[2]
 		const mockFn = jest.fn(function () {
 			if (!onCalled[event])
 				onCalled[event] = 0
@@ -69,7 +71,10 @@ module.exports = async function (plugins, options) {
 
 	if (plugins && plugins.length) {
 		plugins.forEach(plugin => {
-			orm.plugin(pluginsList[plugin])
+			if (typeof plugin === 'string')
+				orm.plugin(pluginsList[plugin])
+			else
+				orm.plugin(plugin)
 		})
 	} else if (typeof plugins === 'object') {
 		options = plugins
@@ -122,12 +127,17 @@ module.exports = async function (plugins, options) {
 	// get all promises of an event
 	function getPromisesOfEvent(event) {
 		if (!emitPromisesId[event])
-			return
+			return []
 		const result = []
 		emitPromisesId[event].forEach(id => {
 			result.push(emitPromises[id])
 		})
 		return result
+	}
+
+	async function waitForAnEvent(event) {
+		const listPromises = getPromisesOfEvent(event)
+		await Promise.all(listPromises)
 	}
 
 	function setLockEvent(event, isLock) {
@@ -208,6 +218,17 @@ module.exports = async function (plugins, options) {
 		}, { upsert: true })
 	}
 
+	async function mockModelAndCreateCommits(numberOfCommits, modelName = 'Model') {
+		orm.registerCommitBaseCollection(modelName)
+		for (let i = 1; i <= numberOfCommits; i++) {
+			await orm(modelName).create({
+				data: 'test'
+			})
+		}
+		await waitForAnEvent('createCommit')
+		await waitForAnEvent('commit:handler:finish')
+	}
+
 	let highestId = 0
 	orm.on('update:Commit:c', commit => {
 		highestId = Math.max(highestId, commit.id)
@@ -219,7 +240,7 @@ module.exports = async function (plugins, options) {
 	})
 	async function waitToSync(highestCommitId) {
 		await new Promise(async (resolve) => {
-			if (highestId === highestCommitId)
+			if (highestId >= highestCommitId)
 				resolve()
 			const { off } = ormHook.on('newCommit', () => {
 				if (highestId === highestCommitId) {
@@ -241,8 +262,27 @@ module.exports = async function (plugins, options) {
 			setOrmAsMaster,
 			getPromisesOfEvent,
 			waitEventIsCalled,
+			waitForAnEvent,
 			getNumberOfTimesCalled,
-			getNumberOfTimesOnCalled
+			getNumberOfTimesOnCalled,
+			mockModelAndCreateCommits
 		}
 	}
+}
+
+module.exports = ormGenerator
+module.exports.genOrm = async function (numberOfOrm, plugins) {
+	const result = {
+		orms: [],
+		utils: []
+	}
+	for (let i = 0; i < numberOfOrm; i++) {
+		const { orm, utils } = await ormGenerator(plugins, {
+			name: i + '',
+			setMaster: (i === 0)
+		})
+		result.orms.push(orm)
+		result.utils.push(utils)
+	}
+	return result
 }

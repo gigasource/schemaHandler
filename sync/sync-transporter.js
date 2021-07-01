@@ -98,6 +98,8 @@ module.exports = function (orm) {
       if (dbName !== _dbName) return
       closeAllConnection()
     })
+
+    debounceRequireSync()
   })
   /*------Non server only-------*/
   orm.on('reset-session', async function () {
@@ -152,7 +154,8 @@ module.exports = function (orm) {
       if (!commits || !Array.isArray(commits))
         commits = []
       clientHighestId = Math.max(clientHighestId, commits.length ? _.last(commits).id : 0)
-      commits.push(...(await orm.emit('commit:sync:master', clientHighestId, dbName)).value)
+      const commitsNeedToSync = (await orm.emit('commit:sync:master', clientHighestId, dbName)).value
+      commitsNeedToSync && commitsNeedToSync.length && commits.push(...commitsNeedToSync)
       // const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
       const commitData = await orm('CommitData', dbName).findOne({})
       const highestCommitId = (commitData && commitData.highestCommitId) ? commitData.highestCommitId : 0
