@@ -9,6 +9,7 @@ module.exports = function (orm) {
 
 	async function createCommitCache() {
 		const cachedCommits = await orm('Commit').find().sort({ id: -1 }).limit(SNAPSHOT_COMMIT_CACHE)
+		cachedCommits.reverse()
 		await orm('CommitCache').deleteMany({})
 		await orm('CommitCache').create(cachedCommits)
 	}
