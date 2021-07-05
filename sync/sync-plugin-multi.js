@@ -303,6 +303,7 @@ const syncPlugin = function (orm) {
     }
     try {
       this.value = await orm(`Commit`, commit.dbName).create(commit);
+      await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true })
     } catch (e) {
       if (e.message.slice(0, 6) === 'E11000') {
         //console.log('sync two fast')

@@ -85,10 +85,10 @@ module.exports = function (orm, role) {
   })
 
   orm.onQueue('update:Commit:c', 'fake-channel', async function (commit) {
+    if (!commit.id) return
     if (!checkMaster(commit.dbName)) {
       await orm.emit('commit:remove-fake', commit);
     }
-    await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true })
     const run = !(await orm.emit(`commit:handler:shouldNotExecCommand:${commit.collectionName}`, commit));
     let result
     if (run) {

@@ -246,10 +246,12 @@ describe("[Module] Test transporter", function() {
 });
 
 describe('[Integration] Test all plugins', function () {
-	beforeEach(() => {
+	beforeEach(async (done) => {
 		jest.useRealTimers()
 		jest.restoreAllMocks()
 		jest.resetModules()
+		await delay(100)
+		done()
 	})
 
 	/**

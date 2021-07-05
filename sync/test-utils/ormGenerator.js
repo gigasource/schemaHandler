@@ -231,6 +231,7 @@ async function ormGenerator(plugins, options) {
 
 	let highestId = 0
 	orm.on('update:Commit:c', commit => {
+		if (!commit.id) return
 		highestId = Math.max(highestId, commit.id)
 		ormHook.emit('newCommit')
 	})
@@ -251,6 +252,8 @@ async function ormGenerator(plugins, options) {
 		})
 	}
 	//</editor-fold>
+
+	await orm('Commit').createIndex( { id: 1 })
 
 	return {
 		orm,

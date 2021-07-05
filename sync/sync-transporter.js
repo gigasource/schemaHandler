@@ -73,10 +73,12 @@ module.exports = function (orm) {
       await new Promise(resolve => {
         const wait = setTimeout(() => {
           console.log('[HealthCheck] Socket to master timeout')
+          orm.emit('commit:report:health-check', 'lanTransporter', 'disconnected', new Date())
           hasDone = true
         }, 5000)
         clientSocket.emit('transport:health-check', () => {
           if (hasDone) return
+          orm.emit('commit:report:health-check', 'lanTransporter', 'connected', new Date())
           clearTimeout(wait)
           orm.emit('health-check-done')
           this.stop()
