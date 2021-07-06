@@ -36,14 +36,18 @@ const syncReport = function (orm) {
 	})
 
 	orm.on('commit:report:getReport', async function () {
-		const { duplicateId } = await orm.emit('commit:report:getDuplicateID')
-		const healthCheckData = orm('CommitReport').find({
+		const { value: duplicateId } = await orm.emit('commit:report:getDuplicateID')
+		const healthCheckData = await orm('CommitReport').find({
 			type: COMMIT_TYPE.HEATH_CHECK
 		}).sort({ date: -1 }).limit(100)
+		const commitData = await orm('CommitData').findOne()
 
-		return {
+		this.value = {
 			duplicateId,
-			healthCheckData
+			healthCheckData,
+			commitData
 		}
 	})
 }
+
+module.exports = syncReport
