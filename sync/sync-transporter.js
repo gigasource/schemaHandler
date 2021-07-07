@@ -56,9 +56,11 @@ module.exports = function (orm) {
         const wait = setTimeout(() => {
           resolve(false)
         }, 10000)
-        clientSocket.emit('transport:require-sync', args, async (commits, needSync) => {
+        clientSocket.emit('transport:require-sync', args, async (commits, needSync, masterHighestId) => {
           clearTimeout(wait)
           console.log('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
+          if (masterHighestId)
+            await orm('CommitData').updateOne({}, { masterHighestId })
           commits.forEach(commit => commit.dbName = dbName)
           await orm.emit('transport:requireSync:callback', commits)
           // clear all queued require sync commands because all "possible" commits is synced
@@ -163,7 +165,7 @@ module.exports = function (orm) {
       const commitData = await orm('CommitData', dbName).findOne({})
       const highestCommitId = (commitData && commitData.highestCommitId) ? commitData.highestCommitId : 0
       const needSync = (clientHighestId + commits.length < highestCommitId)
-      cb(commits, needSync);
+      cb(commits, needSync, highestCommitId);
     });
 
     socket.on('transport:health-check', (cb) => {

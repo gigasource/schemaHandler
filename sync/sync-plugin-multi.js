@@ -328,9 +328,9 @@ const syncPlugin = function (orm) {
       commitsCache.reverse()
     }
     if (commitsCache.length &&
-          clientHighestId >= commitsCache[0].id &&
-          clientHighestId <= _.last(commitsCache).id &&
-          USE_CACHE) {
+      clientHighestId > commitsCache[0].id &&
+      clientHighestId < _.last(commitsCache).id &&
+      USE_CACHE) {
       this.value = commitsCache.filter(commit => {
         return commit.id > clientHighestId
       })
@@ -339,8 +339,10 @@ const syncPlugin = function (orm) {
     }
   })
   orm.on('commit:handler:finish', 1, async commit => {
-    const highestCachedId = commitsCache.length ? _.last(commitsCache).id : 0
-    commitsCache.push(...(await orm('Commit').find({id: {$gt: highestCachedId}}).limit(CACHE_THRESHOLD)))
+    if (commitsCache.length) {
+      const highestCachedId = commitsCache.length ? _.last(commitsCache).id : 0
+      commitsCache.push(...(await orm('Commit').find({id: {$gt: highestCachedId}}).limit(CACHE_THRESHOLD)))
+    }
     while (commitsCache.length > CACHE_THRESHOLD)
       commitsCache.shift()
   })

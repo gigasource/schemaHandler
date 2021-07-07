@@ -10,12 +10,30 @@ const AwaitLock = require('await-lock').default
  */
 const COMMIT_TYPE = {
 	HEATH_CHECK: 'health-check',
-	WRONG_COMMIT: 'wrong_commit'
+	WRONG_COMMIT: 'wrong-commit',
+	COMMIT_DATA: 'commit-data'
 }
 
 const syncReport = function (orm) {
 	let prevId
 	const fnLock = new AwaitLock()
+
+	setInterval(async () => {
+		const commitData = await orm('CommitData').findOne()
+		await orm('CommitReport').create({
+			type: COMMIT_TYPE.COMMIT_DATA,
+			commitData,
+			date: new Date()
+		})
+		const clearDate = dayjs().subtract(7, 'day').toDate()
+		await orm('CommitReport').deleteMany({
+			type: COMMIT_TYPE.COMMIT_DATA,
+			date: {
+				'$lte': clearDate
+			}
+		})
+	}, 60 * 1000 * 3)
+
 	/**
 	 * This must be called before lower id commits are deleted
 	 */
@@ -69,12 +87,25 @@ const syncReport = function (orm) {
 		this.value = await orm('Commit').aggregate([{ $group: { '_id': '$id', 'count': { $sum: 1 }} }, { $match: { 'count': { $gt: 1 } } }])
 	})
 
-	orm.on('commit:report:getReport', async function () {
+	orm.on('commit:report:getReport', async function (dateTo) {
 		const { value: duplicateId } = await orm.emit('commit:report:getDuplicateID')
 		const healthCheckData = await orm('CommitReport').find({
-			type: COMMIT_TYPE.HEATH_CHECK
-		}).sort({ date: -1 }).limit(100)
-		const commitData = await orm('CommitData').findOne()
+			type: COMMIT_TYPE.HEATH_CHECK,
+			...dateTo && {
+				date: {
+					$lte: dateTo
+				}
+			}
+		}).sort({ date: -1 }).limit(300)
+		const commitData = await orm('CommitReport').find({
+			type: COMMIT_TYPE.COMMIT_DATA,
+			...dateTo && {
+				date: {
+					$lte: dateTo
+				}
+			}
+		}).sort({ date: -1 }).limit(600)
+		commitData.push(await orm('CommitData').findOne())
 		const wrongCommit = await orm('CommitReport').find({
 			type: COMMIT_TYPE.WRONG_COMMIT
 		})
