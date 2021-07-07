@@ -44,7 +44,8 @@ module.exports = function (orm) {
 			if (orm.isMaster() || !commit.data.snapshot) {
 				return this.mergeValueAnd(false)
 			}
-			const { syncData } = await orm('CommitData').findOne()
+			const commitData = await orm('CommitData').findOne()
+			const syncData = commitData ? commitData.syncData : null
 			if (syncData && syncData.id === commit.data.syncUUID) {
 				if (syncData.needReSync) {
 					await orm(collection).deleteOne({_id: commit.data.docId}).direct()

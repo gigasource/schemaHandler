@@ -3,7 +3,8 @@ const pluginsList = {
 	'sync-plugin-multi': require('../sync-plugin-multi'),
 	'sync-queue-commit': require('../sync-queue-commit'),
 	'sync-snapshot': require('../sync-snapshot'),
-	'sync-transporter': require('../sync-transporter')
+	'sync-transporter': require('../sync-transporter'),
+	'sync-report': require('../sync-report')
 }
 const hooks = require('../../hooks/hooks')
 const Orm = require('../../orm')
@@ -54,8 +55,11 @@ async function ormGenerator(plugins, options) {
 	orm.on = jest.fn(function () {
 		const event = arguments[0]
 		let fn = arguments[1]
-		if (typeof fn !== 'function')
+		let layer = 0
+		if (typeof fn !== 'function') {
+			layer = arguments[1]
 			fn = arguments[2]
+		}
 		const mockFn = jest.fn(function () {
 			if (!onCalled[event])
 				onCalled[event] = 0
@@ -65,6 +69,8 @@ async function ormGenerator(plugins, options) {
 		if (fn.toString().trim().startsWith('async')) {
 			mockFn.isPromise = true
 		}
+		if (arguments.length === 3)
+			return oldOn.call(this, event, layer, mockFn)
 		return oldOn.call(this, event, mockFn)
 	})
 	//</editor-fold>
@@ -231,11 +237,12 @@ async function ormGenerator(plugins, options) {
 
 	let highestId = 0
 	orm.on('update:Commit:c', commit => {
-		if (!commit.id) return
+		if (!commit.id || isNaN(commit.id)) return
 		highestId = Math.max(highestId, commit.id)
 		ormHook.emit('newCommit')
 	})
 	orm.on('update:CommitData', result => {
+		if (!result.highestCommitId || isNaN(result.highestCommitId)) return
 		highestId = Math.max(highestId, result.highestCommitId)
 		ormHook.emit('newCommit')
 	})

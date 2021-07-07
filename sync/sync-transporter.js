@@ -18,8 +18,8 @@ module.exports = function (orm) {
         return
       await new Promise(resolve => {
         console.log('commitRequest', queueCommit.length, queueCommit[0]._id, new Date())
-        clientSocket.emit('commitRequest', queueCommit, () => {
-          orm.emit('transport:finish:send', queueCommit)
+        clientSocket.emit('commitRequest', queueCommit, async () => {
+          await orm.emit('transport:finish:send', queueCommit)
           resolve(queueCommit)
         })
       })
@@ -58,6 +58,7 @@ module.exports = function (orm) {
         }, 10000)
         clientSocket.emit('transport:require-sync', args, async (commits, needSync) => {
           clearTimeout(wait)
+          console.log('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
           commits.forEach(commit => commit.dbName = dbName)
           await orm.emit('transport:requireSync:callback', commits)
           // clear all queued require sync commands because all "possible" commits is synced
@@ -121,7 +122,7 @@ module.exports = function (orm) {
 
     const debounceTransportSync = _.debounce(async () => {
       const commitData = await orm('CommitData').findOne()
-      socket.emit('transport:sync', commitData.highestCommitId)
+      socket.emit('transport:sync', commitData ? commitData.highestCommitId : 0)
     }, 500)
 
     const off1 = orm.on('master:transport:sync', (id, _dbName) => {
