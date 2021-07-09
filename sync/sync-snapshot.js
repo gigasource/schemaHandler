@@ -77,7 +77,7 @@ module.exports = function (orm) {
 			if (!target || (!target.cmd.includes('delete') && !target.cmd.includes('remove')))
 				return
 			if (!commit.condition)
-				commit.condition = {}
+				commit.condition = '{}'
 			const deletedDoc = await orm(collection).find(JSON.parse(commit.condition))
 			if (!commit.data)
 				commit.data = {}
