@@ -5,6 +5,7 @@ const delay = require("delay");
 const { stringify } = require("../utils");
 const lodashMock = require('./test-utils/lodashMock')
 const _ = require('lodash')
+const { ObjectID } = require('bson')
 
 jest.setTimeout(30000)
 
@@ -454,6 +455,24 @@ describe('[Integration] Test all plugins', function () {
 			type: 'health-check'
 		})
 		expect(healthCheckData.length).toEqual(1)
+		done()
+	})
+
+	it('[Sync report] Case 8: exec error', async (done) => {
+		const { orm, utils } = await ormGenerator([
+			'sync-plugin-multi',
+			'sync-flow',
+			'sync-report'], {
+			setMaster: true
+		})
+		await utils.mockModelAndCreateCommits(0)
+		const objId = new ObjectID()
+		await orm('Model').create({ _id: objId })
+		await orm('Model').create({ _id: objId })
+		const report = await orm('CommitReport').find({
+			type: 'exec-error'
+		})
+		expect(report.length).toEqual(1)
 		done()
 	})
 })

@@ -11,7 +11,9 @@ const AwaitLock = require('await-lock').default
 const COMMIT_TYPE = {
 	HEATH_CHECK: 'health-check',
 	WRONG_COMMIT: 'wrong-commit',
-	COMMIT_DATA: 'commit-data'
+	COMMIT_DATA: 'commit-data',
+	ERROR_ID: 'error-id',
+	EXEC_ERROR: 'exec-error'
 }
 
 const syncReport = function (orm) {
@@ -87,6 +89,30 @@ const syncReport = function (orm) {
 		this.value = await orm('Commit').aggregate([{ $group: { '_id': '$id', 'count': { $sum: 1 }} }, { $match: { 'count': { $gt: 1 } } }])
 	})
 
+	/**
+	 * Commit id error
+	 */
+	orm.on('commit:report:errorId', async function (wrongId, realId) {
+		await orm('CommitReport').create({
+			type: COMMIT_TYPE.ERROR_ID,
+			wrongId,
+			realId,
+			date: new Date()
+		})
+	})
+
+	/**
+	 * Commit execution error
+	 */
+	orm.on('commit:report:errorExec', async function (commitId, message) {
+		await orm('CommitReport').create({
+			type: COMMIT_TYPE.EXEC_ERROR,
+			commitId,
+			message,
+			date: new Date()
+		})
+	})
+
 	orm.on('commit:report:getReport', async function (dateTo) {
 		const { value: duplicateId } = await orm.emit('commit:report:getDuplicateID')
 		const healthCheckData = await orm('CommitReport').find({
@@ -109,12 +135,21 @@ const syncReport = function (orm) {
 		const wrongCommit = await orm('CommitReport').find({
 			type: COMMIT_TYPE.WRONG_COMMIT
 		})
+		const execError = await orm('CommitReport').find({
+			type: COMMIT_TYPE.EXEC_ERROR,
+			...dateTo && {
+				date: {
+					$lte: dateTo
+				}
+			}
+		}).sort({ date: -1 }).limit(100)
 
 		this.value = {
 			duplicateId,
 			healthCheckData,
 			commitData,
-			wrongCommit
+			wrongCommit,
+			execError
 		}
 	})
 }

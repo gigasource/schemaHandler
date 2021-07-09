@@ -290,10 +290,25 @@ const syncPlugin = function (orm) {
     orm.emit('commit:handler:doneAllCommits')
     console.log('Done requireSync', commits.length, commits[0]._id, new Date())
   })
+
+  let highestIdInMemory = null
+  const updateHighestId = (newHighestId) => {
+    if (!newHighestId || isNaN(newHighestId))
+      return
+    if (!highestIdInMemory)
+      highestIdInMemory = newHighestId
+    else
+      highestIdInMemory = Math.max(highestIdInMemory, newHighestId)
+  }
   //customize
   orm.onQueue('createCommit', async function (commit) {
     if (!commit.id) {
-      const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName);
+      let { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName);
+      if (highestIdInMemory)
+        if (highestId !== highestIdInMemory) {
+          await orm.emit('commit:report:errorId', highestId, highestIdInMemory)
+          highestId = highestIdInMemory
+        }
       commit.id = highestId + 1;
     } else {
       // commit with id smaller than highestId has been already created
@@ -303,6 +318,7 @@ const syncPlugin = function (orm) {
     }
     try {
       this.value = await orm(`Commit`, commit.dbName).create(commit);
+      updateHighestId(commit.id)
       await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true })
     } catch (e) {
       if (e.message.slice(0, 6) === 'E11000') {
@@ -328,7 +344,7 @@ const syncPlugin = function (orm) {
       commitsCache.reverse()
     }
     if (commitsCache.length &&
-      clientHighestId > commitsCache[0].id &&
+      clientHighestId >= commitsCache[0].id &&
       clientHighestId < _.last(commitsCache).id &&
       USE_CACHE) {
       this.value = commitsCache.filter(commit => {

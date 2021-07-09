@@ -98,6 +98,7 @@ module.exports = function (orm, role) {
         result = await orm.execChain(query)
       } catch (e) {
         console.error('Error on query', JSON.stringify(query), 'is', e)
+        await orm.emit('commit:report:errorExec', commit.id, e.message)
       }
     }
     orm.emit(`commit:result:${commit.uuid}`, result);
