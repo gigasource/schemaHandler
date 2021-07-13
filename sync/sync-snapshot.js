@@ -41,7 +41,7 @@ module.exports = function (orm) {
 	orm._setSyncCollection = function (collection) {
 		// for client to check whether run commit or not
 		orm.on(`commit:handler:shouldNotExecCommand:${collection}`, async function (commit) {
-			if (orm.isMaster() || !commit.data.snapshot) {
+			if (orm.isMaster() || !commit.data.snapshot || commit.data.deletedDoc) {
 				return this.mergeValueAnd(false)
 			}
 			const commitData = await orm('CommitData').findOne()

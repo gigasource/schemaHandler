@@ -10,6 +10,7 @@ module.exports = function (orm) {
     if (connectedClientSocket[clientSocket.id])
       return
     connectedClientSocket[clientSocket.id] = true
+    orm.emit('transporter:destroy:default')
 
     const off1 = orm.on('transport:send', async (_dbName, queueCommit) => {
       if (!queueCommit)
@@ -98,6 +99,10 @@ module.exports = function (orm) {
       clientSocket.removeAllListeners('transport:sync');
       clientSocket.removeAllListeners('transport:sync:progress')
     }
+
+    orm.on('transporter:destroy:default', () => {
+      closeAllConnection()
+    })
 
     orm.on('offClient', (_dbName) => {
       if (dbName !== _dbName) return
