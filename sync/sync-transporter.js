@@ -193,6 +193,11 @@ module.exports = function (orm) {
     doSessionCheck(socket).then(r => r)
   })
 
+  // end of health check
+  orm.on('health-check', 1, async function () {
+    orm.emit('health-check-failed')
+  })
+
   orm.on('initSyncForMasterIo', io => {
     io.on('connect', socket => {
       orm.emit('initSyncForMaster', socket);

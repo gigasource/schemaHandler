@@ -1,7 +1,7 @@
 const _ = require('lodash');
 const {parseCondition, parseSchema} = require("../schemaHandler");
 const uuid = require('uuid').v1;
-const JsonFn = require('json-fn');
+const jsonFn = require('json-fn');
 const {ObjectID} = require('bson')
 
 const syncPlugin = function (orm) {
@@ -103,16 +103,15 @@ const syncPlugin = function (orm) {
         uuid: uuid(),
         tags: args.filter(arg => typeof arg === "string"),
         data: _.assign({}, ...args.filter(arg => typeof arg === "object")),
-        //chain: JSON.stringify(_chain),
         approved: false
       };
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
         commit._id = new ObjectID()
-        commit.condition = JSON.stringify(target.condition);
+        commit.condition = jsonFn.stringify(target.condition);
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
-        commit.chain = JSON.stringify(_query.chain);
+        commit.chain = jsonFn.stringify(_query.chain);
         if (_.get(_query, "chain[0].args[0]._id")) {
           commit.data.docId = _.get(_query, "chain[0].args[0]._id");
         }
@@ -141,7 +140,7 @@ const syncPlugin = function (orm) {
   });
 
   function getQuery(commit) {
-    const chain = JsonFn.parse(commit.chain || '[]');
+    const chain = jsonFn.parse(commit.chain || '[]');
     let name = commit.collectionName;
     return {name, chain}
   }
@@ -236,7 +235,7 @@ const syncPlugin = function (orm) {
 
     orm.on("commit:remove-fake", async function (commit) {
       //if (orm.name !== 'A') return;
-      let _parseCondition = commit.condition ? JsonFn.parse(commit.condition) : {}
+      let _parseCondition = commit.condition ? jsonFn.parse(commit.condition) : {}
       let recoveries = await orm('Recovery').find({uuid: commit.uuid});
 
       if (recoveries.length === 0) {

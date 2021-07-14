@@ -1,5 +1,6 @@
 const AwaitLock = require('await-lock').default
 const md5 = require('md5')
+const jsonFn = require('json-fn')
 
 /**
  * Report includes:
@@ -144,7 +145,7 @@ const syncReport = function (orm) {
 			}
 		} else if (orm.isMaster()) {
 			if (result && result.n && commit.condition) {
-				const docs = await orm(commit.collectionName).find(JSON.parse(commit.condition))
+				const docs = await orm(commit.collectionName).find(jsonFn.parse(commit.condition)).sort({ _id: 1 })
 				resultMd5 = md5(docs)
 			}
 			await orm('Commit', commit.dbName).updateOne({_id: commit._id},

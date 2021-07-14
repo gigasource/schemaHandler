@@ -1,8 +1,10 @@
 const AwaitLock = require('await-lock').default;
 const _ = require('lodash');
+const jsonFn = require('json-fn')
 
 module.exports = function (orm, role) {
   let masterDbMap = (orm.mode === 'multi' ? {} : false)
+  let COMMIT_LARGE_SYNC_THRESHOLD = 200
 
   orm.on('commit:flow:setMaster', function (_isMaster, dbName) {
     // 0: same
@@ -78,10 +80,35 @@ module.exports = function (orm, role) {
     this.value = value
   })
 
+  let isLargeSync = false
+  let getProgressInterval = null
   orm.onQueue('commit:handler:finish', async (commit) => {
     // end of commit's flow, delete all commits which have smaller id than this commit
-    if (!checkMaster(commit.dbName))
-      await orm('Commit').deleteMany({ id: { $lt: commit.id } })
+    if (!checkMaster(commit.dbName)) {
+      await orm('Commit').deleteMany({id: {$lt: commit.id}})
+      const commitData = await orm('CommitData').findOne()
+      if (commitData && commitData.masterHighestId) {
+        if (commitData.masterHighestId - commit.id > COMMIT_LARGE_SYNC_THRESHOLD) {
+          if (!isLargeSync) {
+            isLargeSync = true
+            orm.emit('commit:largeSync', true)
+            getProgressInterval = setInterval(async () => {
+              const commitData = await orm('CommitData').findOne()
+              const { value: currentHighestCommit } = await orm.emit('getHighestCommitId')
+              const syncProgress = currentHighestCommit / parseInt(commitData.masterHighestId)
+              orm.emit('commit:largeSync:progress', syncProgress)
+            }, 1000)
+          }
+        } else {
+          if (isLargeSync) {
+            isLargeSync = false
+            orm.emit('commit:largeSync', false)
+            clearInterval(getProgressInterval)
+            getProgressInterval = null
+          }
+        }
+      }
+    }
   })
 
   orm.onQueue('update:Commit:c', 'fake-channel', async function (commit) {
@@ -97,7 +124,7 @@ module.exports = function (orm, role) {
       try {
         result = await orm.execChain(query)
       } catch (e) {
-        console.error('Error on query', JSON.stringify(query), 'is', e)
+        console.error('Error on query', jsonFn.stringify(query), 'is', e)
         await orm.emit('commit:report:errorExec', commit.id, e.message)
       }
       await orm.emit('commit:report:md5Check', commit, result)

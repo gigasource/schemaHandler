@@ -1,5 +1,6 @@
 const AwaitLock = require('await-lock').default;
 const uuid = require('uuid')
+const jsonFn = require('json-fn')
 
 module.exports = function (orm) {
 	const syncLock = new AwaitLock()
@@ -78,7 +79,7 @@ module.exports = function (orm) {
 				return
 			if (!commit.condition)
 				commit.condition = '{}'
-			const deletedDoc = await orm(collection).find(JSON.parse(commit.condition))
+			const deletedDoc = await orm(collection).find(jsonFn.parse(commit.condition))
 			if (!commit.data)
 				commit.data = {}
 			commit.data.snapshot = true
@@ -97,7 +98,7 @@ module.exports = function (orm) {
 			}
 			if (!orm.isMaster()) return
 			if (commit.condition)
-				await orm(collection).updateOne(JSON.parse(commit.condition), { snapshot: true }).direct()
+				await orm(collection).updateOne(jsonFn.parse(commit.condition), { snapshot: true }).direct()
 			else if (commit.data && commit.data.docId)
 				await orm(collection).updateOne({ _id: commit.data.docId }, { snapshot: true }).direct()
 		})
