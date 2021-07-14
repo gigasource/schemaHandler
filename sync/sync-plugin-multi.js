@@ -317,6 +317,8 @@ const syncPlugin = function (orm) {
         return // Commit exists
     }
     try {
+      if (orm.isMaster())
+        commit.isPending = true
       this.value = await orm(`Commit`, commit.dbName).create(commit);
       updateHighestId(commit.id)
       await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true })
@@ -351,13 +353,13 @@ const syncPlugin = function (orm) {
         return commit.id > clientHighestId
       })
     } else {
-      this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}}).limit(CACHE_THRESHOLD);
+      this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}, isPending: { $exists: false }}).limit(CACHE_THRESHOLD);
     }
   })
   orm.on('commit:handler:finish', 1, async commit => {
     if (commitsCache.length) {
       const highestCachedId = commitsCache.length ? _.last(commitsCache).id : 0
-      commitsCache.push(...(await orm('Commit').find({id: {$gt: highestCachedId}}).limit(CACHE_THRESHOLD)))
+      commitsCache.push(...(await orm('Commit').find({id: {$gt: highestCachedId}, isPending: { $exists: false }}).limit(CACHE_THRESHOLD)))
     }
     while (commitsCache.length > CACHE_THRESHOLD)
       commitsCache.shift()

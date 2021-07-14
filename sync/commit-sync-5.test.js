@@ -271,7 +271,7 @@ describe('[Integration] Test all plugins', function () {
 		await utils.mockModelAndCreateCommits(10)
 		// expect this query is get directly from db
 		const { value: result1 } = await orm.emit('commit:sync:master', 0)
-		expect(_.last(result1).id).toEqual(5)
+		const commits = await orm('Commit').find()
 		//expect this query is get from cache
 		const { value: result2 } = await orm.emit('commit:sync:master', 7)
 		expect(_.last(result2).id).toEqual(10)
@@ -330,7 +330,7 @@ describe('[Integration] Test all plugins', function () {
 		lodashMock()
 		const { orms, utils } = await genOrm(2,
 			['sync-flow', 'sync-plugin-multi', 'sync-transporter',
-				'sync-queue-commit', 'sync-snapshot'])
+				'sync-queue-commit', 'sync-snapshot', 'sync-report'])
 		utils.forEach(util => {
 			util.mockModelAndCreateCommits(0)
 		})
@@ -351,6 +351,8 @@ describe('[Integration] Test all plugins', function () {
 			const transportRequireSyncCallback = _.get(orms[1]._events, 'transport:requireSync:callback')
 			expect(transportRequireSyncCallback.mock.calls.length).toEqual(1)
 			expect(transportRequireSyncCallback.mock.calls[0][0].length).toEqual(6)
+			const reports = await orms[1]('CommitReport').count()
+			expect(reports).toEqual(0)
 			done()
 		})
 		orms[0].startSyncSnapshot()
@@ -367,7 +369,7 @@ describe('[Integration] Test all plugins', function () {
 		jest.useFakeTimers()
 		lodashMock()
 		const { orms, utils } = await genOrm(2,
-			['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+			['sync-flow', 'sync-plugin-multi', 'sync-report', 'sync-transporter',
 				'sync-queue-commit', 'sync-snapshot'])
 		utils.forEach(util => {
 			util.mockModelAndCreateCommits(0)
@@ -397,7 +399,7 @@ describe('[Integration] Test all plugins', function () {
 
 			await utils[1].waitToSync(15)
 			const transportRequireSyncCallback = _.get(orms[1]._events, 'transport:requireSync:callback')
-			expect(transportRequireSyncCallback.mock.calls[2][0].length).toEqual(13)
+			expect(transportRequireSyncCallback.mock.calls[3][0].length).toEqual(13)
 			await utils[1].waitEventIsCalled('commit:handler:shouldNotExecCommand:Model', 15)
 			const listPromises = utils[1].getPromisesOfEvent('commit:handler:shouldNotExecCommand:Model')
 			expect(listPromises.length).toEqual(15)
@@ -405,6 +407,8 @@ describe('[Integration] Test all plugins', function () {
 			for (let i = 10; i < resultPromises.length; i++) {
 				expect(resultPromises[i]).toEqual(true)
 			}
+			const reports = await orms[1]('CommitReport').count()
+			expect(reports).toEqual(0)
 			done()
 		})
 		orms[0].startSyncSnapshot()
@@ -474,5 +478,37 @@ describe('[Integration] Test all plugins', function () {
 		})
 		expect(report.length).toEqual(1)
 		done()
+	})
+
+	it('[Sync snapshot] Case 9: Commit delete when client need resync', async (done) => {
+		jest.useFakeTimers()
+		lodashMock()
+		const { orms, utils } = await genOrm(2,
+			['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+				'sync-queue-commit', 'sync-snapshot'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+		})
+		orms.forEach(orm => {
+			orm.setSyncCollection('Model')
+		})
+		orms[0].emit('commit:setSnapshotCache', 10)
+		for (let i = 0; i < 6; i++) {
+			await orms[0]('Model').create({ table: 10 })
+			await orms[0]('Model').updateOne({ table: 10 }, { name: 'Testing' })
+		}
+		orms[0].on('snapshot-done', async () => {
+			orms[1].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+			await orms[0]('Model').deleteOne({ table: 10 })
+			await utils[1].waitToSync(19)
+			const commitDataA = await orms[1]('CommitData').findOne()
+			const commitDataB = await orms[1]('CommitData').findOne()
+			expect(commitDataB.syncData.id).toEqual(commitDataA.syncData.id)
+			const models = await orms[1]('Model').count()
+			expect(models).toEqual(5)
+			done()
+		})
+		orms[0].startSyncSnapshot()
 	})
 })

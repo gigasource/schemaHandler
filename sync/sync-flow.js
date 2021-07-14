@@ -100,7 +100,9 @@ module.exports = function (orm, role) {
         console.error('Error on query', JSON.stringify(query), 'is', e)
         await orm.emit('commit:report:errorExec', commit.id, e.message)
       }
+      await orm.emit('commit:report:md5Check', commit, result)
     }
+    await orm('Commit').updateOne({ _id: commit._id }, { $unset: {isPending: ''} })
     orm.emit(`commit:result:${commit.uuid}`, result);
     orm.emit('master:transport:sync', commit.id, commit.dbName);
     orm.emit(`commit:handler:finish:${commit.collectionName}`, result, commit);

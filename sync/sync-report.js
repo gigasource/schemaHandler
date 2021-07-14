@@ -1,4 +1,5 @@
 const AwaitLock = require('await-lock').default
+const md5 = require('md5')
 
 /**
  * Report includes:
@@ -13,14 +14,28 @@ const COMMIT_TYPE = {
 	WRONG_COMMIT: 'wrong-commit',
 	COMMIT_DATA: 'commit-data',
 	ERROR_ID: 'error-id',
-	EXEC_ERROR: 'exec-error'
+	EXEC_ERROR: 'exec-error',
+	MD5_CHECK_FAILED: 'md5-check-failed'
 }
 
 const syncReport = function (orm) {
 	let prevId
 	const fnLock = new AwaitLock()
 
-	setInterval(async () => {
+	orm.disableReport && orm.disableReport()
+
+	orm.disableReport = function () {
+		clearInterval(interval)
+		off1()
+		off2()
+		off3()
+		off4()
+		off5()
+		off6()
+		off7()
+	}
+
+	const interval = setInterval(async () => {
 		const commitData = await orm('CommitData').findOne()
 		await orm('CommitReport').create({
 			type: COMMIT_TYPE.COMMIT_DATA,
@@ -39,7 +54,7 @@ const syncReport = function (orm) {
 	/**
 	 * This must be called before lower id commits are deleted
 	 */
-	orm.on('commit:handler:finish', -1, async (commit) => {
+	const off1 = orm.on('commit:handler:finish', -1, async (commit) => {
 		await fnLock.acquireAsync()
 		if (!prevId) {
 			const lastHighestIdCommit = (await orm('Commit').find({ id: { $lt: commit.id } }).sort({ id: -1 }).limit(1))
@@ -64,11 +79,11 @@ const syncReport = function (orm) {
 		}
 		prevId = commit.id
 		fnLock.release()
-	})
+	}).off
 	/**
 	 * Health check report
 	 */
-	orm.on('commit:report:health-check', async (name, status, date) => {
+	const off2 = orm.on('commit:report:health-check', async (name, status, date) => {
 		const nearestReport = await orm('CommitReport').find({
 			type: COMMIT_TYPE.HEATH_CHECK,
 			name
@@ -81,39 +96,63 @@ const syncReport = function (orm) {
 			status,
 			date
 		})
-	})
+	}).off
 	/**
 	 * Duplicate ID report
 	 */
-	orm.on('commit:report:getDuplicateID', async function () {
+	const off3 = orm.on('commit:report:getDuplicateID', async function () {
 		this.value = await orm('Commit').aggregate([{ $group: { '_id': '$id', 'count': { $sum: 1 }} }, { $match: { 'count': { $gt: 1 } } }])
-	})
+	}).off
 
 	/**
 	 * Commit id error
 	 */
-	orm.on('commit:report:errorId', async function (wrongId, realId) {
+	const off4 = orm.on('commit:report:errorId', async function (wrongId, realId) {
 		await orm('CommitReport').create({
 			type: COMMIT_TYPE.ERROR_ID,
 			wrongId,
 			realId,
 			date: new Date()
 		})
-	})
+	}).off
 
 	/**
 	 * Commit execution error
 	 */
-	orm.on('commit:report:errorExec', async function (commitId, message) {
+	const off5 = orm.on('commit:report:errorExec', async function (commitId, message) {
 		await orm('CommitReport').create({
 			type: COMMIT_TYPE.EXEC_ERROR,
 			commitId,
 			message,
 			date: new Date()
 		})
-	})
+	}).off
 
-	orm.on('commit:report:getReport', async function (dateTo) {
+	/**
+	 * md5 report
+	 */
+	const off6 = orm.on('commit:report:md5Check', async function (commit, result) {
+		let resultMd5 = result ? md5(result) : null
+		if (commit.md5) {
+			if (commit.md5 !== resultMd5) {
+				await orm('CommitReport').create({
+					type: COMMIT_TYPE.MD5_CHECK_FAILED,
+					commitId: commit.id,
+					chainMd5: md5(commit.chain),
+					date: new Date()
+				})
+			}
+		} else if (orm.isMaster()) {
+			if (result && result.n && commit.condition) {
+				const docs = await orm(commit.collectionName).find(JSON.parse(commit.condition))
+				resultMd5 = md5(docs)
+			}
+			await orm('Commit', commit.dbName).updateOne({_id: commit._id},
+				{ md5: resultMd5 })
+		}
+	}).off
+
+	const off7 = orm.on('commit:report:getReport', async function (dateTo) {
 		const { value: duplicateId } = await orm.emit('commit:report:getDuplicateID')
 		const healthCheckData = await orm('CommitReport').find({
 			type: COMMIT_TYPE.HEATH_CHECK,
@@ -143,15 +182,24 @@ const syncReport = function (orm) {
 				}
 			}
 		}).sort({ date: -1 }).limit(100)
+		const md5CheckFailed = await orm('CommitReport').find({
+			type: COMMIT_TYPE.MD5_CHECK_FAILED,
+			...dateTo && {
+				date: {
+					$lte: dateTo
+				}
+			}
+		}).sort({ date: -1 }).limit(100)
 
 		this.value = {
 			duplicateId,
 			healthCheckData,
 			commitData,
 			wrongCommit,
-			execError
+			execError,
+			md5CheckFailed
 		}
-	})
+	}).off
 }
 
 module.exports = syncReport
