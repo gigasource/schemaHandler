@@ -6,6 +6,7 @@ const { stringify } = require("../utils");
 const lodashMock = require('./test-utils/lodashMock')
 const _ = require('lodash')
 const { ObjectID } = require('bson')
+const md5 = require('md5')
 
 jest.setTimeout(30000)
 
@@ -510,5 +511,68 @@ describe('[Integration] Test all plugins', function () {
 			done()
 		})
 		orms[0].startSyncSnapshot()
+	})
+
+	it('[Sync reprot] Case 10: Multi md5', async (done) => {
+		jest.useFakeTimers()
+		lodashMock()
+		const { orms, utils } = await genOrm(2,
+			['sync-flow', 'sync-plugin-multi', 'sync-report', 'sync-transporter',
+				'sync-queue-commit', 'sync-snapshot'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+		})
+		orms[1].socketConnect(orms[0].ioId)
+		jest.advanceTimersByTime(100) // time to connect
+		for (let i = 0; i < 5; i++) {
+			await orms[0]('Model').create({ table: 10 })
+			await orms[0]('Model').updateOne({ table: 10 }, { name: 'Testing' })
+		}
+		for (let i = 0; i < 5; i++) {
+			await orms[0]('Model').create({ table: 9 })
+		}
+		await orms[0]('Model').deleteMany({ table: 10 })
+		await utils[1].waitToSync(16)
+		const commitA = await orms[0]('Commit').find().sort({ id: -1 }).limit(1)
+		const commitB = await orms[1]('Commit').find().sort({ id: -1 }).limit(1)
+		const modelsA = await orms[0]('Model').find()
+		const modelsB = await orms[1]('Model').find()
+		expect(commitA).toEqual(commitB)
+		expect(modelsA).toEqual(modelsB)
+		const commitReport = await orms[1]('CommitReport').count()
+		expect(commitReport).toEqual(0)
+		done()
+	})
+
+	it('[Sync reprot] Case 10-a: Multi md5', async (done) => {
+		jest.useFakeTimers()
+		lodashMock()
+		const { orms, utils } = await genOrm(2,
+			['sync-flow', 'sync-plugin-multi', 'sync-report', 'sync-transporter',
+				'sync-queue-commit', 'sync-snapshot'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+		})
+		orms[1].socketConnect(orms[0].ioId)
+		jest.advanceTimersByTime(100) // time to connect
+		for (let i = 0; i < 5; i++) {
+			await orms[0]('Model').create({ table: 10 })
+		}
+		for (let i = 0; i < 5; i++) {
+			await orms[0]('Model').create({ table: 9 })
+		}
+		await orms[0]('Model').updateMany({ table: 10 }, { name: 'Testing'})
+		const data = await orms[0]('Model').find({ table: 10 })
+		await utils[1].waitToSync(11)
+		const commitA = await orms[0]('Commit').find().sort({ id: -1 }).limit(1)
+		const commitB = await orms[1]('Commit').find().sort({ id: -1 }).limit(1)
+		const modelsA = await orms[0]('Model').find()
+		const modelsB = await orms[1]('Model').find()
+		expect(commitA).toEqual(commitB)
+		expect(commitA[0].md5).toEqual(md5(data))
+		expect(modelsA).toEqual(modelsB)
+		const commitReport = await orms[1]('CommitReport').count()
+		expect(commitReport).toEqual(0)
+		done()
 	})
 })

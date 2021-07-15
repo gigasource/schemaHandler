@@ -135,6 +135,10 @@ const syncReport = function (orm) {
 	const off6 = orm.on('commit:report:md5Check', async function (commit, result) {
 		let resultMd5 = result ? md5(result) : null
 		if (commit.md5) {
+			if (result && result.n && commit.condition) {
+				const docs = await orm(commit.collectionName).find(jsonFn.parse(commit.condition)).sort({ _id: 1 })
+				resultMd5 = md5(docs)
+			}
 			if (commit.md5 !== resultMd5) {
 				await orm('CommitReport').create({
 					type: COMMIT_TYPE.MD5_CHECK_FAILED,

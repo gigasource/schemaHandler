@@ -62,6 +62,9 @@ module.exports = function (orm) {
           console.log('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
           if (masterHighestId)
             await orm('CommitData').updateOne({}, { masterHighestId })
+          await orm('CommitData'.updateOne({}, {
+            lastTimeSyncWithMaster: new Date()
+          }))
           commits.forEach(commit => commit.dbName = dbName)
           await orm.emit('transport:requireSync:callback', commits)
           // clear all queued require sync commands because all "possible" commits is synced
