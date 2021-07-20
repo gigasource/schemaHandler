@@ -4,10 +4,13 @@ let AwaitLock;
 let Queue;
 
 class Hooks extends EE {
-  getPreHandler(event) {
-    this._preEe = this._preEe || new EE();
+  constructor() {
+    super();
     this.queues = {}
     this.layers = {}
+  }
+  getPreHandler(event) {
+    this._preEe = this._preEe || new EE();
     return _.get(this._preEe._events, event);
   }
 
