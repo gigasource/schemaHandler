@@ -133,9 +133,12 @@ const syncReport = function (orm) {
 	 * md5 report
 	 */
 	const off6 = orm.on('commit:report:md5Check', async function (commit, result) {
+		// prevent ref from snapshot
+		if (result && result.ref)
+			delete result.ref
 		let resultMd5 = result ? md5(result) : null
 		if (commit.md5) {
-			if (result && result.n && commit.condition) {
+			if ((result && result.n && commit.condition) || (!result && commit.condition)) {
 				const docs = await orm(commit.collectionName).find(jsonFn.parse(commit.condition)).sort({ _id: 1 })
 				resultMd5 = md5(docs)
 			}
@@ -148,8 +151,13 @@ const syncReport = function (orm) {
 				})
 			}
 		} else if (orm.isMaster()) {
-			if (result && result.n && commit.condition) {
+			if ((result && result.n && commit.condition) || (!result && commit.condition)) {
 				const docs = await orm(commit.collectionName).find(jsonFn.parse(commit.condition)).sort({ _id: 1 })
+				// prevent ref from snapshot
+				docs.forEach(doc => {
+					if (doc.ref)
+						delete doc.ref
+				})
 				resultMd5 = md5(docs)
 			}
 			await orm('Commit', commit.dbName).updateOne({_id: commit._id},

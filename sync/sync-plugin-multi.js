@@ -102,8 +102,7 @@ const syncPlugin = function (orm) {
         },
         uuid: uuid(),
         tags: args.filter(arg => typeof arg === "string"),
-        data: _.assign({}, ...args.filter(arg => typeof arg === "object")),
-        approved: false
+        data: _.assign({}, ...args.filter(arg => typeof arg === "object"))
       };
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
@@ -332,7 +331,6 @@ const syncPlugin = function (orm) {
   })
 
   orm.onDefault('process:commit', async function (commit) {
-    commit.approved = true;
     this.value = commit;
   })
 

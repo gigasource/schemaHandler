@@ -15,6 +15,13 @@ module.exports = function (orm) {
 		await orm('CommitCache').create(cachedCommits)
 	}
 
+	function cleanDoc(doc) {
+		if (doc.snapshot)
+			delete doc.snapshot
+		if (doc.ref)
+			delete doc.ref
+	}
+
 	orm.on('commit:setSnapshotCache', value => SNAPSHOT_COMMIT_CACHE = value)
 
 	// only for master
@@ -86,6 +93,52 @@ module.exports = function (orm) {
 			commit.data.deletedDoc = deletedDoc.map(doc => doc._id)
 		})
 
+		orm.on(`process:commit:${collection}`, 1, async function (commit, target) {
+			if (!target || commit.data.snapshot || !commit.condition)
+				return
+			const condition = commit.condition ? jsonFn.parse(commit.condition) : {}
+			const refDoc = await orm(collection).find({ ref: true, ...condition })
+			for (let doc of refDoc) {
+				cleanDoc(doc)
+				const chain = jsonFn.stringify(orm(collection).create(doc).chain)
+				await orm('Commit').updateOne({ ref: doc._id },
+					{ chain, $unset: { ref: ''} })
+				await orm(collection).updateOne({ _id: doc._id }, { $unset: { ref: '' } }).direct()
+			}
+		})
+
+		/**
+		 * Master will remove chain data
+		 */
+		orm.on(`commit:handler:finish:${collection}`, -2, async function (result, commit) {
+			if (!orm.isMaster() || !commit.data.snapshot || commit.data.deletedDoc) return
+			if (commit.data.docId) {
+				await orm('Commit').updateOne(
+					{ _id: commit._id },
+					{
+						ref: commit.data.docId,
+						$unset: {
+							chain: ''
+						}
+					}
+				)
+				await orm(collection).updateOne(
+					{ _id: commit.data.docId },
+					{ ref: true }
+				).direct()
+			}
+		})
+
+		orm.on('transport:require-sync:postProcess', async function (commits) {
+			for (let commit of commits) {
+				if (commit.ref) {
+					const doc = await orm(commit.collectionName).findOne({ _id: commit.ref })
+					cleanDoc(doc)
+					commit.chain = jsonFn.stringify(orm(commit.collectionName).create(doc).chain)
+				}
+			}
+		})
+
 		// add lastTimeModified field
 		orm.on(`commit:handler:finish:${collection}`, -1, async function (result, commit) {
 			if (commit.data && commit.data.snapshot) {
@@ -98,9 +151,9 @@ module.exports = function (orm) {
 			}
 			if (!orm.isMaster()) return
 			if (commit.condition)
-				await orm(collection).updateOne(jsonFn.parse(commit.condition), { snapshot: true }).direct()
+				await orm(collection).updateMany(jsonFn.parse(commit.condition), { snapshot: true }).direct()
 			else if (commit.data && commit.data.docId)
-				await orm(collection).updateOne({ _id: commit.data.docId }, { snapshot: true }).direct()
+				await orm(collection).updateMany({ _id: commit.data.docId }, { snapshot: true }).direct()
 		})
 
 		const startSnapshot = async function () {

@@ -352,6 +352,9 @@ describe('[Integration] Test all plugins', function () {
 			const transportRequireSyncCallback = _.get(orms[1]._events, 'transport:requireSync:callback')
 			expect(transportRequireSyncCallback.mock.calls.length).toEqual(1)
 			expect(transportRequireSyncCallback.mock.calls[0][0].length).toEqual(6)
+			const modelsA = await orms[0]('Model').find()
+			const modelsB = await orms[1]('Model').find()
+			expect(modelsB).toEqual(modelsA)
 			const reports = await orms[1]('CommitReport').count()
 			expect(reports).toEqual(0)
 			done()
@@ -574,5 +577,59 @@ describe('[Integration] Test all plugins', function () {
 		const commitReport = await orms[1]('CommitReport').count()
 		expect(commitReport).toEqual(0)
 		done()
+	})
+
+	it('[Sync snapshot] Case 11: Sync snapshot and then mutate to ref doc', async (done) => {
+		jest.useFakeTimers()
+		lodashMock()
+		const { orms, utils } = await genOrm(3,
+			['sync-flow', 'sync-plugin-multi', 'sync-report', 'sync-transporter',
+				'sync-queue-commit', 'sync-snapshot'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+		})
+		orms.forEach(orm => {
+			orm.setSyncCollection('Model')
+		})
+		orms[1].socketConnect(orms[0].ioId)
+		jest.advanceTimersByTime(100) // time to connect
+		for (let i = 0; i < 5; i++) {
+			await orms[0]('Model').create({ table: i })
+			await orms[0]('Model').updateOne({ table: i }, { name: 'Testing' })
+		}
+		orms[0].on('snapshot-done', async () => {
+			orms[0].emit('master:transport:sync')
+			const commitData0 = await orms[0]('CommitData').findOne()
+			expect(commitData0.highestCommitId).toEqual(15)
+			const modelsA = await orms[0]('Model').find()
+			for (let model of modelsA) {
+				expect(model.ref).toBe(true)
+			}
+			await utils[1].waitToSync(15)
+			await orms[0]('Model').updateOne({ table: 0 })
+			await utils[1].waitToSync(16)
+			const commitsA1 = await orms[0]('Commit').find()
+			expect(commitsA1[0].chain).not.toBe(undefined)
+			for (let i = 1; i < 5; i++) {
+				expect(commitsA1[i].chain).toBe(undefined)
+			}
+			await orms[0]('Model').updateMany({}, { name: 'Done' })
+			const commitsA2 = await orms[0]('Commit').find()
+			for (let commit of commitsA2) {
+				expect(commit.chain).not.toBe(undefined)
+			}
+			orms[2].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+			await utils[2].waitToSync(17)
+			const modelsC = await orms[2]('Model').find()
+			const modelsA2 = await orms[0]('Model').find()
+			for (let i = 0; i < modelsC.length; i++) {
+				delete modelsA2[i].ref
+				delete modelsA2[i].snapshot
+				expect(modelsC[i]).toEqual(modelsA2[i])
+			}
+			done()
+		})
+		orms[0].startSyncSnapshot()
 	})
 })
