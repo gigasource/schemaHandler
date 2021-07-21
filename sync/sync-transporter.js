@@ -82,6 +82,7 @@ module.exports = function (orm) {
           console.log('[HealthCheck] Socket to master timeout')
           orm.emit('commit:report:health-check', 'lanTransporter', 'disconnected', new Date())
           hasDone = true
+          resolve()
         }, 5000)
         clientSocket.emit('transport:health-check', () => {
           if (hasDone) return
