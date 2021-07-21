@@ -98,9 +98,14 @@ module.exports = function (orm) {
 			}
 			if (!orm.isMaster()) return
 			if (commit.condition)
-				await orm(collection).updateOne(jsonFn.parse(commit.condition), { snapshot: true }).direct()
+				await orm(collection).updateMany(jsonFn.parse(commit.condition), { snapshot: true }).direct()
 			else if (commit.data && commit.data.docId)
 				await orm(collection).updateOne({ _id: commit.data.docId }, { snapshot: true }).direct()
+			else if (result && Array.isArray(result)) {
+				console.log('[Snapshot] case create many')
+				for (let doc of result)
+					await orm(collection).updateOne({ _id: doc._id }, { snapshot: true }).direct()
+			}
 		})
 
 		const startSnapshot = async function () {

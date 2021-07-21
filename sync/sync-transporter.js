@@ -113,6 +113,10 @@ module.exports = function (orm) {
       closeAllConnection()
     })
 
+    clientSocket.on('connection-established', () => {
+      debounceRequireSync()
+    })
+
     debounceRequireSync()
   })
   /*------Non server only-------*/

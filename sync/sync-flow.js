@@ -82,6 +82,7 @@ module.exports = function (orm, role) {
 
   let isLargeSync = false
   let getProgressInterval = null
+  let snapshotMilestone = null
   orm.onQueue('commit:handler:finish', async (commit) => {
     // end of commit's flow, delete all commits which have smaller id than this commit
     if (!checkMaster(commit.dbName)) {
@@ -92,10 +93,11 @@ module.exports = function (orm, role) {
           if (!isLargeSync) {
             isLargeSync = true
             orm.emit('commit:largeSync', true)
+            snapshotMilestone = (await orm.emit('getHighestCommitId')).value
             getProgressInterval = setInterval(async () => {
               const commitData = await orm('CommitData').findOne()
               const { value: currentHighestCommit } = await orm.emit('getHighestCommitId')
-              const syncProgress = currentHighestCommit / parseInt(commitData.masterHighestId)
+              const syncProgress = (currentHighestCommit - snapshotMilestone) / (parseInt(commitData.masterHighestId) - snapshotMilestone + 1) // prevent 0
               orm.emit('commit:largeSync:progress', syncProgress)
             }, 1000)
           }
