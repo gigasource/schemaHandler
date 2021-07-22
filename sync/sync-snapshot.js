@@ -5,10 +5,12 @@ const jsonFn = require('json-fn')
 module.exports = function (orm) {
 	const syncLock = new AwaitLock()
 	const handlers = []
-	const unusedCollections = []
+	const unusedCollections = ['DummyCollection']
 	let SNAPSHOT_COMMIT_CACHE = 300
+	let currentHighestUUID = 0
 
 	async function createCommitCache() {
+		await orm.emit('createCommit', { collectionName: 'DummyCollection', uuid: uuid.v4() })
 		const cachedCommits = await orm('Commit').find().sort({ id: -1 }).limit(SNAPSHOT_COMMIT_CACHE)
 		cachedCommits.reverse()
 		await orm('CommitCache').deleteMany({})
@@ -111,7 +113,6 @@ module.exports = function (orm) {
 		const startSnapshot = async function () {
 			if (!orm.isMaster()) return
 			const { syncData } = await orm('CommitData').findOne()
-			const currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1))[0].uuid
 			await orm('Commit').deleteMany({ collectionName: collection, 'data.snapshot': {$exists: false } })
 			if (syncData.firstTimeSync)
 				await orm(collection).updateMany({}, { snapshot: true }).direct()
@@ -156,6 +157,7 @@ module.exports = function (orm) {
 			orm.emit('commit:setUseCacheStatus', false)
 			await createCommitCache()
 			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
+			currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1))[0].uuid
 			for (let collection of unusedCollections) {
 				await orm('Commit').deleteMany({ collectionName: collection })
 			}
@@ -164,7 +166,7 @@ module.exports = function (orm) {
 				promises.push(handler())
 			}
 			await Promise.all(promises)
-			await orm('CommitData').updateOne({}, {$set: {syncData: {isSyncing: false}}})
+			await orm('CommitData').updateOne({}, {'syncData.isSyncing': false})
 		} catch (err) {
 			console.error(err)
 		}
