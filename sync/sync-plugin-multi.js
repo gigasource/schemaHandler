@@ -6,10 +6,21 @@ const {ObjectID} = require('bson')
 
 const syncPlugin = function (orm) {
   const whitelist = []
+  const unsavedList = []
 
   orm.registerCommitBaseCollection = function () {
     whitelist.push(...arguments);
   }
+
+  // delete after exec chain
+  orm.registerUnsavedCollection = function () {
+    unsavedList.push(...arguments);
+  }
+
+  orm.on('commit:handler:postProcess', async commit => {
+    if (unsavedList.includes(commit.collectionName))
+      await orm('Commit').deleteOne({ _id: commit._id })
+  })
 
   orm.on('pre:execChain', -2, function (query) {
     const last = _.last(query.chain);

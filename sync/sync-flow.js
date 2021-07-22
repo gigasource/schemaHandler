@@ -134,5 +134,6 @@ module.exports = function (orm, role) {
     orm.emit('master:transport:sync', commit.id, commit.dbName);
     orm.emit(`commit:handler:finish:${commit.collectionName}`, result, commit);
     orm.emit('commit:handler:finish', commit);
+    await orm.emit('commit:handler:postProcess', commit)
   })
 }

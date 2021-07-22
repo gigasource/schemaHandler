@@ -354,7 +354,10 @@ describe('[Integration] Test all plugins', function () {
 			expect(transportRequireSyncCallback.mock.calls[0][0].length).toEqual(6)
 			const modelsA = await orms[0]('Model').find()
 			const modelsB = await orms[1]('Model').find()
-			expect(modelsB).toEqual(modelsA)
+			for (let i = 0; i < modelsA.length; i++) {
+				delete modelsA[i].ref
+				expect(modelsB[i]).toEqual(modelsA[i])
+			}
 			const reports = await orms[1]('CommitReport').count()
 			expect(reports).toEqual(0)
 			done()

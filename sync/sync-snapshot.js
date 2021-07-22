@@ -133,7 +133,7 @@ module.exports = function (orm) {
 			for (let commit of commits) {
 				if (commit.ref) {
 					const doc = await orm(commit.collectionName).findOne({ _id: commit.ref })
-					cleanDoc(doc)
+					doc && cleanDoc(doc)
 					commit.chain = jsonFn.stringify(orm(commit.collectionName).create(doc).chain)
 				}
 			}
