@@ -345,10 +345,10 @@ describe('[Integration] Test all plugins', function () {
 		}
 		orms[0].on('snapshot-done', async () => {
 			const commitData0 = await orms[0]('CommitData').findOne()
-			expect(commitData0.highestCommitId).toEqual(18)
+			expect(commitData0.highestCommitId).toEqual(19)
 			orms[1].socketConnect(orms[0].ioId)
 			jest.advanceTimersByTime(100) // time to connect
-			await utils[1].waitToSync(18)
+			await utils[1].waitToSync(19)
 			const transportRequireSyncCallback = _.get(orms[1]._events, 'transport:requireSync:callback')
 			expect(transportRequireSyncCallback.mock.calls.length).toEqual(1)
 			expect(transportRequireSyncCallback.mock.calls[0][0].length).toEqual(6)
@@ -402,11 +402,11 @@ describe('[Integration] Test all plugins', function () {
 			jest.advanceTimersByTime(10000)
 			orms[0].emit('master:transport:sync')
 			const commitData0 = await orms[0]('CommitData').findOne()
-			expect(commitData0.highestCommitId).toEqual(15)
+			expect(commitData0.highestCommitId).toEqual(16)
 
-			await utils[1].waitToSync(15)
+			await utils[1].waitToSync(16)
 			const transportRequireSyncCallback = _.get(orms[1]._events, 'transport:requireSync:callback')
-			expect(transportRequireSyncCallback.mock.calls[3][0].length).toEqual(13)
+			expect(transportRequireSyncCallback.mock.calls[3][0].length).toEqual(14)
 			await utils[1].waitEventIsCalled('commit:handler:shouldNotExecCommand:Model', 15)
 			const listPromises = utils[1].getPromisesOfEvent('commit:handler:shouldNotExecCommand:Model')
 			expect(listPromises.length).toEqual(15)
@@ -508,8 +508,8 @@ describe('[Integration] Test all plugins', function () {
 			orms[1].socketConnect(orms[0].ioId)
 			jest.advanceTimersByTime(100) // time to connect
 			await orms[0]('Model').deleteOne({ table: 10 })
-			await utils[1].waitToSync(19)
-			const commitDataA = await orms[1]('CommitData').findOne()
+			await utils[1].waitToSync(20)
+			const commitDataA = await orms[0]('CommitData').findOne()
 			const commitDataB = await orms[1]('CommitData').findOne()
 			expect(commitDataB.syncData.id).toEqual(commitDataA.syncData.id)
 			const models = await orms[1]('Model').count()
@@ -631,6 +631,37 @@ describe('[Integration] Test all plugins', function () {
 				delete modelsA2[i].snapshot
 				expect(modelsC[i]).toEqual(modelsA2[i])
 			}
+			done()
+		})
+		orms[0].startSyncSnapshot()
+	})
+
+	it('[Sync-snapshot] Case 12: highestCommitId in snapshot is from undeleted collection', async (done) => {
+		jest.useFakeTimers()
+		lodashMock()
+		const { orms, utils } = await genOrm(2,
+			['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+				'sync-queue-commit', 'sync-snapshot'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+			util.mockModelAndCreateCommits(0, 'Turbo')
+		})
+		orms.forEach(orm => {
+			orm.setSyncCollection('Model')
+		})
+		orms[0].emit('commit:setSnapshotCache', 10)
+		for (let i = 0; i < 6; i++) {
+			await orms[0]('Model').create({ table: 10 })
+			await orms[0]('Model').updateOne({ table: 10 }, { name: 'Testing' })
+		}
+		await orms[0]('Turbo').create({ test: true })
+		orms[0].on('snapshot-done', async () => {
+			orms[1].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+			const data = await orms[0]('CommitData').findOne()
+			await utils[1].waitToSync(20)
+			const models = await orms[1]('Model').count()
+			expect(models).toEqual(6)
 			done()
 		})
 		orms[0].startSyncSnapshot()

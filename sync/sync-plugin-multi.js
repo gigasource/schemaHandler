@@ -346,7 +346,7 @@ const syncPlugin = function (orm) {
   })
 
   let commitsCache = []
-  let CACHE_THRESHOLD = 1000
+  let CACHE_THRESHOLD = 300
   let USE_CACHE = true
   orm.on('commit:sync:master', async function (clientHighestId, dbName) {
     if (!commitsCache.length) {

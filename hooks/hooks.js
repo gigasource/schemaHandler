@@ -4,6 +4,11 @@ let AwaitLock;
 let Queue;
 
 class Hooks extends EE {
+  constructor() {
+    super();
+    this.queues = {}
+    this.layers = {}
+  }
   getPreHandler(event) {
     this._preEe = this._preEe || new EE();
     return _.get(this._preEe._events, event);
@@ -34,8 +39,6 @@ class Hooks extends EE {
 
     return this.on(event, _listener);
   }
-
-  queues = {}
 
   getQueue(channel) {
     return this.queues[channel];
@@ -84,8 +87,6 @@ class Hooks extends EE {
     }
     return this.on(event, _listener);
   }
-
-  layers = {}
 
   sortLayer(event) {
     const map = this.layers[event] = this.layers[event] || new Map();
