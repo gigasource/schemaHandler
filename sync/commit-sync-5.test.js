@@ -8,7 +8,7 @@ const _ = require('lodash')
 const { ObjectID } = require('bson')
 const md5 = require('md5')
 
-jest.setTimeout(30000)
+jest.setTimeout(300000)
 
 describe("[Module] Test mock orm", function() {
   it("Emit orm", async () => {
@@ -252,7 +252,7 @@ describe('[Integration] Test all plugins', function () {
 		jest.useRealTimers()
 		jest.restoreAllMocks()
 		jest.resetModules()
-		await delay(100)
+		await delay(300)
 		done()
 	})
 
@@ -603,14 +603,14 @@ describe('[Integration] Test all plugins', function () {
 		orms[0].on('snapshot-done', async () => {
 			orms[0].emit('master:transport:sync')
 			const commitData0 = await orms[0]('CommitData').findOne()
-			expect(commitData0.highestCommitId).toEqual(15)
+			expect(commitData0.highestCommitId).toEqual(16)
 			const modelsA = await orms[0]('Model').find()
 			for (let model of modelsA) {
 				expect(model.ref).toBe(true)
 			}
-			await utils[1].waitToSync(15)
-			await orms[0]('Model').updateOne({ table: 0 })
 			await utils[1].waitToSync(16)
+			await orms[0]('Model').updateOne({ table: 0 })
+			await utils[1].waitToSync(17)
 			const commitsA1 = await orms[0]('Commit').find()
 			expect(commitsA1[0].chain).not.toBe(undefined)
 			for (let i = 1; i < 5; i++) {

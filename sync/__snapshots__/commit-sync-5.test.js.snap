@@ -1,0 +1,38 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`[Integration] Test all plugins [Sync-snapshot] Case 2: Client with highest commit id sync with master 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "condition": "null",
+    "data": Object {
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 4,
+    "ref": "ObjectID",
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`[Integration] Test all plugins [Sync-snapshot] Case 2: Client with highest commit id sync with master 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Testing\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+    "collectionName": "Model",
+    "condition": "{\\"table\\":10}",
+    "data": Object {},
+    "fromMaster": true,
+    "id": 2,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;

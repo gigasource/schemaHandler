@@ -64,13 +64,14 @@ module.exports = function (orm) {
       })
     }).off
 
-    clientSocket.on('transport:newCommit', async (commits, needSync, masterHighestId) => {
+    clientSocket.on('transport:newCommit', async (commits, needSync, masterHighestId, cb) => {
+      cb()
       console.log('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
       if (masterHighestId)
         await orm('CommitData').updateOne({}, { masterHighestId })
       await orm('CommitData').updateOne({}, {
         lastTimeSyncWithMaster: new Date()
-      })
+      }, { upsert: true })
       commits.forEach(commit => commit.dbName = dbName)
       await orm.emit('transport:requireSync:callback', commits)
       // clear all queued require sync commands because all "possible" commits is synced
@@ -176,9 +177,11 @@ module.exports = function (orm) {
     let TIMEOUT = 30000 // 30 sec
     socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
       cb()
-      await lockRequireSync.tryAcquire()
-      if (highestIdReceived && clientHighestId <= highestIdReceived)
+      await lockRequireSync.acquireAsync()
+      if (highestIdReceived && clientHighestId <= highestIdReceived) {
+        lockRequireSync.acquired && lockRequireSync.release()
         return
+      }
       let commits = (await orm.emit('transport:require-sync:preProcess', clientHighestId, cb)).value
       if (!commits || !Array.isArray(commits))
         commits = []
