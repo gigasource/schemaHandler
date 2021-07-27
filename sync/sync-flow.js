@@ -55,16 +55,17 @@ module.exports = function (orm, role) {
         await orm.emit(`process:commit:${tag}`, _commit)
       }
     }
-    if (_commit && _commit.chain !== commit.chain) {
-      exec = async () => await orm.execChain(orm.getQuery(_commit))
-    }
+    // if (_commit && _commit.chain !== commit.chain) {
+    //   exec = async () => await orm.execChain(orm.getQuery(_commit))
+    // }
     commit = _commit;
 
     let value
     if (!checkMaster(commit.dbName)) {
       // client
       orm.emit('transport:toMaster', commit)
-      await orm.emit('commit:build-fake', query, target, exec, commit, e => eval(e))
+      commit.fromClient = (await orm.emit('getCommitDataId')).value
+      await orm.emit('commit:build-fake', query, target, commit, e => eval(e))
     } else {
       commit.fromMaster = true;
       const lock = new AwaitLock()
@@ -116,7 +117,7 @@ module.exports = function (orm, role) {
   orm.onQueue('update:Commit:c', 'fake-channel', async function (commit) {
     if (!commit.id) return
     if (!checkMaster(commit.dbName)) {
-      await orm.emit('commit:remove-fake', commit);
+      await orm.emit('commit:update-fake', commit);
     }
     const run = !(await orm.emit(`commit:handler:shouldNotExecCommand:${commit.collectionName}`, commit));
     let result

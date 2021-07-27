@@ -7,6 +7,7 @@ const lodashMock = require('./test-utils/lodashMock')
 const _ = require('lodash')
 const { ObjectID } = require('bson')
 const md5 = require('md5')
+require("mockdate").set(new Date("2021/01/28").getTime());
 
 jest.setTimeout(30000)
 
@@ -246,6 +247,85 @@ describe("[Module] Test transporter", function() {
 		done()
 	})
 });
+
+describe("[Module] Fake doc", function () {
+	beforeEach(() => {
+		jest.useRealTimers()
+		jest.restoreAllMocks()
+		jest.resetModules()
+	})
+
+	it('Case 1: Create fake', async function (done) {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		const createResult = await orm('Model').create({ test: 1 })
+		const models = await orm('Model').find().direct()
+		const modelsFake = await orm('RecoveryModel').find().direct()
+		const modelsFakeWithFind = await orm('Model').find()
+		expect(stringify(createResult)).toMatchSnapshot()
+		expect(stringify(models)).toMatchSnapshot()
+		expect(stringify(modelsFake)).toMatchSnapshot()
+		expect(stringify(modelsFakeWithFind)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 2: Find one and update', async function (done) {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		await orm('Model').create({ test: 1 })
+		const findResult = await orm('Model').findOneAndUpdate({}, { test: 2 })
+		const models = await orm('Model').find().direct()
+		const modelsFake = await orm('RecoveryModel').find().direct()
+		expect(stringify(findResult)).toMatchSnapshot()
+		expect(stringify(models)).toMatchSnapshot()
+		expect(stringify(modelsFake)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 3: Update then find', async function (done) {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		await orm('Model').create({ test: 1 })
+		await orm('Model').updateOne({}, { test: 2 })
+		const findResult = await orm('Model').find()
+		const models = await orm('Model').find().direct()
+		const modelsFake = await orm('RecoveryModel').find().direct()
+		expect(stringify(findResult)).toMatchSnapshot()
+		expect(stringify(models)).toMatchSnapshot()
+		expect(stringify(modelsFake)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 4: Query delete', async function (done) {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		await orm('Model').create({ test: 1 }).direct()
+		await orm('Model').delete({ test: 1 })
+		const findResult = await orm('Model').find()
+		const models = await orm('Model').find().direct()
+		const modelsFake = await orm('RecoveryModel').find().direct()
+		expect(stringify(findResult)).toMatchSnapshot()
+		expect(stringify(models)).toMatchSnapshot()
+		expect(stringify(modelsFake)).toMatchSnapshot()
+		done()
+	})
+})
 
 describe('[Integration] Test all plugins', function () {
 	beforeEach(async (done) => {

@@ -1,0 +1,101 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`[Module] Fake doc Case 1: Create fake 1`] = `
+Object {
+  "_id": "ObjectID",
+  "test": 1,
+}
+`;
+
+exports[`[Module] Fake doc Case 1: Create fake 2`] = `Array []`;
+
+exports[`[Module] Fake doc Case 1: Create fake 3`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 1: Create fake 4`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 2: Find one and update 1`] = `
+Object {
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_id": "ObjectID",
+  "test": 2,
+}
+`;
+
+exports[`[Module] Fake doc Case 2: Find one and update 2`] = `Array []`;
+
+exports[`[Module] Fake doc Case 2: Find one and update 3`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "test": 2,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 3: Update then find 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "test": 2,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 3: Update then find 2`] = `Array []`;
+
+exports[`[Module] Fake doc Case 3: Update then find 3`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "test": 2,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 4: Query delete 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 4: Query delete 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 4: Query delete 3`] = `
+Array [
+  Object {
+    "_deleted": true,
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
