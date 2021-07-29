@@ -150,71 +150,44 @@ const syncPlugin = function (orm) {
   orm.on('initFakeLayer', function () {
     //todo: fake layer
     orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, exec, commit) {
-      if (!commit.chain) return;
+      try {
+        if (!commit.chain) return;
 
-      if (!target.isMutateCmd) {
-        return this.update('value', await exec());
-      }
-      const _uuid = {uuid: commit.uuid};
-      //case findOneAndUpdate upsert ??
-      //case updateMany
-      //case delete || remove
-      //case create many
-      //todo: assign docId, (s)
+        if (!target.isMutateCmd) {
+          return this.update('value', await exec());
+        }
+        const _uuid = { uuid: commit.uuid };
+        //case findOneAndUpdate upsert ??
+        //case updateMany
+        //case delete || remove
+        //case create many
+        //todo: assign docId, (s)
 
-      //todo: One
-      if (!target.condition) {
-        //case create, insert
-        let value = await exec();
-        //add recovery layer:
-        if (Array.isArray(value)) {
-          for (const doc of value) {
-            const _doc = await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}}).direct();
-            value.splice(value.indexOf(doc), 1, _doc);
-            await orm('Recovery').create({collectionName: query.name, ..._uuid, type: 'create', doc: _doc});
+        //todo: One
+        if (!target.condition) {
+          //case create, insert
+          let value = await exec();
+          //add recovery layer:
+          if (Array.isArray(value)) {
+            for (const doc of value) {
+              const _doc = await orm(query.name).updateOne({ _id: doc._id }, { $set: { _fake: true } }).direct();
+              value.splice(value.indexOf(doc), 1, _doc);
+              await orm('Recovery').create({ collectionName: query.name, ..._uuid, type: 'create', doc: _doc });
+            }
+            return this.update('value', value);
+          } else {
+            value = await orm(query.name).updateOne({ _id: value._id }, { $set: { _fake: true } }).direct();
+            await orm('Recovery').create({ collectionName: query.name, ..._uuid, type: 'create', doc: value });
+            return this.update('value', value);
           }
-          return this.update('value', value);
-        } else {
-          value = await orm(query.name).updateOne({_id: value._id}, {$set: {_fake: true}}).direct();
-          await orm('Recovery').create({collectionName: query.name, ..._uuid, type: 'create', doc: value});
-          return this.update('value', value);
-        }
-      } else if (target.returnSingleDocument) {
-        const doc = await orm(query.name).findOne(target.condition);
-        if (doc && !doc._fake) {
-          await orm('Recovery').create({
-            collectionName: query.name,
-            doc,
-            ..._uuid
-          });
-        }/* else {
-          const _recovery = await orm('Recovery').findOne({'doc._id': doc._id});
-          await orm('Recovery').create({
-            collectionName: query.name,
-            doc: _recovery.doc,
-            ..._uuid
-          });
-        }*/
-        let value = await exec();
-        if (!doc) {
-          await orm('Recovery').create({collectionName: query.name, ..._uuid, type: 'create', doc: value})
-        }
-        if (value) {
-          value = await orm(query.name).updateOne({_id: value._id}, {$set: {_fake: true}}).direct();
-        }
-        this.update('value', value);
-      } else {
-        //updateMany
-        const docs = await orm(query.name).find(target.condition);
-        const jobs = []
-        for (const doc of docs) {
-          if (!doc._fake) {
+        } else if (target.returnSingleDocument) {
+          const doc = await orm(query.name).findOne(target.condition);
+          if (doc && !doc._fake) {
             await orm('Recovery').create({
               collectionName: query.name,
               doc,
               ..._uuid
             });
-            jobs.push(async () => await orm(query.name).updateOne({_id: doc._id}, {$set: {_fake: true}}).direct())
           }/* else {
             const _recovery = await orm('Recovery').findOne({'doc._id': doc._id});
             await orm('Recovery').create({
@@ -223,14 +196,43 @@ const syncPlugin = function (orm) {
               ..._uuid
             });
           }*/
+          let value = await exec();
+          if (!doc) {
+            await orm('Recovery').create({ collectionName: query.name, ..._uuid, type: 'create', doc: value })
+          }
+          if (value) {
+            value = await orm(query.name).updateOne({ _id: value._id }, { $set: { _fake: true } }).direct();
+          }
+          this.update('value', value);
+        } else {
+          //updateMany
+          const docs = await orm(query.name).find(target.condition);
+          const jobs = []
+          for (const doc of docs) {
+            if (!doc._fake) {
+              await orm('Recovery').create({
+                collectionName: query.name,
+                doc,
+                ..._uuid
+              });
+              jobs.push(async () => await orm(query.name).updateOne({ _id: doc._id }, { $set: { _fake: true } }).direct())
+            }/* else {
+              const _recovery = await orm('Recovery').findOne({'doc._id': doc._id});
+              await orm('Recovery').create({
+                collectionName: query.name,
+                doc: _recovery.doc,
+                ..._uuid
+              });
+            }*/
+          }
+          let value = await exec();
+          for (const job of jobs) await job();
+          return this.update('value', value);
         }
-        let value = await exec();
-        for (const job of jobs) await job();
-        return this.update('value', value);
-      }
-      //let doc = await orm.execChain(getQuery(commit));
-      //doc = await Model.updateOne({_id: doc._id}, {_fake: true})
-      // console.log('fake : ', doc);
+        //let doc = await orm.execChain(getQuery(commit));
+        //doc = await Model.updateOne({_id: doc._id}, {_fake: true})
+        // console.log('fake : ', doc);
+      } catch (e) {}
     });
 
     orm.on("commit:remove-fake", async function (commit) {
