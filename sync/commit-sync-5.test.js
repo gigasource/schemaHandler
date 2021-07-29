@@ -527,7 +527,7 @@ describe("[Module] Fake doc", function () {
 		findDataOrm1 = await orms[1]('Model').find()
 		expect(stringify(findDataOrm1)).toMatchSnapshot()
 		const commitData = await orms[1]('CommitData').find()
-		expect(commitData).toMatchSnapshot()
+		expect(stringify(commitData)).toMatchSnapshot()
 		done()
 	})
 })

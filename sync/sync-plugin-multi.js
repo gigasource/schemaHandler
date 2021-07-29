@@ -103,10 +103,10 @@ const syncPlugin = function (orm) {
     _query.name = 'Recovery' + _query.name
     _query.uuid = uuid()
     const _result = await orm.execChain(_query)
-    if (Array.isArray(result)) {
+    if (Array.isArray(result.value)) {
       const listIds = {}
-      for (let id in result) {
-        listIds[result[id]._id] = id
+      for (let id in result.value) {
+        listIds[result.value[id]._id] = id
       }
       const deletedDocs = []
       for (let doc of _result) {
@@ -115,23 +115,21 @@ const syncPlugin = function (orm) {
           continue
         }
         if (listIds[doc._id]) {
-          Object.assign(result[listIds[doc._id]], doc)
+          Object.assign(result.value[listIds[doc._id]], doc)
         } else {
-          result.push(doc)
+          result.value.push(doc)
         }
       }
-      _.remove(result, doc => {
+      _.remove(result.value, doc => {
         return deletedDocs.includes(doc._id.toString())
       })
     } else {
       if (_result) {
         if (_result._deleted) {
-          Object.keys(result).forEach(key => {
-            delete result[key]
-          })
+          Object.assign(result, { value: null })
           return
         }
-        Object.assign(result, _result)
+        Object.assign(result.value, _result)
       }
     }
   }

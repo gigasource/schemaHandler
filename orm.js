@@ -335,15 +335,16 @@ function createCollectionQuery(query) {
 
               }
               const r = await orm.emit(`proxyPreReturnValue:${query.uuid}`, result, target, exec);
-              await orm.emit(`proxyMutateResult:${query.uuid}`, query, r.value)
+              await orm.emit(`proxyMutateResult:${query.uuid}`, query, r)
               return resolve(r.value);
             }
             if (process.env.NODE_ENV === 'test'){
               orm.emit('beforeReturnValue', query, target);
             }
             const returnValue = await orm.resultPostProcess(result, target);
-            await orm.emit(`proxyMutateResult:${query.uuid}`, query, returnValue)
-            resolve(returnValue);
+            const wrapperReturnValue = { value: returnValue }
+            await orm.emit(`proxyMutateResult:${query.uuid}`, query, wrapperReturnValue)
+            resolve(wrapperReturnValue.value);
           } catch (e) {
             reject(error([e0, e]));
           }
