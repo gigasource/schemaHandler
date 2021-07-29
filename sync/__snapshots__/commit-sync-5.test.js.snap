@@ -1,5 +1,38 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`[Integration] Test all plugins [Sync-snapshot] Case 2: Client with highest commit id sync with master 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "approved": false,
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "condition": "null",
+    "data": Object {
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "fromMaster": true,
+    "id": 4,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`[Integration] Test all plugins [Sync-snapshot] Case 2: Client with highest commit id sync with master 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "DummyCollection",
+    "id": 3,
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
 exports[`[Module] Fake doc Case 1: Create fake 1`] = `
 Object {
   "_id": "ObjectID",
@@ -49,6 +82,35 @@ Array [
 ]
 `;
 
+exports[`[Module] Fake doc Case 2-a: Find one and update 1`] = `
+Object {
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_id": "ObjectID",
+  "fakeId": 1,
+  "test": 2,
+}
+`;
+
+exports[`[Module] Fake doc Case 2-a: Find one and update 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 2-a: Find one and update 3`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "fakeId": 1,
+    "test": 2,
+  },
+]
+`;
+
 exports[`[Module] Fake doc Case 3: Update then find 1`] = `
 Array [
   Object {
@@ -71,14 +133,7 @@ Array [
 ]
 `;
 
-exports[`[Module] Fake doc Case 4: Query delete 1`] = `
-Array [
-  Object {
-    "_id": "ObjectID",
-    "test": 1,
-  },
-]
-`;
+exports[`[Module] Fake doc Case 4: Query delete 1`] = `Array []`;
 
 exports[`[Module] Fake doc Case 4: Query delete 2`] = `
 Array [
@@ -95,7 +150,217 @@ Array [
     "_deleted": true,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_id": "ObjectID",
+    "fakeId": 1,
     "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 5: Handle remove fake 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 5: Handle remove fake 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 5: Handle remove fake 3`] = `Array []`;
+
+exports[`[Module] Fake doc Case 7: Case delete and then master update 1`] = `Object {}`;
+
+exports[`[Module] Fake doc Case 7: Case delete and then master update 2`] = `
+Object {
+  "_id": "ObjectID",
+  "test": 2,
+}
+`;
+
+exports[`[Module] Fake doc Case 7: Case delete and then master update 3`] = `Object {}`;
+
+exports[`[Module] Fake doc Case 8: Create and do a query update 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "fakeId": 1,
+    "test": 2,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 8: Create and do a query update 2`] = `Array []`;
+
+exports[`[Module] Fake doc Case 8: Create and do a query update 3`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "fakeId": 1,
+    "test": 2,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 9: Reapply query after remove fake 1`] = `
+Object {
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_id": "ObjectID",
+  "arr": Array [
+    Object {
+      "test": 1,
+    },
+  ],
+  "fakeId": 1,
+  "test": 2,
+}
+`;
+
+exports[`[Module] Fake doc Case 9: Reapply query after remove fake 2`] = `
+Object {
+  "_id": "ObjectID",
+  "arr": Array [
+    Object {
+      "test": 1,
+    },
+    Object {
+      "test": 2,
+    },
+  ],
+}
+`;
+
+exports[`[Module] Fake doc Case 9: Reapply query after remove fake 3`] = `
+Object {
+  "_id": "ObjectID",
+  "arr": Array [
+    Object {
+      "test": 1,
+    },
+    Object {
+      "test": 2,
+    },
+  ],
+}
+`;
+
+exports[`[Module] Fake doc Case 9: Reapply query after remove fake 4`] = `
+Object {
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_id": "ObjectID",
+  "arr": Array [
+    Object {
+      "test": 1,
+    },
+    Object {
+      "test": 2,
+    },
+  ],
+  "fakeId": 2,
+  "test": 2,
+}
+`;
+
+exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "arr": Array [
+      Object {
+        "test": 1,
+      },
+    ],
+    "fakeId": 1,
+    "test": 2,
+  },
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "fakeId": 2,
+    "secondDoc": true,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 2`] = `
+Object {
+  "_id": "ObjectID",
+  "arr": Array [
+    Object {
+      "test": 1,
+    },
+    Object {
+      "test": 2,
+    },
+  ],
+}
+`;
+
+exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 3`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "arr": Array [
+      Object {
+        "test": 1,
+      },
+      Object {
+        "test": 2,
+      },
+    ],
+  },
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "fakeId": 2,
+    "secondDoc": true,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 4`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "arr": Array [
+      Object {
+        "test": 1,
+      },
+      Object {
+        "test": 2,
+      },
+    ],
+    "fakeId": 3,
+    "test": 2,
+  },
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_id": "ObjectID",
+    "fakeId": 2,
+    "secondDoc": true,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 5`] = `
+Array [
+  Object {
+    "_id": "60119c1001f2523d6547b06a",
+    "fakeId": 4,
+    "highestCommitId": 3,
+    "lastTimeSyncWithMaster": 2021-01-27T17:00:00.000Z,
+    "masterHighestId": 3,
   },
 ]
 `;
