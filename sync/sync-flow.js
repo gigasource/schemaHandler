@@ -42,6 +42,7 @@ module.exports = function (orm, role) {
   orm.isMaster = checkMaster
 
   // customize
+  let fakeId = null
   orm.onQueue('commit:flow:execCommit', async function (query, target, exec, commit) {
     if (orm.mode === 'multi' && !commit.dbName) {
       console.warn('commit.dbName is undefined')
@@ -63,8 +64,15 @@ module.exports = function (orm, role) {
     let value
     if (!checkMaster(commit.dbName)) {
       // client
+      if (!fakeId) {
+        const commitData = await orm('CommitData').findOne()
+        fakeId = commitData && commitData.fakeId ? commitData.fakeId : 1
+      }
       orm.emit('transport:toMaster', commit)
       commit.fromClient = (await orm.emit('getCommitDataId')).value
+      commit.fakeId = fakeId
+      fakeId += 1
+      await orm('CommitData').updateOne({}, { fakeId })
       await orm.emit('commit:build-fake', query, target, commit, e => eval(e))
     } else {
       commit.fromMaster = true;

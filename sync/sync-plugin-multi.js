@@ -89,7 +89,7 @@ const syncPlugin = function (orm) {
         if (mutateCmd) {
           query.chain.push({fn: 'commit', args: []})
         }
-        if (findCmd) {
+        if (findCmd && !orm.isMaster()) {
           orm.once(`proxyMutateResult:${query.uuid}`, async function (_query, result) {
             await orm.handleFindQuery(_query, result)
           })
@@ -111,7 +111,7 @@ const syncPlugin = function (orm) {
       const deletedDocs = []
       for (let doc of _result) {
         if (doc._deleted) {
-          deletedDocs.push(doc._id)
+          deletedDocs.push(doc._id.toString())
           continue
         }
         if (listIds[doc._id]) {
@@ -121,11 +121,18 @@ const syncPlugin = function (orm) {
         }
       }
       _.remove(result, doc => {
-        return deletedDocs.includes(doc._id)
+        return deletedDocs.includes(doc._id.toString())
       })
     } else {
-      if (_result)
+      if (_result) {
+        if (_result._deleted) {
+          Object.keys(result).forEach(key => {
+            delete result[key]
+          })
+          return
+        }
         Object.assign(result, _result)
+      }
     }
   }
 
@@ -156,7 +163,7 @@ const syncPlugin = function (orm) {
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
         commit._id = new ObjectID()
-        commit.condition = jsonFn.stringify(target.condition);
+        commit.condition = target.condition ? jsonFn.stringify(target.condition) : null;
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
         commit.chain = jsonFn.stringify(_query.chain);
@@ -189,11 +196,12 @@ const syncPlugin = function (orm) {
       const exec = async () => await orm.execChain(_query)
       const currentDate = new Date()
       if (target.condition) {
-        const docs = await orm(commit.collectionName).find(target.condition)
+        const docs = await orm(commit.collectionName).find(target.condition).direct()
         for (let doc of docs) {
           const _doc = await orm(fakeCollectionName).findOne({ _id: doc._id })
           if (!_doc) {
             doc._fakeDate = currentDate
+            doc.fakeId = commit.fakeId
             if (isDeleteCmd) doc._deleted = true
             await orm(fakeCollectionName).create(doc)
           } else {
@@ -215,10 +223,10 @@ const syncPlugin = function (orm) {
         const result = await exec()
         if (Array.isArray(result)) {
           for (let doc of result) {
-            await orm(fakeCollectionName).updateOne({ _id: doc._id }, { _fakeDate: currentDate })
+            await orm(fakeCollectionName).updateOne({ _id: doc._id }, { _fakeDate: currentDate, fakeId: commit.fakeId })
           }
         } else {
-          await orm(fakeCollectionName).updateOne({ _id: result._id }, { _fakeDate: currentDate })
+          await orm(fakeCollectionName).updateOne({ _id: result._id }, { _fakeDate: currentDate, fakeId: commit.fakeId })
         }
         try {
           this.update('value', result)
@@ -229,28 +237,48 @@ const syncPlugin = function (orm) {
       }
     });
 
+    const mustRecoverOperation = ['$push', '$pull', '$set', '$unset']
     orm.on("commit:update-fake", async function (commit) {
-      //if (orm.name !== 'A') return;
-      const { value: commitDataId } = await orm.emit('getCommitDataId')
-      if (commitDataId.toString() === commit.fromClient.toString()) return
-      if (!commit.condition) return
-      const query = orm.getQuery(commit)
-      let _parseCondition = commit.condition ? jsonFn.parse(commit.condition) : {}
-      const fakeCollectionName = 'Recovery' + commit.collectionName
-      query.name = fakeCollectionName
-      if (commit.dbName) query.name += `@${commit.dbName}`
-      let result = null
       try {
-        result = await orm.execChain(query)
-      } catch (e) {
-        await removeFakeOfCollection(commit.collectionName, _parseCondition)
-      }
-      this.value = result
+        const { value: commitDataId } = await orm.emit('getCommitDataId')
+        const query = orm.getQuery(commit)
+        if ((!commit.condition || commit.condition === 'null') && !(query.chain && query.chain[0].fn.includes('delete'))) return
+        let _parseCondition = commit.condition ? jsonFn.parse(commit.condition) : {}
+        let hasMustRecoverOp = false
+        for (let op of mustRecoverOperation) {
+          if (commit.chain && commit.chain.includes(op)) {
+            hasMustRecoverOp = true
+            break
+          }
+        }
+        if (commit.fromClient && commitDataId.toString() === commit.fromClient.toString()) {
+          if (hasMustRecoverOp) {
+            _parseCondition.fakeId = { $gt: commit.fakeId }
+          }
+          query.chain[0].args[0].fakeId = { $gt: commit.fakeId }
+        }
+        if (hasMustRecoverOp) {
+          await removeFakeOfCollection(commit.collectionName, _parseCondition)
+          return
+        }
+        const fakeCollectionName = 'Recovery' + commit.collectionName
+        query.name = fakeCollectionName
+        if (commit.dbName) query.name += `@${commit.dbName}`
+        let result = null
+        try {
+          result = await orm.execChain(query)
+        } catch (e) {
+          await removeFakeOfCollection(commit.collectionName, _parseCondition)
+        }
+        this.value = result
+      } catch (e) {}
     });
 
     async function removeFakeOfCollection(col, condition) {
       await orm('Recovery' + col).deleteMany(condition)
     }
+
+    orm.removeFakeOfCollection = removeFakeOfCollection
 
     const removeFakeInterval = setInterval(async function () {
       if (orm.isMaster()) {
