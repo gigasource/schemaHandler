@@ -76,7 +76,12 @@ describe("commit-sync", function() {
 
     for (const orm of orms) {
       orm.registerSchema("Model", {
-        items: [{}]
+        table: Number,
+        items: [
+          {
+            quantity: Number
+          }
+        ]
       });
       orm.registerCommitBaseCollection("Model");
       orm.on(`commit:auto-assign:Model`, (commit, _query, target) => {
@@ -518,4 +523,61 @@ describe("commit-sync", function() {
       }
     `);
   });
+
+  it("test replaceOne", async function() {
+    const raw1 = await ormA("Model").create({ table: 10, _id: id() });
+    await ormA("Model").replaceOne({ table: "10" }, { table: "11", _id: id() });
+
+    const result = await ormA("Model").find();
+    expect(stringify(result)).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "items": Array [],
+          "table": 11,
+        },
+      ]
+    `);
+  });
+
+  it("test bulk write", async function() {
+    const filter1 = { "f0._id": id() };
+    const update = { $set: { "items.$[f0].quantity": "100" } };
+
+    await ormA("Model").bulkWrite([
+      {
+        insertOne: {
+          document: {
+            table: 10,
+            items: [{ name: "A", id: 0, _id: id() }]
+          }
+        }
+      },
+      {
+        updateOne: {
+          filter: { table: 10 },
+          update,
+          arrayFilters: [filter1]
+        }
+      }
+    ]);
+
+    const result = await ormA("Model").find();
+    expect(stringify(result)).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "items": Array [
+            Object {
+              "_id": "ObjectID",
+              "id": 0,
+              "name": "A",
+              "quantity": 100,
+            },
+          ],
+          "table": 10,
+        },
+      ]
+    `);
+  }, 80000);
 });
