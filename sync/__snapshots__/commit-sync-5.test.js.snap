@@ -434,3 +434,50 @@ Array [
   },
 ]
 `;
+
+exports[`[Module] Test bulk write Case 1: Test bulk write with client 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "items": Array [
+      Object {
+        "_id": "ObjectID",
+        "id": 0,
+        "name": "A",
+        "quantity": "100",
+      },
+    ],
+    "table": 10,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 2: Test bulk write 2 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "arr": Array [
+      Object {
+        "test": 1,
+      },
+    ],
+    "items": Array [
+      Object {
+        "_id": "ObjectID",
+        "arr": Array [],
+        "id": 0,
+        "name": "A",
+      },
+    ],
+    "table": 10,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 2: Test bulk write 3 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+  },
+]
+`;

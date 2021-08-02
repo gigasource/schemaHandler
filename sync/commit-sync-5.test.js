@@ -9,7 +9,7 @@ const { ObjectID } = require('bson')
 const md5 = require('md5')
 require("mockdate").set(new Date("2021/01/28").getTime());
 
-jest.setTimeout(30000)
+jest.setTimeout(300000)
 
 describe("[Module] Test mock orm", function() {
   it("Emit orm", async () => {
@@ -529,6 +529,262 @@ describe("[Module] Fake doc", function () {
 		const commitData = await orms[1]('CommitData').find()
 		expect(stringify(commitData)).toMatchSnapshot()
 		done()
+	})
+})
+
+describe("[Module] Test bulk write", function () {
+	beforeEach(() => {
+		jest.useRealTimers()
+		jest.restoreAllMocks()
+		jest.resetModules()
+	})
+
+	it("Case 1: Test bulk write with client", async function () {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		let id = () => "5fb7f13453d00d8aace1d89b";
+		const filter1 = { "f0._id": id() };
+		const update = { $set: { "items.$[f0].quantity": "100" } };
+		await orm('Model').bulkWrite([
+			{
+				insertOne: {
+					document: {
+						table: 10,
+						items: [{ name: "A", id: 0, _id: id() }]
+					}
+				}
+			},
+			{
+				updateOne: {
+					filter: { table: 10 },
+					update,
+					arrayFilters: [filter1]
+				}
+			}
+		])
+		const result = await orm("Model").find();
+		expect(stringify(result)).toMatchSnapshot()
+	})
+
+	it("Case 2: Test bulk write 2", async function () {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		let id = () => "5fb7f13453d00d8aace1d89b";
+		const update = { $push: { arr: { test: 1 } } };
+		await orm('Model').bulkWrite([
+			{
+				insertOne: {
+					document: {
+						table: 10,
+						items: [{ name: "A", id: 0, _id: id(), arr: [] }]
+					}
+				}
+			},
+			{
+				updateOne: {
+					filter: { table: 10 },
+					update
+				}
+			}
+		])
+		const result = await orm("Model").find();
+		expect(stringify(result)).toMatchSnapshot()
+	})
+
+	it("Case 2: Test bulk write 3", async function (done) {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		let id = () => "5fb7f13453d00d8aace1d89b";
+		const update = { $push: { arr: { test: 1 } } };
+		try {
+			await orm('Model').bulkWrite([
+				{
+					insertOne: {
+						document: {
+							_id: id()
+						}
+					}
+				},
+				{
+					insertOne: {
+						document: {
+							test: 1
+						}
+					}
+				},
+				{
+					insertOne: {
+						document: {
+							_id: id()
+						}
+					}
+				},
+				{
+					insertOne: {
+						document: {
+							test: 1
+						}
+					}
+				}
+			])
+		} catch (e) {
+			const result = await orm("Model").find();
+			expect(stringify(result)).toMatchSnapshot()
+			done()
+		}
+	})
+
+	it("Case 3: Bulk write with master", async function (done) {
+		let findDataOrm1
+		let findDataOrm0
+
+		jest.useFakeTimers()
+		lodashMock()
+		const { orms, utils } = await genOrm(2,
+			['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+				'sync-queue-commit'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+		})
+		orms[1].emit('commit:setBulkWriteThreshold', 0)
+		let id = () => "5fb7f13453d00d8aace1d89b";
+		orms[1].socketConnect(orms[0].ioId)
+		jest.advanceTimersByTime(100)
+		utils[1].setLockEvent('master:transport:sync', true)
+		for (let i = 0; i < 2; i++) {
+			await orms[0]('Model').create({ test: 1 })
+		}
+		await orms[0]('Model').create({ _id: id(), test: 1 })
+		await orms[1]('Model').create({ _id: id(), test: 2 })
+		await orms[0]('Model').create({ test: 3 })
+		utils[1].setLockEvent('master:transport:sync', false)
+		await orms[0].emit('master:transport:sync')
+		await utils[1].waitToSync(5)
+		findDataOrm1 = await orms[1]('Model').find()
+		findDataOrm0 = await orms[0]('Model').find()
+		expect(findDataOrm1).toEqual(findDataOrm0)
+		const commitData = await orms[1]('CommitData').findOne()
+		expect(commitData.highestCommitId).toEqual(5)
+		done()
+	})
+
+	it("Case 4: Test findOneAndUpdate", async function (done) {
+		let findDataOrm1
+		let findDataOrm0
+
+		jest.useFakeTimers()
+		lodashMock()
+		const { orms, utils } = await genOrm(2,
+			['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+				'sync-queue-commit'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+		})
+		orms[1].emit('commit:setBulkWriteThreshold', 0)
+		orms[1].socketConnect(orms[0].ioId)
+		jest.advanceTimersByTime(100)
+		for (let i = 0; i < 2; i++) {
+			await orms[0]('Model').create({ test: 1 })
+		}
+		await orms[0]('Model').create({ test: 1 })
+		await orms[0]('Model').findOneAndUpdate({ test: 1 }, { test: 2 })
+		await orms[0]('Model').create({ test: 3 })
+		await utils[1].waitToSync(5)
+		findDataOrm1 = await orms[1]('Model').find()
+		findDataOrm0 = await orms[0]('Model').find()
+		expect(findDataOrm1).toEqual(findDataOrm0)
+		done()
+	})
+
+	it("Case 5: Bulk write with snapshot", async function (done) {
+		let findDataOrm1
+		let findDataOrm0
+
+		jest.useFakeTimers()
+		lodashMock()
+		const { orms, utils } = await genOrm(2,
+			['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+				'sync-queue-commit',  'sync-snapshot'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+		})
+		orms.forEach(orm => {
+			orm.setSyncCollection('Model')
+		})
+		orms[1].socketConnect(orms[0].ioId)
+		jest.advanceTimersByTime(100) // time to connect
+		// create a query
+		orms[0].emit('commit:setSnapshotCache', 10)
+		await orms[0]('Model').create({ table: 10 })
+		await orms[0]('Model').updateOne({ table: 10 }, { name: 'Testing' })
+		await utils[1].waitToSync(2)
+		orms[1].socket.isFakeDisconnect = true
+		for (let i = 0; i < 4; i++) {
+			await orms[0]('Model').create({ table: i })
+		}
+		orms[0].on('snapshot-done', async () => {
+			orms[1].socket.isFakeDisconnect = false
+			jest.advanceTimersByTime(10000)
+			orms[0].emit('master:transport:sync', 12)
+			const commitData0 = await orms[0]('CommitData').findOne()
+			expect(commitData0.highestCommitId).toEqual(12) // 1 dummy commit
+			await utils[1].waitToSync(12)
+			findDataOrm1 = await orms[1]('Model').find()
+			findDataOrm0 = await orms[0]('Model').find()
+			expect(findDataOrm0).toEqual(findDataOrm1)
+			done()
+		})
+		orms[0].startSyncSnapshot().then(r => r)
+	})
+
+	it("Case 6: Bulk write with snapshot (need resync)", async function (done) {
+		let findDataOrm1
+		let findDataOrm0
+
+		jest.useFakeTimers()
+		lodashMock()
+		const { orms, utils } = await genOrm(2,
+			['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+				'sync-queue-commit',  'sync-snapshot'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+		})
+		orms.forEach(orm => {
+			orm.setSyncCollection('Model')
+		})
+		orms[1].socketConnect(orms[0].ioId)
+		jest.advanceTimersByTime(100) // time to connect
+		// create a query
+		orms[0].emit('commit:setSnapshotCache', 10)
+		for (let i = 0; i < 6; i++) {
+			await orms[0]('Model').create({ table: 10 })
+			await orms[0]('Model').updateOne({ table: 10 }, { name: 'Testing' })
+		}
+		orms[0].on('snapshot-done', async () => {
+			orms[1].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+			orms[0].emit('master:transport:sync', 19) // expect highest id is 19
+			const commitData0 = await orms[0]('CommitData').findOne()
+			expect(commitData0.highestCommitId).toEqual(19) // 1 dummy commit
+			await utils[1].waitToSync(19)
+			findDataOrm1 = await orms[1]('Model').find()
+			findDataOrm0 = await orms[0]('Model').find()
+			expect(findDataOrm0).toEqual(findDataOrm1)
+			done()
+		})
+		orms[0].startSyncSnapshot().then(r => r)
 	})
 })
 

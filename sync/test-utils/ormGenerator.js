@@ -246,6 +246,11 @@ async function ormGenerator(plugins, options) {
 		highestId = Math.max(highestId, result.highestCommitId)
 		ormHook.emit('newCommit')
 	})
+	orm.on('commit:handler:finish:bulk', (keys, lastId) => {
+		if (isNaN(lastId)) return
+		highestId = Math.max(highestId, lastId)
+		ormHook.emit('newCommit')
+	})
 	async function waitToSync(highestCommitId) {
 		await new Promise(async (resolve) => {
 			if (highestId >= highestCommitId)
