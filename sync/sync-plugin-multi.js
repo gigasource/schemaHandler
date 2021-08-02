@@ -125,6 +125,8 @@ const syncPlugin = function (orm) {
       })
     } else {
       if (_result) {
+        if (!result.value)
+          result.value = {}
         if (_result._deleted) {
           Object.assign(result, { value: null })
           return
