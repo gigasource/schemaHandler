@@ -373,13 +373,13 @@ const syncPlugin = function (orm) {
       case 'deleteOne':
         return {
           deleteOne: {
-            filter: chain[0].args.length ? chain[0].args.length : {}
+            filter: chain[0].args.length ? chain[0].args[0] : {}
           }
         }
       case 'deleteMany':
         return {
           deleteMany: {
-            filter: chain[0].args.length ? chain[0].args.length : {}
+            filter: chain[0].args.length ? chain[0].args[0] : {}
           }
         }
       case 'insertOne':
