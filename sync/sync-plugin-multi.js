@@ -4,12 +4,43 @@ const uuid = require('uuid').v1;
 const jsonFn = require('json-fn');
 const dayjs = require('dayjs')
 const {ObjectID} = require('bson')
+const bulkUtils = require('./sync-bulk-utils')
 
 const syncPlugin = function (orm) {
   const whitelist = []
+  let highestCommitIdOfCollection = null
 
-  orm.registerCommitBaseCollection = function () {
+  orm.handleFindQuery = handleFindQuery
+  orm.setHighestCommitIdOfCollection = setHighestCommitIdOfCollection
+  orm.registerCommitBaseCollection = registerCommitBaseCollection
+
+  bulkUtils(orm)
+
+  function setHighestCommitIdOfCollection(col, val) {
+    highestCommitIdOfCollection[col] = val
+  }
+
+  function registerCommitBaseCollection () {
     whitelist.push(...arguments);
+    // register for bulk write (only work for client)
+    for (let col of whitelist) {
+      orm.on(`commit:handler:shouldNotExecCommand:${col}`, 99999, async function (commit) { // this hook is always the last to be called
+        if (orm.isMaster()) {
+          this._value = false
+          return
+        }
+        if (!highestCommitIdOfCollection) {
+          const commitData = await orm('CommitData').findOne()
+          highestCommitIdOfCollection =
+            commitData && commitData.highestCommitIdOfCollection ? commitData.highestCommitIdOfCollection : {}
+        }
+        if (highestCommitIdOfCollection[col] && commit.id <= highestCommitIdOfCollection[col])
+          this.setValue(true)
+        else
+        if (!this._value)
+          this._value = false
+      })
+    }
   }
 
   orm.on('pre:execChain', -2, function (query) {
@@ -68,7 +99,7 @@ const syncPlugin = function (orm) {
       this.stop();
     } else {
       if (whitelist.includes(query.name) && !query.chain.find(c => c.fn === 'commit')) {
-        const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete']
+        const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete', 'bulkWrite']
         const findCmds = ['find', 'aggregate']
         let mutateCmd = false;
         let findCmd = false;
@@ -98,7 +129,7 @@ const syncPlugin = function (orm) {
     }
   })
 
-  orm.handleFindQuery = async function (query, result) {
+  async function handleFindQuery(query, result) {
     const _query = _.cloneDeep(query)
     _query.name = 'Recovery' + _query.name
     _query.uuid = uuid()
@@ -201,7 +232,7 @@ const syncPlugin = function (orm) {
           const _doc = await orm(fakeCollectionName).findOne({ _id: doc._id })
           if (!_doc) {
             doc._fakeDate = currentDate
-            doc.fakeId = commit.fakeId
+            doc._fakeId = commit._fakeId
             if (isDeleteCmd) doc._deleted = true
             await orm(fakeCollectionName).create(doc)
           } else {
@@ -220,17 +251,22 @@ const syncPlugin = function (orm) {
           await orm.emit('commit:report:errorExec', null, e.message, true)
         }
       } else {
-        const result = await exec()
-        if (Array.isArray(result)) {
-          for (let doc of result) {
-            await orm(fakeCollectionName).updateOne({ _id: doc._id }, { _fakeDate: currentDate, fakeId: commit.fakeId })
-          }
-        } else {
-          await orm(fakeCollectionName).updateOne({ _id: result._id }, { _fakeDate: currentDate, fakeId: commit.fakeId })
-        }
         try {
+          const result = await exec()
+          if (Array.isArray(result)) {
+            for (let doc of result) {
+              await orm(fakeCollectionName).updateOne({ _id: doc._id }, { _fakeDate: currentDate, _fakeId: commit._fakeId })
+            }
+          } else {
+            await orm(fakeCollectionName).updateOne({ _id: result._id }, { _fakeDate: currentDate, _fakeId: commit._fakeId })
+          }
+          if (target.cmd === 'bulkWrite')
+            await orm.handleFakeBulkWrite(commit.collectionName, commit._fakeId)
           this.update('value', result)
         } catch (e) {
+          if (target.cmd === 'bulkWrite')
+            await orm.handleFakeBulkWrite(commit.collectionName, commit._fakeId)
+          this.update('value', null)
           await orm.emit('commit:report:errorExec', null, e.message, true)
         }
 
@@ -253,9 +289,9 @@ const syncPlugin = function (orm) {
         }
         if (commit.fromClient && commitDataId.toString() === commit.fromClient.toString()) {
           if (hasMustRecoverOp) {
-            _parseCondition.fakeId = { $gt: commit.fakeId }
+            _parseCondition._fakeId = { $gt: commit._fakeId }
           }
-          query.chain[0].args[0].fakeId = { $gt: commit.fakeId }
+          query.chain[0].args[0]._fakeId = { $gt: commit._fakeId }
         }
         if (hasMustRecoverOp) {
           await removeFakeOfCollection(commit.collectionName, _parseCondition)
@@ -317,140 +353,15 @@ const syncPlugin = function (orm) {
     this.value = highestCommitId;
   })
 
-  //should transparent
   let COMMIT_BULK_WRITE_THRESHOLD = 100
-
   orm.on('commit:setBulkWriteThreshold', threshold => {
     COMMIT_BULK_WRITE_THRESHOLD = threshold
   })
 
-
-  const supportedQuery = ['updateOne', 'insertOne', 'updateMany', 'deleteOne', 'deleteMany', 'replaceOne']
-  const convertedQuery = {
-    'findOneAndUpdate': 'updateOne'
-  }
-  function convertChain(chain) {
-    switch (chain[0].fn) {
-      case 'updateOne':
-        if (chain[0].args.length < 2) return null
-        return {
-          updateOne: {
-            filter: chain[0].args[0],
-            update: chain[0].args[1],
-            ...chain[0].args.length >= 3 && chain[0].args[2].upsert && {
-              upsert: true
-            },
-            ...chain[0].args.length >= 3 && chain[0].args[2].arrayFilters && {
-              arrayFilters: chain[0].args[2].arrayFilters
-            },
-          }
-        }
-      case 'updateMany':
-        if (chain[0].args.length < 2) return null
-        return {
-          updateMany: {
-            filter: chain[0].args[0],
-            update: chain[0].args[1],
-            ...chain[0].args.length >= 3 && chain[0].args[2].upsert && {
-              upsert: true
-            },
-            ...chain[0].args.length >= 3 && chain[0].args[2].arrayFilters && {
-              arrayFilters: chain[0].args[2].arrayFilters
-            },
-          }
-        }
-      case 'replaceOne':
-        if (chain[0].args.length < 2) return null
-        return {
-          replaceOne: {
-            filter: chain[0].args[0],
-            replacement: chain[0].args[1],
-            ...chain[0].args.length >= 3 && chain[0].args[2].upsert && {
-              upsert: true
-            },
-          }
-        }
-      case 'deleteOne':
-        return {
-          deleteOne: {
-            filter: chain[0].args.length ? chain[0].args[0] : {}
-          }
-        }
-      case 'deleteMany':
-        return {
-          deleteMany: {
-            filter: chain[0].args.length ? chain[0].args[0] : {}
-          }
-        }
-      case 'insertOne':
-        if (chain[0].args.length < 1) return null
-        return {
-          insertOne: {
-            document: chain[0].args[0]
-          }
-        }
-    }
-  }
-
-  async function doBulkQuery(col, bulkOp) {
-    await orm.removeFakeOfCollection(col, {})
-    while (true) {
-      try {
-        if (!bulkOp.length) return
-        await orm(col).bulkWrite(bulkOp)
-        return
-      } catch (e) {
-        if (e.errors && e.errors.length >= 2 && e.errors[1].name === 'BulkWriteError'
-            && e.errors[1].writeErrors.length && e.errors[1].writeErrors[0].err && e.errors[1].writeErrors[0].err.index !== undefined) {
-          bulkOp = bulkOp.slice(e.errors[1].writeErrors[0].err.index + 1)
-        } else {
-          console.error('Wrong thing happened in bulk write')
-        }
-      }
-    }
-  }
-
-  async function doCreateBulk(commits) {
-    const bulkOp = {}
-    for (const commit of commits) {
-      const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName)
-      if (commit.id <= highestId) continue
-      const _query = orm.getQuery(commit)
-      if (!_query.chain.length) continue
-      if (supportedQuery.includes(_query.chain[0].fn) || convertedQuery[_query.chain[0].fn]) {
-        if (convertedQuery[_query.chain[0].fn])
-          _query.chain[0].fn = convertedQuery[_query.chain[0].fn]
-        const convertedChain = convertChain(_query.chain)
-        if (convertedChain) {
-          const run = !(await orm.emit(`commit:handler:shouldNotExecCommand:${commit.collectionName}`, commit));
-          if (!run) continue
-          if (!bulkOp[commit.collectionName]) bulkOp[commit.collectionName] = []
-          bulkOp[commit.collectionName].push(convertedChain)
-        }
-      } else {
-        if (bulkOp[commit.collectionName] && bulkOp[commit.collectionName].length) {
-          await doBulkQuery(commit.collectionName, bulkOp[commit.collectionName])
-          bulkOp[commit.collectionName] = []
-        }
-        await orm.emit('createCommit', commit)
-      }
-    }
-    const keys = Object.keys(bulkOp)
-    for (let key of keys) {
-      if (bulkOp[key].length) {
-        await doBulkQuery(key, bulkOp[key])
-      }
-    }
-    await orm('CommitData').updateOne({}, {
-      highestCommitId:  _.last(commits).id
-    })
-    orm.emit('commit:handler:finish:bulk', keys, _.last(commits).id)
-  }
-
   orm.onQueue('transport:requireSync:callback', async function (commits) {
     if (!commits || !commits.length) return
     if (commits.length > COMMIT_BULK_WRITE_THRESHOLD) {
-      await doCreateBulk(commits)
+      await orm.doCreateBulk(commits)
     } else {
       try {
         for (const commit of commits) {

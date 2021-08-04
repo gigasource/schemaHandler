@@ -56,9 +56,6 @@ module.exports = function (orm, role) {
         await orm.emit(`process:commit:${tag}`, _commit)
       }
     }
-    // if (_commit && _commit.chain !== commit.chain) {
-    //   exec = async () => await orm.execChain(orm.getQuery(_commit))
-    // }
     commit = _commit;
 
     let value
@@ -66,11 +63,11 @@ module.exports = function (orm, role) {
       // client
       if (!fakeId) {
         const commitData = await orm('CommitData').findOne()
-        fakeId = commitData && commitData.fakeId ? commitData.fakeId : 1
+        fakeId = commitData && commitData._fakeId ? commitData._fakeId : 1
       }
       orm.emit('transport:toMaster', commit)
       commit.fromClient = (await orm.emit('getCommitDataId')).value
-      commit.fakeId = fakeId
+      commit._fakeId = fakeId
       fakeId += 1
       await orm('CommitData').updateOne({}, { fakeId })
       await orm.emit('commit:build-fake', query, target, commit, e => eval(e))
@@ -85,7 +82,6 @@ module.exports = function (orm, role) {
       orm.emit('createCommit', commit)
       await lock.acquireAsync()
     }
-    if (value) delete value._fake;
     this.value = value
   })
 

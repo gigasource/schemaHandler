@@ -46,8 +46,8 @@ exports[`[Module] Fake doc Case 1: Create fake 3`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
-    "fakeId": 1,
     "test": 1,
   },
 ]
@@ -57,8 +57,8 @@ exports[`[Module] Fake doc Case 1: Create fake 4`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
-    "fakeId": 1,
     "test": 1,
   },
 ]
@@ -67,8 +67,8 @@ Array [
 exports[`[Module] Fake doc Case 2: Find one and update 1`] = `
 Object {
   "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
   "_id": "ObjectID",
-  "fakeId": 1,
   "test": 2,
 }
 `;
@@ -79,8 +79,8 @@ exports[`[Module] Fake doc Case 2: Find one and update 3`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
-    "fakeId": 1,
     "test": 2,
   },
 ]
@@ -89,8 +89,8 @@ Array [
 exports[`[Module] Fake doc Case 2-a: Find one and update 1`] = `
 Object {
   "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
   "_id": "ObjectID",
-  "fakeId": 1,
   "test": 2,
 }
 `;
@@ -108,8 +108,8 @@ exports[`[Module] Fake doc Case 2-a: Find one and update 3`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
-    "fakeId": 1,
     "test": 2,
   },
 ]
@@ -119,8 +119,8 @@ exports[`[Module] Fake doc Case 3: Update then find 1`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
-    "fakeId": 1,
     "test": 2,
   },
 ]
@@ -132,8 +132,8 @@ exports[`[Module] Fake doc Case 3: Update then find 3`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
-    "fakeId": 1,
     "test": 2,
   },
 ]
@@ -155,8 +155,8 @@ Array [
   Object {
     "_deleted": true,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
-    "fakeId": 1,
     "test": 1,
   },
 ]
@@ -185,8 +185,8 @@ exports[`[Module] Fake doc Case 5: Handle remove fake 3`] = `Array []`;
 exports[`[Module] Fake doc Case 6: With master and 2 clients 1`] = `
 Object {
   "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
   "_id": "ObjectID",
-  "fakeId": 1,
   "test": 2,
 }
 `;
@@ -220,13 +220,13 @@ Object {
 exports[`[Module] Fake doc Case 6: With master and 2 clients 5`] = `
 Object {
   "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
       "test": 1,
     },
   ],
-  "fakeId": 1,
   "test": 2,
 }
 `;
@@ -261,8 +261,8 @@ exports[`[Module] Fake doc Case 8: Create and do a query update 1`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
-    "fakeId": 1,
     "test": 2,
   },
 ]
@@ -274,8 +274,8 @@ exports[`[Module] Fake doc Case 8: Create and do a query update 3`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
-    "fakeId": 1,
     "test": 2,
   },
 ]
@@ -284,13 +284,13 @@ Array [
 exports[`[Module] Fake doc Case 9: Reapply query after remove fake 1`] = `
 Object {
   "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
       "test": 1,
     },
   ],
-  "fakeId": 1,
   "test": 2,
 }
 `;
@@ -326,6 +326,7 @@ Object {
 exports[`[Module] Fake doc Case 9: Reapply query after remove fake 4`] = `
 Object {
   "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 2,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -335,7 +336,6 @@ Object {
       "test": 2,
     },
   ],
-  "fakeId": 2,
   "test": 2,
 }
 `;
@@ -344,19 +344,19 @@ exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 1`]
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
     "arr": Array [
       Object {
         "test": 1,
       },
     ],
-    "fakeId": 1,
     "test": 2,
   },
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
     "_id": "ObjectID",
-    "fakeId": 2,
     "secondDoc": true,
   },
 ]
@@ -391,8 +391,8 @@ Array [
   },
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
     "_id": "ObjectID",
-    "fakeId": 2,
     "secondDoc": true,
   },
 ]
@@ -402,6 +402,7 @@ exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 4`]
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 3,
     "_id": "ObjectID",
     "arr": Array [
       Object {
@@ -411,13 +412,12 @@ Array [
         "test": 2,
       },
     ],
-    "fakeId": 3,
     "test": 2,
   },
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
     "_id": "ObjectID",
-    "fakeId": 2,
     "secondDoc": true,
   },
 ]
@@ -438,6 +438,8 @@ Array [
 exports[`[Module] Test bulk write Case 1: Test bulk write with client 1`] = `
 Array [
   Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
     "items": Array [
       Object {
@@ -455,6 +457,8 @@ Array [
 exports[`[Module] Test bulk write Case 2: Test bulk write 2 1`] = `
 Array [
   Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
     "arr": Array [
       Object {
@@ -477,7 +481,13 @@ Array [
 exports[`[Module] Test bulk write Case 2: Test bulk write 3 1`] = `
 Array [
   Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
     "_id": "ObjectID",
+  },
+  Object {
+    "_id": "ObjectID",
+    "test": 1,
   },
 ]
 `;

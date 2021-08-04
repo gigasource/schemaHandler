@@ -210,8 +210,8 @@ module.exports = function (orm) {
             const {document} = command['deleteOne'];
             command['deleteOne'].document = parseCondition(schema, document);
           } else if (command.hasOwnProperty('deleteMany')) {
-            const {document} = command['deleteMany'];
-            command['deleteMany'].document = parseCondition(schema, document);
+            const {filter} = command['deleteMany'];
+            command['deleteMany'].filter = parseCondition(schema, filter);
           } else if (command.hasOwnProperty('replaceOne')) {
             const {filter, replacement} = command['replaceOne'];
             command['replaceOne'].filter = parseCondition(schema, filter);
@@ -228,7 +228,7 @@ module.exports = function (orm) {
     if (key.includes('find') || key.includes('create') || key.includes('update')
       || key.includes('insert') || key.includes('delete') || key.includes('remove')
       || key.includes('count') || key.includes('aggregate') || key.includes('replace')
-      || key.includes('indexes') || key.includes('Index')) return true;
+      || key.includes('indexes') || key.includes('Index') || key.includes('bulk')) return true;
 
     return false;
   }
