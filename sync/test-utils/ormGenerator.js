@@ -256,7 +256,7 @@ async function ormGenerator(plugins, options) {
 			if (highestId >= highestCommitId)
 				resolve()
 			const { off } = ormHook.on('newCommit', () => {
-				if (highestId === highestCommitId) {
+				if (highestId >= highestCommitId) {
 					resolve()
 					off()
 				}
