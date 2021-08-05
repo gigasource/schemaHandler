@@ -273,7 +273,7 @@ const syncPlugin = function (orm) {
       }
     });
 
-    const mustRecoverOperation = ['$push', '$pull', '$set', '$unset']
+    const mustRecoverOperation = ['$push', '$pull']
     orm.on("commit:update-fake", async function (commit) {
       try {
         const { value: commitDataId } = await orm.emit('getCommitDataId')

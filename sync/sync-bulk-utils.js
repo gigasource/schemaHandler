@@ -14,10 +14,11 @@ module.exports = function (orm) {
     'findOneAndUpdate': 'updateOne'
   }
   function convertChain(chain) {
+    let result
     switch (chain[0].fn) {
       case 'updateOne':
         if (chain[0].args.length < 2) return null
-        return {
+        result = {
           updateOne: {
             filter: chain[0].args[0],
             update: chain[0].args[1],
@@ -29,9 +30,10 @@ module.exports = function (orm) {
             },
           }
         }
+        break
       case 'updateMany':
         if (chain[0].args.length < 2) return null
-        return {
+        result = {
           updateMany: {
             filter: chain[0].args[0],
             update: chain[0].args[1],
@@ -43,9 +45,10 @@ module.exports = function (orm) {
             },
           }
         }
+        break
       case 'replaceOne':
         if (chain[0].args.length < 2) return null
-        return {
+        result = {
           replaceOne: {
             filter: chain[0].args[0],
             replacement: chain[0].args[1],
@@ -54,25 +57,47 @@ module.exports = function (orm) {
             },
           }
         }
+        break
       case 'deleteOne':
-        return {
+        result = {
           deleteOne: {
             filter: chain[0].args.length ? chain[0].args[0] : {}
           }
         }
+        break
       case 'deleteMany':
-        return {
+        result = {
           deleteMany: {
             filter: chain[0].args.length ? chain[0].args[0] : {}
           }
         }
+        break
       case 'insertOne':
         if (chain[0].args.length < 1) return null
-        return {
+        result = {
           insertOne: {
             document: chain[0].args[0]
           }
         }
+        break
+    }
+    // deal with case $set
+    if (result.updateMany || result.updateOne) {
+      let queryOp = result.updateMany ? 'updateMany' : 'updateOne'
+      const ops = Object.keys(result[queryOp]['update'])
+      for (let i = 0; i < ops.length; i++) {
+        const op = ops[i]
+        if (op[0] !== '$') {
+          if (!result[queryOp]['update'].$set) {
+            result[queryOp]['update'].$set = {}
+          }
+          result[queryOp]['update'].$set[op] = result[queryOp]['update'][op]
+          delete result[queryOp]['update'][op]
+        }
+      }
+      return result
+    } else {
+      return result
     }
   }
 

@@ -835,6 +835,28 @@ describe("[Module] Test bulk write", function () {
 		expect(findDataOrm1).toEqual(findDataOrm0)
 		done()
 	})
+
+	it('Case 8: Update bulkwrite', async (done) => {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: true,
+			name: 'B'
+		});
+		await orm('Model').create({
+			a: 1
+		})
+		await orm('Model').bulkWrite([
+			{
+				updateOne: {
+					filter: {},
+					update: { b: 1 }
+				}
+			}
+		])
+		const result = await orm('Model').find()
+		expect(stringify(result)).toMatchSnapshot()
+		done()
+	})
 })
 
 describe('[Integration] Test all plugins', function () {

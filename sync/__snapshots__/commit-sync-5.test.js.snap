@@ -491,3 +491,12 @@ Array [
   },
 ]
 `;
+
+exports[`[Module] Test bulk write Case 8: Update bulkwrite 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "b": 1,
+  },
+]
+`;
