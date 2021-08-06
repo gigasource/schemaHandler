@@ -500,3 +500,43 @@ Array [
   },
 ]
 `;
+
+exports[`[Module] Test bulk write Case 9: Bulkwrite with fake 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 9: Bulkwrite with fake 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 9: Bulkwrite with fake 3`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "a": 1,
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 9: Bulkwrite with fake 4`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "a": 1,
+    "test": 1,
+  },
+]
+`;

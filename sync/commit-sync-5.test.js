@@ -539,7 +539,7 @@ describe("[Module] Test bulk write", function () {
 		jest.useRealTimers()
 		jest.restoreAllMocks()
 		jest.resetModules()
-		await delay(200)
+		await delay(400)
 		done()
 	})
 
@@ -857,6 +857,48 @@ describe("[Module] Test bulk write", function () {
 		expect(stringify(result)).toMatchSnapshot()
 		done()
 	})
+
+	it('Case 9: Bulkwrite with fake', async (done) => {
+		jest.useFakeTimers()
+		lodashMock()
+		let findDataOrm1
+		const { orms, utils } = await genOrm(2,
+			['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+				'sync-queue-commit',  'sync-snapshot'])
+		utils.forEach(util => {
+			util.mockModelAndCreateCommits(0)
+		})
+		orms[1].socketConnect(orms[0].ioId)
+		jest.advanceTimersByTime(100) // time to connect
+
+		await orms[1]('Model').create({ test: 1 })
+		await utils[1].waitToSync(1)
+		findDataOrm1 = await orms[1]('Model').find()
+		const doc = findDataOrm1[0]
+		expect(stringify(findDataOrm1)).toMatchSnapshot()
+		findDataOrm1 = await orms[1]('Model').find().direct()
+		expect(stringify(findDataOrm1)).toMatchSnapshot()
+		await orms[0]('Model').bulkWrite([
+			{
+				updateOne: {
+					filter: {
+						_id: doc._id.toString()
+					},
+					update: {
+						$set: {
+							a: 1
+						}
+					}
+				}
+			}
+		])
+		await utils[1].waitToSync(2)
+		findDataOrm1 = await orms[1]('Model').find()
+		expect(stringify(findDataOrm1)).toMatchSnapshot()
+		findDataOrm1 = await orms[1]('Model').find().direct()
+		expect(stringify(findDataOrm1)).toMatchSnapshot()
+		done()
+	})
 })
 
 describe('[Integration] Test all plugins', function () {
@@ -864,7 +906,7 @@ describe('[Integration] Test all plugins', function () {
 		jest.useRealTimers()
 		jest.restoreAllMocks()
 		jest.resetModules()
-		await delay(100)
+		await delay(300)
 		done()
 	})
 

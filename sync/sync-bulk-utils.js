@@ -163,4 +163,16 @@ module.exports = function (orm) {
     orm.emit('commit:handler:finish', keys, _.last(commits))
     orm.emit('commit:handler:finish:bulk', keys, _.last(commits).id)
   }
+
+  orm.on('handleBulkFake', function (bulkOps) {
+    let result = {
+      $or: []
+    }
+    for (let ops of bulkOps) {
+      const key = Object.keys(ops)[0]
+      if (ops[key].filter)
+        result.$or.push(ops[key].filter)
+    }
+    this.setValue(result)
+  })
 }

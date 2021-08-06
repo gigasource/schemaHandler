@@ -274,11 +274,17 @@ const syncPlugin = function (orm) {
     });
 
     const mustRecoverOperation = ['$push', '$pull']
+
     orm.on("commit:update-fake", async function (commit) {
       try {
         const { value: commitDataId } = await orm.emit('getCommitDataId')
+        if (!commit.chain && commit.fromClient && commit.fromClient.toString() === commitDataId.toString()) { // case doNo commit
+          await removeFakeOfCollection(commit.collectionName, { _fakeId: { $lte: commit._fakeId } }) // remove all doc with id smaller than this commit's id
+          return
+        }
         const query = orm.getQuery(commit)
-        if ((!commit.condition || commit.condition === 'null') && !(query.chain && query.chain[0].fn.includes('delete'))) return
+        if ((!commit.condition || commit.condition === 'null') &&
+          !(query.chain && (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('bulk')))) return
         let _parseCondition = commit.condition ? jsonFn.parse(commit.condition) : {}
         let hasMustRecoverOp = false
         for (let op of mustRecoverOperation) {
@@ -287,11 +293,20 @@ const syncPlugin = function (orm) {
             break
           }
         }
+        if (query.chain[0].fn.includes('bulk')) {
+          hasMustRecoverOp = true
+          _parseCondition = orm.emit('handleBulkFake', query.chain[0].args[0])
+          if (!_parseCondition) _parseCondition = {}
+        }
         if (commit.fromClient && commitDataId.toString() === commit.fromClient.toString()) {
-          if (hasMustRecoverOp) {
-            _parseCondition._fakeId = { $gt: commit._fakeId }
+          if (query.chain[0].fn.includes('bulk')) {
+            _parseCondition.$or.push({ _fakeId: commit._fakeId })
+          } else {
+            if (hasMustRecoverOp) {
+              _parseCondition._fakeId = { $gt: commit._fakeId }
+            }
+            query.chain[0].args[0]._fakeId = { $gt: commit._fakeId }
           }
-          query.chain[0].args[0]._fakeId = { $gt: commit._fakeId }
         }
         if (hasMustRecoverOp) {
           await removeFakeOfCollection(commit.collectionName, _parseCondition)
