@@ -30,6 +30,7 @@ module.exports = function (orm) {
         testDb: convertNameToTestFunction(dbName)
       })
     })
+    orm.emit('schemaRegistered', collectionName, dbName, schema)
     return orm.getCollection(collectionName, dbName);
   }
   orm.getSchema = function (collectionName, dbName) {

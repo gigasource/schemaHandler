@@ -22,6 +22,7 @@ const syncPlugin = function (orm) {
 
   function registerCommitBaseCollection () {
     whitelist.push(...arguments);
+    orm.emit('whiteListRegistered', arguments)
     // register for bulk write (only work for client)
     for (let col of whitelist) {
       orm.on(`commit:handler:shouldNotExecCommand:${col}`, 99999, async function (commit) { // this hook is always the last to be called
@@ -131,8 +132,12 @@ const syncPlugin = function (orm) {
 
   async function handleFindQuery(query, result) {
     const _query = _.cloneDeep(query)
+    if (_query.chain[0].fn.includes('AndUpdate')) {
+      _query.chain[0].fn = _query.chain[0].fn.slice(0, -9)
+    }
     _query.name = 'Recovery' + _query.name
     _query.uuid = uuid()
+    delete _query.mockCollection
     const _result = await orm.execChain(_query)
     if (Array.isArray(result.value)) {
       const listIds = {}
@@ -218,6 +223,21 @@ const syncPlugin = function (orm) {
 
   orm.on('initFakeLayer', function () {
     //todo: fake layer
+    // this is only for single mode
+    orm.on('whiteListRegistered', whiteList => {
+      for (const col of whitelist) {
+        const schema = orm.getSchema(col)
+        if (schema)
+          orm.registerSchema('Recovery' + col, schema)
+      }
+    })
+    orm.on('schemaRegistered', (collectionName, dbName, schema) => {
+      if (!whitelist.includes(collectionName)) return
+      const _schema = orm.getSchema('Recovery' + collectionName)
+      if (!_schema)
+        orm.registerSchema('Recovery' + collectionName, schema)
+    })
+
     orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, commit) {
       if (!commit.chain) return;
       const isDeleteCmd = target.cmd.includes('delete') || target.cmd.includes('remove')
@@ -495,14 +515,12 @@ const syncPlugin = function (orm) {
 
   async function removeFake() {
     for (const collection of whitelist) {
-      const docs = await orm(collection).find()
+      const docs = await orm('Recovery' + collection).find()
       for (const doc of docs) {
-        if (doc._fake) {
-          await orm(collection).remove({_id: doc._id}).direct()
-          delete doc._fake
-          await orm(collection).create(doc)
-        }
+        delete doc._fakeId
+        delete doc._fakeDate
       }
+      await orm(collection).create(docs)
     }
   }
 

@@ -27,9 +27,6 @@ module.exports = function (orm, role) {
     } else if (isStateChange === 1) {
       orm.emit('offMaster')
     }
-    if (_isMaster) {
-      orm.emit('commit:remove-all-recovery')
-    }
   })
 
   const checkMaster = (dbName) => {

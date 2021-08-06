@@ -435,6 +435,52 @@ Array [
 ]
 `;
 
+exports[`[Module] Fake doc Case 11: findOneAndUpdate fake 1`] = `
+Object {
+  "_id": "ObjectID",
+  "test": Array [],
+}
+`;
+
+exports[`[Module] Fake doc Case 11: findOneAndUpdate fake 2`] = `
+Object {
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
+  "_id": "ObjectID",
+  "test": Array [
+    1,
+  ],
+}
+`;
+
+exports[`[Module] Fake doc Case 11: findOneAndUpdate fake 3`] = `
+Object {
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
+  "_id": "ObjectID",
+  "test": Array [
+    1,
+  ],
+}
+`;
+
+exports[`[Module] Fake doc Case 12: find with sort 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
+    "_id": "ObjectID",
+    "test": 2,
+  },
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
 exports[`[Module] Test bulk write Case 1: Test bulk write with client 1`] = `
 Array [
   Object {

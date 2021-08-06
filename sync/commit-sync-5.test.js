@@ -532,6 +532,36 @@ describe("[Module] Fake doc", function () {
 		expect(stringify(commitData)).toMatchSnapshot()
 		done()
 	})
+
+	it('Case 11: findOneAndUpdate fake', async function (done) {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		const doc = await orm('Model').create({ test: [] })
+		const docAfterQuery = await orm('Model').findOneAndUpdate({ _id: doc._id }, { $push: { test: 1 } })
+		expect(stringify(doc)).toMatchSnapshot()
+		expect(stringify(docAfterQuery)).toMatchSnapshot()
+		const realDoc = await orm('Model').findOne({ _id: doc._id })
+		expect(stringify(realDoc)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 12: find with sort', async function (done) {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		await orm('Model').create({ test: 1 })
+		await orm('Model').create({ test: 2 })
+		const docs = await orm('Model').find().sort({ test: -1 })
+		expect(stringify(docs)).toMatchSnapshot()
+		done()
+	})
 })
 
 describe("[Module] Test bulk write", function () {
