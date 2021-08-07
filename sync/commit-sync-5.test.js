@@ -556,9 +556,31 @@ describe("[Module] Fake doc", function () {
 			name: 'B'
 		});
 		await utils.mockModelAndCreateCommits(0)
+		await orm('Model').create({ test: -1 }).direct()
 		await orm('Model').create({ test: 1 })
 		await orm('Model').create({ test: 2 })
 		const docs = await orm('Model').find().sort({ test: -1 })
+		expect(stringify(docs)).toMatchSnapshot()
+		const limitDocs = await orm('Model').find().sort({ test: -1 }).limit(1)
+		expect(stringify(limitDocs)).toMatchSnapshot()
+		done()
+	})
+
+	/**
+	 * Number of docs in both fake collection and real collection must be greater than skip number
+	 */
+	it('Case 13: find with skip', async function (done) {
+		jest.useFakeTimers()
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		await orm('Model').create({ test: 3 }).direct()
+		await orm('Model').create({ test: 4 }).direct()
+		await orm('Model').create({ test: 1 })
+		await orm('Model').create({ test: 2 })
+		const docs = await orm('Model').find().sort({test: 1}).skip(1)
 		expect(stringify(docs)).toMatchSnapshot()
 		done()
 	})

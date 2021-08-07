@@ -478,6 +478,40 @@ Array [
     "_id": "ObjectID",
     "test": 1,
   },
+  Object {
+    "_id": "ObjectID",
+    "test": -1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 12: find with sort 2`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
+    "_id": "ObjectID",
+    "test": 2,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 13: find with skip 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
+    "_id": "ObjectID",
+    "test": 2,
+  },
+  Object {
+    "_id": "ObjectID",
+    "test": 3,
+  },
+  Object {
+    "_id": "ObjectID",
+    "test": 4,
+  },
 ]
 `;
 

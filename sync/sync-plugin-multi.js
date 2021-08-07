@@ -5,6 +5,7 @@ const jsonFn = require('json-fn');
 const dayjs = require('dayjs')
 const {ObjectID} = require('bson')
 const bulkUtils = require('./sync-bulk-utils')
+const { Query } = require('mingo')
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -130,45 +131,78 @@ const syncPlugin = function (orm) {
     }
   })
 
-  async function handleFindQuery(query, result) {
-    const _query = _.cloneDeep(query)
-    if (_query.chain[0].fn.includes('AndUpdate')) {
-      _query.chain[0].fn = _query.chain[0].fn.slice(0, -9)
-    }
-    _query.name = 'Recovery' + _query.name
-    _query.uuid = uuid()
-    delete _query.mockCollection
-    const _result = await orm.execChain(_query)
-    if (Array.isArray(result.value)) {
-      const listIds = {}
-      for (let id in result.value) {
-        listIds[result.value[id]._id] = id
-      }
-      const deletedDocs = []
-      for (let doc of _result) {
-        if (doc._deleted) {
-          deletedDocs.push(doc._id.toString())
-          continue
-        }
-        if (listIds[doc._id]) {
-          Object.assign(result.value[listIds[doc._id]], doc)
+  async function handleSkipQuery(_query, query, result) {
+    _.remove(_query.chain, ops => {
+      return ops.fn === 'skip'
+    })
+    // chain includes skip
+    if (_query.chain.length < query.chain.length) {
+      let cursor = orm(query.name)
+      const numberOfFakeDocs = await orm(_query.name).count() // expect this number to be small
+      for (let i = 0; i < query.chain.length; i++) {
+        if (query.chain[i].fn !== 'skip') {
+          cursor = cursor[query.chain[i].fn](...query.chain[i].args)
         } else {
-          result.value.push(doc)
+          cursor = cursor[query.chain[i].fn](Math.max(0, parseInt(query.chain[i].args[0]) - numberOfFakeDocs))
         }
       }
-      _.remove(result.value, doc => {
-        return deletedDocs.includes(doc._id.toString())
-      })
-    } else {
-      if (_result) {
-        if (!result.value)
-          result.value = {}
-        if (_result._deleted) {
-          Object.assign(result, { value: null })
-          return
-        }
-        Object.assign(result.value, _result)
+      cursor = cursor.direct()
+      result.value = await cursor
+    }
+  }
+
+  async function handleFindQuery(query, result) {
+    try {
+      const _query = _.cloneDeep(query)
+      if (_query.chain[0].fn.includes('AndUpdate')) {
+        _query.chain[0].fn = _query.chain[0].fn.slice(0, -9)
       }
+      _query.name = 'Recovery' + _query.name
+      _query.uuid = uuid()
+      await handleSkipQuery(_query, query, result)
+      delete _query.mockCollection
+      const _result = await orm.execChain(_query)
+      if (Array.isArray(result.value)) {
+        const listIds = {}
+        for (let id in result.value) {
+          listIds[result.value[id]._id] = id
+        }
+        const deletedDocs = []
+        for (let doc of _result) {
+          if (doc._deleted) {
+            deletedDocs.push(doc._id.toString())
+            continue
+          }
+          if (listIds[doc._id]) {
+            Object.assign(result.value[listIds[doc._id]], doc)
+          } else {
+            result.value.push(doc)
+          }
+        }
+        _.remove(result.value, doc => {
+          return deletedDocs.includes(doc._id.toString())
+        })
+        if (query.chain.length > 1) {
+          const mingoQuery = new Query({})
+          let cursor = mingoQuery.find(result.value)
+          for (let i = 1; i < query.chain.length; i++) {
+            cursor[query.chain[i].fn](...query.chain[i].args)
+          }
+          result.value = cursor.all()
+        }
+      } else {
+        if (_result) {
+          if (!result.value)
+            result.value = {}
+          if (_result._deleted) {
+            Object.assign(result, { value: null })
+            return
+          }
+          Object.assign(result.value, _result)
+        }
+      }
+    } catch (e) {
+      console.log('Handle find error', e.message)
     }
   }
 
