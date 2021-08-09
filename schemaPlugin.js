@@ -10,8 +10,9 @@ module.exports = function (orm) {
   orm.schemas = orm.schemas || [];
   orm.defaultSchema = defaultSchema;
 
-  orm.registerSchema = function (collectionName, dbName, schema) {
+  orm.registerSchema = function (collectionName, dbName, schema, isSchemaConverted = false) {
     if (orm.mode === 'single') {
+      isSchemaConverted = schema
       schema = dbName;
       dbName = null;
     } else {
@@ -21,7 +22,9 @@ module.exports = function (orm) {
       }
     }
 
-    schema = convertSchemaToPaths(schema, collectionName);
+    if (!isSchemaConverted) {
+      schema = convertSchemaToPaths(schema, collectionName);
+    }
 
     orm.schemas.push({
       testCollection: convertNameToTestFunction(collectionName),

@@ -259,17 +259,17 @@ const syncPlugin = function (orm) {
     //todo: fake layer
     // this is only for single mode
     orm.on('whiteListRegistered', whiteList => {
-      for (const col of whitelist) {
+      for (const col of whiteList) {
         const schema = orm.getSchema(col)
         if (schema)
-          orm.registerSchema('Recovery' + col, schema)
+          orm.registerSchema('Recovery' + col, schema, true)
       }
     })
     orm.on('schemaRegistered', (collectionName, dbName, schema) => {
       if (!whitelist.includes(collectionName)) return
       const _schema = orm.getSchema('Recovery' + collectionName)
       if (!_schema)
-        orm.registerSchema('Recovery' + collectionName, schema)
+        orm.registerSchema('Recovery' + collectionName, schema, true)
     })
 
     orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, commit) {
