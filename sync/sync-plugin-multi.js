@@ -199,7 +199,7 @@ const syncPlugin = function (orm) {
       } else {
         if (_resultWithId.length) {
           _result = _resultWithId[0]
-        } else if (result.value && _result._id.toString() !== result.value._id.toString()) {
+        } else if (result.value && _result && _result._id.toString() !== result.value._id.toString()) {
           return
         }
         if (_result) {
