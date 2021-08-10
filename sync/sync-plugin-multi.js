@@ -197,6 +197,9 @@ const syncPlugin = function (orm) {
           result.value = cursor.all()
         }
       } else {
+        if (!_resultWithId.length)
+          return
+        _result = _resultWithId[0]
         if (_result) {
           if (!result.value)
             result.value = {}
@@ -393,7 +396,7 @@ const syncPlugin = function (orm) {
 
     orm.removeFakeOfCollection = removeFakeOfCollection
 
-    const removeFakeInterval = setInterval(async function () {
+    const removeFakeIntervalFn = async function () {
       if (orm.isMaster()) {
         clearInterval(removeFakeInterval)
         return
@@ -406,7 +409,9 @@ const syncPlugin = function (orm) {
           }
         })
       }
-    }, 3 * 60 * 60 * 1000) //3 hours
+    }
+    const removeFakeInterval = setInterval(removeFakeIntervalFn, 3 * 60 * 60 * 1000) //3 hours
+    removeFakeIntervalFn().then(r => r)
 
     orm.on('commit:remove-all-recovery', 'fake-channel', async function () {
       for (let col of whitelist) {
