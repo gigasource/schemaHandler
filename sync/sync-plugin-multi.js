@@ -312,8 +312,17 @@ const syncPlugin = function (orm) {
           }
         }
         try {
-          if (!isDeleteCmd)
+          if (!isDeleteCmd) {
             this.update('value', await exec())
+          } else {
+            const fakeDocs = await orm(fakeCollectionName).find(target.condition)
+            for (let doc of fakeDocs) {
+              await orm(fakeCollectionName).updateOne({ _id: doc._id }, {
+                _fakeDate: currentDate,
+                _deleted: true
+              })
+            }
+          }
         } catch (e) {
           await orm.emit('commit:report:errorExec', null, e.message, true)
         }
