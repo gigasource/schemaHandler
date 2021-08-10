@@ -161,7 +161,13 @@ const syncPlugin = function (orm) {
       _query.uuid = uuid()
       await handleSkipQuery(_query, query, result)
       delete _query.mockCollection
-      const _result = await orm.execChain(_query)
+      let _result = await orm.execChain(_query)
+      const arrCondition = Array.isArray(result.value) ? result.value.map(doc => doc._id) : [result.value ? result.value._id : null]
+      // this is docs in fake collection which can't be found with query's condition
+      const _resultWithId = await orm(_query.name).find({ _id: { $in: arrCondition } })
+      _.remove(_resultWithId, doc => {
+        return Array.isArray(_result) ? !!_result.find(_doc => _doc._id.toString() === doc._id.toString()) : (_result && _result._id.toString() === doc._id.toString())
+      })
       if (Array.isArray(result.value)) {
         const listIds = {}
         for (let id in result.value) {
@@ -180,7 +186,7 @@ const syncPlugin = function (orm) {
           }
         }
         _.remove(result.value, doc => {
-          return deletedDocs.includes(doc._id.toString())
+          return deletedDocs.includes(doc._id.toString()) || !!_resultWithId.find(_doc => doc._id.toString() === _doc._id.toString())
         })
         if (query.chain.length > 1) {
           const mingoQuery = new Query({})
@@ -199,6 +205,8 @@ const syncPlugin = function (orm) {
             return
           }
           Object.assign(result.value, _result)
+        } else if (_resultWithId.length) {
+          result.value = null
         }
       }
     } catch (e) {

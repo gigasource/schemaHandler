@@ -525,7 +525,7 @@ describe("[Module] Fake doc", function () {
 		utils[0].setLockEvent('master:transport:sync', false)
 		await orms[1]('Model').updateOne({ _id: doc._id }, { test: 3 })
 		orms[0].emit('master:transport:sync')
-		await utils[1].waitToSync(3)
+		await utils[1].waitToSync(4)
 		findDataOrm1 = await orms[1]('Model').find()
 		expect(stringify(findDataOrm1)).toMatchSnapshot()
 		const commitData = await orms[1]('CommitData').find()
@@ -582,6 +582,23 @@ describe("[Module] Fake doc", function () {
 		await orm('Model').create({ test: 2 })
 		const docs = await orm('Model').find().sort({test: 1}).skip(1)
 		expect(stringify(docs)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 14: find after update fake', async function (done) {
+		jest.useFakeTimers()
+		let findDataOrm
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		const doc = await orm('Model').create({ test: 3 }).direct()
+		await orm('Model').updateOne({ _id: doc._id }, { test: 4 })
+		findDataOrm = await orm('Model').find({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
+		findDataOrm = await orm('Model').findOne({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
 		done()
 	})
 })
@@ -1188,6 +1205,7 @@ describe('[Integration] Test all plugins', function () {
 	})
 
 	it('[Sync snapshot] Case 9: Commit delete when client need resync', async (done) => {
+		await delay(1000)
 		jest.useFakeTimers()
 		lodashMock()
 		const { orms, utils } = await genOrm(2,

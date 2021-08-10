@@ -428,9 +428,9 @@ Array [
   Object {
     "_id": "ObjectID",
     "fakeId": 4,
-    "highestCommitId": 3,
+    "highestCommitId": 4,
     "lastTimeSyncWithMaster": "2021-01-27T17:00:00.000Z",
-    "masterHighestId": 3,
+    "masterHighestId": 4,
   },
 ]
 `;
@@ -514,6 +514,10 @@ Array [
   },
 ]
 `;
+
+exports[`[Module] Fake doc Case 14: find after update fake 1`] = `Array []`;
+
+exports[`[Module] Fake doc Case 14: find after update fake 2`] = `null`;
 
 exports[`[Module] Test bulk write Case 1: Test bulk write with client 1`] = `
 Array [
