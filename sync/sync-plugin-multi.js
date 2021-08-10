@@ -197,9 +197,11 @@ const syncPlugin = function (orm) {
           result.value = cursor.all()
         }
       } else {
-        if (!_resultWithId.length)
+        if (_resultWithId.length) {
+          _result = _resultWithId[0]
+        } else if (result.value && _result._id.toString() !== result.value._id.toString()) {
           return
-        _result = _resultWithId[0]
+        }
         if (_result) {
           if (!result.value)
             result.value = {}
