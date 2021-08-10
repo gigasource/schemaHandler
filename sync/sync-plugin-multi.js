@@ -14,6 +14,7 @@ const syncPlugin = function (orm) {
   orm.handleFindQuery = handleFindQuery
   orm.setHighestCommitIdOfCollection = setHighestCommitIdOfCollection
   orm.registerCommitBaseCollection = registerCommitBaseCollection
+  orm.getCommitData = getCommitData
 
   bulkUtils(orm)
 
@@ -445,6 +446,10 @@ const syncPlugin = function (orm) {
       highestCommitId = commitData.highestCommitId
     this.value = highestCommitId;
   })
+
+  async function getCommitData(dbName) {
+    return await orm('CommitData', dbName).findOne({})
+  }
 
   let COMMIT_BULK_WRITE_THRESHOLD = 100
   orm.on('commit:setBulkWriteThreshold', threshold => {
