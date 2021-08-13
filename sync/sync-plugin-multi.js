@@ -15,11 +15,16 @@ const syncPlugin = function (orm) {
   orm.setHighestCommitIdOfCollection = setHighestCommitIdOfCollection
   orm.registerCommitBaseCollection = registerCommitBaseCollection
   orm.getCommitData = getCommitData
+  orm.getWhiteList = getWhiteList
 
   bulkUtils(orm)
 
   function setHighestCommitIdOfCollection(col, val) {
     highestCommitIdOfCollection[col] = val
+  }
+
+  function getWhiteList() {
+    return whitelist
   }
 
   function registerCommitBaseCollection () {
