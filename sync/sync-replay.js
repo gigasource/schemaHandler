@@ -1,20 +1,32 @@
 module.exports = function (orm) {
   let playMode = null
 
+  const PLAYING_MODE = 'playing'
+
   orm.playSync = playSync
   orm.setUpServerSocket = setUpServerSocket
 
-  orm.getPlayMode = function() {
+  orm.getPlayMode = function () {
     return playMode
   }
 
+  orm.startPlayMode = function () {
+    playMode = PLAYING_MODE
+  }
+
   // todo support keep playing
+  let clientLock = false
   async function playSync(socket, toCommitId, keepPlaying = true) {
+    if (clientLock) return
+    clientLock = true
     orm.emit('offMaster')
     orm.emit('offClient')
     orm.emit('commit:flow:setMaster', false)
+    orm.emit('transport:removeQueue')
     if (!keepPlaying) {
+      await orm('ReplayedCommit').deleteMany()
       await orm('Commit').deleteMany()
+      await orm('CommitData').updateOne({}, { highestCommitId: 0 }, { upsert: true })
       const whiteList = orm.getWhiteList()
       for (let collection of whiteList) {
         await orm(collection).deleteMany().direct()
@@ -35,16 +47,18 @@ module.exports = function (orm) {
           console.log('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
 
           if (commits.length)
-            await orm('CommitReplayed').create(commits)
+            await orm('ReplayedCommit').create(commits)
 
           await orm.emit('transport:requireSync:callback', commits)
-          // clear all queued require sync commands because all "possible" commits is synced
           if (needSync) {
             orm.emit('transport:require-sync')
           } else {
+            clientLock = false
             off()
             orm.emit('commit:flow:setMaster', true)
-            await orm('CommitPlayed').renameCollection('commits', true)
+            const result = await orm.db.collection('replayedcommits').rename('commits', { dropTarget: true })
+            playMode = null // done
+            orm.emit('commit:replay:done')
           }
           resolve()
         })
@@ -55,14 +69,14 @@ module.exports = function (orm) {
   }
 
   async function setUpServerSocket(socket, dbName, toCommitId) {
-    const off = socket.on('transport:require-sync', async (clientHighestId, cb) => {
+    socket.on('transport:require-sync', async (clientHighestId, cb) => {
       const commits = await orm('Commit', dbName).find({ id: { $gt: clientHighestId, $lte: toCommitId } }).limit(5000)
       const needSync = commits.length < 5000
 
       cb(commits, needSync)
       if (!needSync) {
-        off()
+        socket.removeListener('transport:require-sync')
       }
-    }).off
+    })
   }
 }

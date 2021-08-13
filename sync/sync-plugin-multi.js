@@ -413,22 +413,24 @@ const syncPlugin = function (orm) {
 
     orm.removeFakeOfCollection = removeFakeOfCollection
 
-    const removeFakeIntervalFn = async function () {
-      if (orm.isMaster()) {
-        clearInterval(removeFakeInterval)
-        return
+    orm.setRemoveFakeInterval = function () {
+      const removeFakeIntervalFn = async function () {
+        if (orm.isMaster()) {
+          clearInterval(removeFakeInterval)
+          return
+        }
+        const clearDate = dayjs().subtract(3, 'hour').toDate()
+        for (let col of whitelist) {
+          await orm('Recovery' + col).deleteMany({
+            _fakeDate: {
+              '$lte': clearDate
+            }
+          })
+        }
       }
-      const clearDate = dayjs().subtract(3, 'hour').toDate()
-      for (let col of whitelist) {
-        await orm('Recovery' + col).deleteMany({
-          _fakeDate: {
-            '$lte': clearDate
-          }
-        })
-      }
+      const removeFakeInterval = setInterval(removeFakeIntervalFn, 3 * 60 * 60 * 1000) //3 hours
+      removeFakeIntervalFn().then(r => r)
     }
-    const removeFakeInterval = setInterval(removeFakeIntervalFn, 3 * 60 * 60 * 1000) //3 hours
-    removeFakeIntervalFn().then(r => r)
 
     orm.on('commit:remove-all-recovery', 'fake-channel', async function () {
       for (let col of whitelist) {
