@@ -87,7 +87,7 @@ module.exports = function (orm, role) {
   let snapshotMilestone = null
   orm.onQueue('commit:handler:finish', async (commit) => {
     // end of commit's flow, delete all commits which have smaller id than this commit
-    if (!checkMaster(commit.dbName)) {
+    if (orm.mode !== 'multi' && !checkMaster()) {
       await orm('Commit').deleteMany({id: {$lt: commit.id}})
       const commitData = await orm('CommitData').findOne()
       if (commitData && commitData.masterHighestId) {
