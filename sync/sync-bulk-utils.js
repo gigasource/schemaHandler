@@ -160,7 +160,7 @@ module.exports = function (orm) {
     await orm('CommitData').updateOne({}, {
       highestCommitId:  _.last(commits).id
     })
-    orm.emit('commit:handler:finish', keys, _.last(commits))
+    orm.emit('commit:handler:finish', _.last(commits))
     orm.emit('commit:handler:finish:bulk', keys, _.last(commits).id)
   }
 
