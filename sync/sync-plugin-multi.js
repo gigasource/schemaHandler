@@ -6,6 +6,8 @@ const dayjs = require('dayjs')
 const {ObjectID} = require('bson')
 const bulkUtils = require('./sync-bulk-utils')
 const { Query } = require('mingo')
+const debug = require('debug')('sync:plugin-multi')
+const error = require('debug')('sync:error:plugin-multi')
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -221,7 +223,7 @@ const syncPlugin = function (orm) {
         }
       }
     } catch (e) {
-      console.log('Handle find error', e.message)
+      error('Handle find error', e.message)
     }
   }
 
@@ -474,11 +476,11 @@ const syncPlugin = function (orm) {
           await orm.emit('createCommit', commit)
         }
       } catch (err) {
-        console.log('Error in hook transport:requireSync:callback')
+        error('Error in hook transport:requireSync:callback')
       }
     }
     orm.emit('commit:handler:doneAllCommits')
-    console.log('Done requireSync', commits.length, commits[0]._id, new Date())
+    debug('Done requireSync', commits.length, commits[0]._id, new Date())
   })
 
   let highestIdInMemory = null
@@ -576,11 +578,11 @@ const syncPlugin = function (orm) {
         await orm.emit('createCommit', commit);
       }
     } catch (err) {
-      console.log('Error in commitRequest')
+      error('Error in commitRequest')
     }
 
     orm.emit('commit:handler:doneAllCommits')
-    console.log('Done commitRequest', commits.length, commits[0]._id, new Date())
+    debug('Done commitRequest', commits.length, commits[0]._id, new Date())
   })
 
   async function removeFake() {

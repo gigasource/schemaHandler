@@ -1,6 +1,8 @@
 const QUEUE_COMMIT_MODEL = 'QueueCommit'
 const dayjs = require('dayjs')
 const _ = require('lodash')
+const debug = require('debug')('sync:queue')
+const error = require('debug')('sync:error:queue')
 
 module.exports = function (orm) {
 	const clearQueue = async () => {
@@ -34,7 +36,7 @@ module.exports = function (orm) {
 	orm.onQueue('transport:finish:send', async function (_queueCommit) {
 		const removedCommitUUID = _queueCommit.map((commit) => {
 			if (!commit.uuid)
-				console.error('Commit uuid is null')
+				error('Commit uuid is null')
 			return commit.uuid
 		})
 		await orm(QUEUE_COMMIT_MODEL).deleteMany({ 'commit.uuid': { $in: removedCommitUUID } })
@@ -43,7 +45,7 @@ module.exports = function (orm) {
 	async function tryResend() {
 		const remainCommit = await orm(QUEUE_COMMIT_MODEL).count()
 		if (!orm.isMaster() && remainCommit && !orm.getQueue('queue:send').length) {
-			console.log('Retry sending commit !', dayjs().toDate())
+			debug('Retry sending commit !', dayjs().toDate())
 			orm.emit('queue:send')
 		}
 	}
@@ -52,7 +54,7 @@ module.exports = function (orm) {
 	}, 10000)
 
 	const doSend = async () => {
-		console.log('Try to send to master')
+		debug('Try to send to master')
 		const data = await orm(QUEUE_COMMIT_MODEL).find()
 		await orm.emit('transport:send', data.map(item => item.commit))
 	}

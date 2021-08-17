@@ -1,6 +1,7 @@
 const AwaitLock = require('await-lock').default;
 const _ = require('lodash');
 const jsonFn = require('json-fn')
+const error = require('debug')('sync:error:flow')
 
 module.exports = function (orm, role) {
   let masterDbMap = (orm.mode === 'multi' ? {} : false)
@@ -42,7 +43,7 @@ module.exports = function (orm, role) {
   let fakeId = null
   orm.onQueue('commit:flow:execCommit', async function (query, target, exec, commit) {
     if (orm.mode === 'multi' && !commit.dbName) {
-      console.warn('commit.dbName is undefined')
+      error('commit.dbName is undefined')
       return
     }
     //todo: [process:commit] can return array
@@ -128,7 +129,7 @@ module.exports = function (orm, role) {
       try {
         result = await orm.execChain(query)
       } catch (e) {
-        console.error('Error on query', jsonFn.stringify(query), 'is', e)
+        error('Error on query', jsonFn.stringify(query), 'is', e)
         await orm.emit('commit:report:errorExec', commit.id, e.message)
       }
       await orm.emit('commit:report:md5Check', commit, result)

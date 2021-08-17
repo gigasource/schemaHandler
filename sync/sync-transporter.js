@@ -1,6 +1,7 @@
 const AwaitLock = require('await-lock').default;
 const _ = require('lodash')
 const { v1 } = require('uuid')
+const debug = require('debug')('sync:transporter')
 
 module.exports = function (orm) {
   const connectedClientSocket = {}
@@ -18,7 +19,7 @@ module.exports = function (orm) {
       if (!queueCommit || !queueCommit.length)
         return
       await new Promise(resolve => {
-        console.log('commitRequest', queueCommit.length, queueCommit[0]._id, new Date())
+        debug('commitRequest', queueCommit.length, queueCommit[0]._id, new Date())
         clientSocket.emit('commitRequest', queueCommit, async () => {
           await orm.emit('transport:finish:send', queueCommit)
           resolve(queueCommit)
@@ -49,7 +50,7 @@ module.exports = function (orm) {
     })
 
     const off2 = orm.onQueue('transport:require-sync', async function () {
-      console.log('[Require sync]')
+      debug('[Require sync]')
       const {value: highestId} = await orm.emit('getHighestCommitId', dbName)
       const args = [highestId];
       orm.emit('commit:sync:args', args);
@@ -59,7 +60,7 @@ module.exports = function (orm) {
         }, 10000)
         clientSocket.emit('transport:require-sync', args, async (commits, needSync, masterHighestId) => {
           clearTimeout(wait)
-          console.log('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
+          debug('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
           if (masterHighestId)
             await orm('CommitData').updateOne({}, { masterHighestId })
           await orm('CommitData').updateOne({}, {
@@ -79,7 +80,7 @@ module.exports = function (orm) {
       let hasDone = false
       await new Promise(resolve => {
         const wait = setTimeout(() => {
-          console.log('[HealthCheck] Socket to master timeout')
+          debug('[HealthCheck] Socket to master timeout')
           orm.emit('commit:report:health-check', 'lanTransporter', 'disconnected', new Date())
           hasDone = true
           resolve()
@@ -160,7 +161,7 @@ module.exports = function (orm) {
 
     socket.on('commitRequest', (commits, cb) => {
       cb && cb()
-      console.log('commitRequest', commits.length, commits[0]._id, new Date())
+      debug('commitRequest', commits.length, commits[0]._id, new Date())
       for (let commit of commits) {
         commit.dbName = dbName
       }

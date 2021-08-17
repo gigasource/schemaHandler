@@ -1,3 +1,5 @@
+const debug = require('debug')('sync:replay')
+
 module.exports = function (orm) {
   let playMode = null
 
@@ -39,12 +41,12 @@ module.exports = function (orm) {
       await new Promise((resolve) => {
         const wait = setTimeout(() => {
           setInterval(() => {
-            console.log('[CommitReplay] Failed to replay, please restart and play again !')
+            debug('Failed to replay, please restart and play again !')
           }, 10000)
         }, 60000)
         socket.emit('transport:require-sync', args, async (commits, needSync) => {
           clearTimeout(wait)
-          console.log('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
+          debug('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
 
           if (commits.length)
             await orm('ReplayedCommit').create(commits)
