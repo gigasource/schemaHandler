@@ -34,7 +34,8 @@ const syncPlugin = function (orm) {
     for (let col of whitelist) {
       orm.on(`commit:handler:shouldNotExecCommand:${col}`, 99999, async function (commit) { // this hook is always the last to be called
         if (orm.isMaster()) {
-          this._value = false
+          if (!this._value)
+            this.setValue(false)
           return
         }
         if (!highestCommitIdOfCollection) {
