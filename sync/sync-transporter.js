@@ -1,9 +1,9 @@
 const AwaitLock = require('await-lock').default;
 const _ = require('lodash')
 const { v1 } = require('uuid')
-const debug = require('debug')('sync:transporter')
 
 module.exports = function (orm) {
+  const debug = orm.debug.extend('sync:transporter')
   const connectedClientSocket = {}
   const connectedMasterSocket = {}
 

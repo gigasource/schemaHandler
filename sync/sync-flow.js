@@ -1,9 +1,9 @@
 const AwaitLock = require('await-lock').default;
 const _ = require('lodash');
 const jsonFn = require('json-fn')
-const error = require('debug')('sync:error:flow')
 
 module.exports = function (orm, role) {
+  const error = orm.error.extend('sync:flow')
   let masterDbMap = (orm.mode === 'multi' ? {} : false)
   let COMMIT_LARGE_SYNC_THRESHOLD = 200
 

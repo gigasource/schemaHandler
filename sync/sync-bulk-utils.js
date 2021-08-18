@@ -1,6 +1,7 @@
 const _ = require('lodash')
 
 module.exports = function (orm) {
+  const error = orm.error.extend('sync:bulk-write')
   orm.doCreateBulk = doCreateBulk
   orm.handleFakeBulkWrite = handleFakeBulkWrite
 
@@ -118,7 +119,7 @@ module.exports = function (orm) {
           orm.setHighestCommitIdOfCollection(col, bulkOp[index].id)
           bulkOp = bulkOp.slice(index + 1)
         } else {
-          console.error('Wrong thing happened in bulk write', e.message)
+          error('Wrong thing happened in bulk write', e.message)
           return
         }
       }

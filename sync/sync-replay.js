@@ -1,6 +1,5 @@
-const debug = require('debug')('sync:replay')
-
 module.exports = function (orm) {
+  const debug = orm.debug.extend('sync:replay')
   let playMode = null
 
   const PLAYING_MODE = 'playing'

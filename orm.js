@@ -7,6 +7,7 @@ const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const ObjectID = require('bson').ObjectID;
 const uuid = require("uuid").v1;
 const error = require('combine-errors');
+const debug = require('debug')
 
 class Orm extends EventEmitter {
   constructor() {
@@ -22,6 +23,8 @@ class Orm extends EventEmitter {
     this.connected = false
     this.closed = false
     this.mode = 'single'
+    this.debug = debug('orm')
+    this.error = debug('orm:error')
 
     this.getCollection = getCollection
     this._getCollection = _getCollection
@@ -33,6 +36,11 @@ class Orm extends EventEmitter {
 
     this.plugin(require('./collectionPlugin'));
     this.plugin(require('./schemaPlugin'));
+  }
+
+  setDebug(debug) {
+    this.debug = debug('orm')
+    this.error = debug('orm:error')
   }
 
   setTtl(ttl) {

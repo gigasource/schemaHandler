@@ -1,10 +1,10 @@
 const QUEUE_COMMIT_MODEL = 'QueueCommit'
 const dayjs = require('dayjs')
 const _ = require('lodash')
-const debug = require('debug')('sync:queue')
-const error = require('debug')('sync:error:queue')
 
 module.exports = function (orm) {
+	const debug = orm.debug.extend('sync:queue')
+	const error = orm.error.extend('sync:queue')
 	const clearQueue = async () => {
 		const clearDate = dayjs().subtract(1, 'hour').toDate()
 		await orm(QUEUE_COMMIT_MODEL).deleteMany({

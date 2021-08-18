@@ -6,10 +6,10 @@ const dayjs = require('dayjs')
 const {ObjectID} = require('bson')
 const bulkUtils = require('./sync-bulk-utils')
 const { Query } = require('mingo')
-const debug = require('debug')('sync:plugin-multi')
-const error = require('debug')('sync:error:plugin-multi')
 
 const syncPlugin = function (orm) {
+  const debug = orm.debug.extend('sync:plugin-multi')
+  const error = orm.error.extend('sync:error:plugin-multi')
   const whitelist = []
   let highestCommitIdOfCollection = null
 

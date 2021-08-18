@@ -3,6 +3,8 @@ const uuid = require('uuid')
 const jsonFn = require('json-fn')
 
 module.exports = function (orm) {
+	const debug = orm.debug.extend('sync:snapshot')
+	const error = orm.error.extend('sync:snapshot')
 	const syncLock = new AwaitLock()
 	const handlers = []
 	const unusedCollections = ['DummyCollection']
@@ -104,7 +106,7 @@ module.exports = function (orm) {
 			else if (commit.data && commit.data.docId)
 				await orm(collection).updateOne({ _id: commit.data.docId }, { snapshot: true }).direct()
 			else if (result && Array.isArray(result)) {
-				console.log('[Snapshot] case create many')
+				debug('[Snapshot] case create many')
 				for (let doc of result)
 					await orm(collection).updateOne({ _id: doc._id }, { snapshot: true }).direct()
 			}
@@ -145,7 +147,7 @@ module.exports = function (orm) {
 		if (syncLock.acquired)
 			return
 		syncLock.tryAcquire()
-		console.log(`[Snapshot] Start snapshot ${new Date()}`)
+		debug(`[Snapshot] Start snapshot ${new Date()}`)
 		try {
 			const oldCommitData = await orm('CommitData').findOne()
 			const syncData = {
@@ -153,7 +155,7 @@ module.exports = function (orm) {
 				isSyncing: true,
 				firstTimeSync: !(oldCommitData && oldCommitData.syncData)
 			}
-			console.log('[Snapshot] Is first time sync', syncData.firstTimeSync)
+			debug('[Snapshot] Is first time sync', syncData.firstTimeSync)
 			orm.emit('commit:setUseCacheStatus', false)
 			await createCommitCache()
 			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
@@ -168,10 +170,10 @@ module.exports = function (orm) {
 			await Promise.all(promises)
 			await orm('CommitData').updateOne({}, {'syncData.isSyncing': false})
 		} catch (err) {
-			console.error(err)
+			error(err)
 		}
 		syncLock.release()
-		console.log(`[Snapshot] Finish snapshot ${new Date()}`)
+		debug(`[Snapshot] Finish snapshot ${new Date()}`)
 		orm.emit('commit:setUseCacheStatus', true)
 		orm.emit('master:transport:sync')
 		orm.emit('snapshot-done')
