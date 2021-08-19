@@ -448,8 +448,10 @@ const syncPlugin = function (orm) {
   orm.on('getHighestCommitId', async function (dbName) {
     let highestCommitId
     const commitData = await orm('CommitData', dbName).findOne({})
-    if (!commitData || !commitData.highestCommitId)
-      highestCommitId = (await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0}).id;
+    if (!commitData || !commitData.highestCommitId) {
+      const commitWithHighestId = await orm('Commit', dbName).find({}).sort('-id').limit(1)
+      highestCommitId = (commitWithHighestId.length ? commitWithHighestId[0] : { id: 0 }).id;
+    }
     else
       highestCommitId = commitData.highestCommitId
     this.value = highestCommitId;
