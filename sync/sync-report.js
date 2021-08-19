@@ -1,6 +1,7 @@
 const AwaitLock = require('await-lock').default
 const md5 = require('md5')
 const jsonFn = require('json-fn')
+const dayjs = require('dayjs')
 
 /**
  * Report includes:
@@ -120,12 +121,13 @@ const syncReport = function (orm) {
 	/**
 	 * Commit execution error
 	 */
-	const off5 = orm.on('commit:report:errorExec', async function (commitId, message) {
+	const off5 = orm.on('commit:report:errorExec', async function (commitId, message, isFake = false) {
 		await orm('CommitReport').create({
 			type: COMMIT_TYPE.EXEC_ERROR,
 			commitId,
 			message,
-			date: new Date()
+			date: new Date(),
+			isFake
 		})
 	}).off
 

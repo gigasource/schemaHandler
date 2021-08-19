@@ -10,8 +10,9 @@ module.exports = function (orm) {
   orm.schemas = orm.schemas || [];
   orm.defaultSchema = defaultSchema;
 
-  orm.registerSchema = function (collectionName, dbName, schema) {
+  orm.registerSchema = function (collectionName, dbName, schema, isSchemaConverted = false) {
     if (orm.mode === 'single') {
+      isSchemaConverted = schema
       schema = dbName;
       dbName = null;
     } else {
@@ -21,7 +22,9 @@ module.exports = function (orm) {
       }
     }
 
-    schema = convertSchemaToPaths(schema, collectionName);
+    if (!isSchemaConverted) {
+      schema = convertSchemaToPaths(schema, collectionName);
+    }
 
     orm.schemas.push({
       testCollection: convertNameToTestFunction(collectionName),
@@ -30,6 +33,7 @@ module.exports = function (orm) {
         testDb: convertNameToTestFunction(dbName)
       })
     })
+    orm.emit('schemaRegistered', collectionName, dbName, schema)
     return orm.getCollection(collectionName, dbName);
   }
   orm.getSchema = function (collectionName, dbName) {
@@ -48,6 +52,7 @@ module.exports = function (orm) {
 
   //parse condition
   orm.on('proxyQueryHandler', function ({target, key, proxy, defaultFn}) {
+    const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
     const returnResult = this;
     if (returnResult.ok) return;
     if (key === 'remove') key = 'deleteMany'
@@ -82,7 +87,6 @@ module.exports = function (orm) {
       returnResult.value = function () {
         const args = [...arguments];
         const condition = args.shift();
-        let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const _parseCondition = parseCondition(schema, condition);
         target.condition = _parseCondition;
         args.unshift(_parseCondition);
@@ -106,7 +110,6 @@ module.exports = function (orm) {
       returnResult.value = function () {
         const args = [...arguments];
         const condition = args.shift();
-        let schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const _parseCondition = parseCondition(schema, condition);
         target.condition = _parseCondition;
         if (key.includes('Update') || key.includes('Modify') || key === 'updateMany') {
@@ -136,7 +139,6 @@ module.exports = function (orm) {
       returnResult.ok = true;
       returnResult.value = function () {
         const args = [...arguments];
-        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const obj = args.shift();
         if (Array.isArray(obj)) {
           target.returnSingleDocument = false;
@@ -162,7 +164,6 @@ module.exports = function (orm) {
       returnResult.value = function () {
         const args = [...arguments];
         const obj = args.shift();
-        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         args.unshift(clearUndefined(parseSchema(schema, obj)));
         return defaultFn(...args)
       }
@@ -170,9 +171,9 @@ module.exports = function (orm) {
       returnResult.ok = true;
       returnResult.value = function () {
         const args = [...arguments];
-        const obj = args.pop();
-        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
-        args.push(clearUndefined(parseSchema(schema, obj)));
+        let condition = parseCondition(schema, args.shift());
+        let obj = clearUndefined(parseSchema(schema, args.shift()))
+        args.unshift(condition, obj);
         return defaultFn(...args)
       }
     } else if (key === 'insertMany') {
@@ -180,7 +181,6 @@ module.exports = function (orm) {
       returnResult.value = function () {
         const args = [...arguments];
         let objs = args.shift();
-        const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         objs = objs.map(obj => parseSchema(schema, obj)).map(clearUndefined);
         if (objs.length !== 0) {
           args.unshift(objs);
@@ -191,6 +191,39 @@ module.exports = function (orm) {
           return proxy;
         }
       }
+    } else if (key === 'bulkWrite') {
+      returnResult.ok = true;
+      //todo:
+      returnResult.value = function () {
+        const args = [...arguments];
+        let commands = args[0];
+        for (const command of commands) {
+          if (command.hasOwnProperty('insertOne')) {
+            const {document} = command['insertOne'];
+            command['insertOne'].document = parseSchema(schema, document);
+            //parse here
+          } else if (command.hasOwnProperty('updateOne')) {
+            const {filter, update, arrayFilters = []} = command['updateOne'];
+            command['updateOne'].filter = parseCondition(schema, filter);
+            command['updateOne'].update = parseCondition(schema, update, {arrayFilters});
+          } else if (command.hasOwnProperty('updateMany')) {
+            const {filter, update, arrayFilters = []} = command['updateMany'];
+            command['updateMany'].filter = parseCondition(schema, filter);
+            command['updateMany'].update = parseCondition(schema, update, {arrayFilters});
+          } else if (command.hasOwnProperty('deleteOne')) {
+            const {document} = command['deleteOne'];
+            command['deleteOne'].document = parseCondition(schema, document);
+          } else if (command.hasOwnProperty('deleteMany')) {
+            const {filter} = command['deleteMany'];
+            command['deleteMany'].filter = parseCondition(schema, filter);
+          } else if (command.hasOwnProperty('replaceOne')) {
+            const {filter, replacement} = command['replaceOne'];
+            command['replaceOne'].filter = parseCondition(schema, filter);
+            command['replaceOne'].replacement = parseSchema(schema, replacement);
+          }
+        }
+        return defaultFn(...args);
+      }
     }
   })
 
@@ -199,7 +232,7 @@ module.exports = function (orm) {
     if (key.includes('find') || key.includes('create') || key.includes('update')
       || key.includes('insert') || key.includes('delete') || key.includes('remove')
       || key.includes('count') || key.includes('aggregate') || key.includes('replace')
-      || key.includes('indexes') || key.includes('Index')) return true;
+      || key.includes('indexes') || key.includes('Index') || key.includes('bulk')) return true;
 
     return false;
   }

@@ -140,14 +140,14 @@ module.exports = function (orm) {
       return
     connectedMasterSocket[socket.id] = true
 
-    const debounceTransportSync = _.debounce(async () => {
+    const debounceTransportSync = _.debounce(async (id) => {
       const commitData = await orm('CommitData').findOne()
-      socket.emit('transport:sync', commitData ? commitData.highestCommitId : 0)
+      socket.emit('transport:sync', Math.max(id, commitData ? commitData.highestCommitId : 0))
     }, 500)
 
     const off1 = orm.on('master:transport:sync', (id, _dbName) => {
       if (dbName !== _dbName) return
-      debounceTransportSync()
+      debounceTransportSync(id)
     }).off;
 
     const off2 = orm.on('transport:checkProgress', async (cb) => {

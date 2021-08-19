@@ -13,7 +13,23 @@ class Orm extends EventEmitter {
     super();
     const {models, models2} = factory(this);
     this.models = models;
-    this.models2 = models2
+    this.models2 = models2;
+
+    this.ObjectId = ObjectID
+    this.cache = new NodeCache({useClones: false/*, checkperiod: 2*/})
+    this.pluralize = true
+    this.connecting = false
+    this.connected = false
+    this.closed = false
+    this.mode = 'single'
+
+    this.getCollection = getCollection
+    this._getCollection = _getCollection
+    this.connect = connect
+
+    this.execChain = execChain
+    this.createCollectionQuery = createCollectionQuery
+    this.resultPostProcess = resultPostProcess
 
     this.plugin(require('./collectionPlugin'));
     this.plugin(require('./schemaPlugin'));
@@ -45,14 +61,6 @@ class Orm extends EventEmitter {
     this.db = this.client.db(dbName);
   }
 
-  ObjectId = ObjectID
-  cache = new NodeCache({useClones: false/*, checkperiod: 2*/})
-  pluralize = true
-  connecting = false
-  connected = false
-  closed = false
-  mode = 'single'
-
   setSingleDbMode() {
     this.mode = 'single';
   }
@@ -60,12 +68,6 @@ class Orm extends EventEmitter {
   setMultiDbMode() {
     this.mode = 'multi';
   }
-
-  getCollection = getCollection
-
-  _getCollection = _getCollection
-
-  connect = connect
 
   close() {
     this.client.close();
@@ -109,10 +111,6 @@ class Orm extends EventEmitter {
     }
     return Promise.resolve();
   }
-
-  execChain = execChain
-  createCollectionQuery = createCollectionQuery
-  resultPostProcess = resultPostProcess
 }
 
 /*function orm() {
@@ -335,13 +333,16 @@ function createCollectionQuery(query) {
 
               }
               const r = await orm.emit(`proxyPreReturnValue:${query.uuid}`, result, target, exec);
+              await orm.emit(`proxyMutateResult:${query.uuid}`, query, r)
               return resolve(r.value);
             }
             if (process.env.NODE_ENV === 'test'){
               orm.emit('beforeReturnValue', query, target);
             }
             const returnValue = await orm.resultPostProcess(result, target);
-            resolve(returnValue);
+            const wrapperReturnValue = { value: returnValue }
+            await orm.emit(`proxyMutateResult:${query.uuid}`, query, wrapperReturnValue)
+            resolve(wrapperReturnValue.value);
           } catch (e) {
             reject(error([e0, e]));
           }
@@ -393,6 +394,8 @@ async function resultPostProcess(result, target) {
       _result = _.get(result, 'result.message.documents');
     } else if (target.cmd === 'aggregate') {
       _result = await _result.toArray()
+    } else if (result && result.constructor && result.constructor.name === 'BulkWriteResult') {
+      return result.result
     }
   } else {
     _result = result;
