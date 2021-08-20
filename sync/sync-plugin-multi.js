@@ -204,8 +204,18 @@ const syncPlugin = function (orm) {
           result.value = cursor.all()
         }
       } else {
+        // case findOne
         if (_resultWithId.length) {
-          _result = _resultWithId[0]
+          // if user want to use findOne, query must return specify doc, or query result can be null
+          if (_result && _result._id.toString() !== _resultWithId[0]._id.toString()) {
+            const mingoQuery = new Query(query.chain[0].args)
+            let cursor = mingoQuery.find(_resultWithId)
+            const finalResultWithId = cursor.all()
+            if (finalResultWithId.length)
+              _result = finalResultWithId[0]
+            else
+              _result = null
+          }
         } else if (result.value && _result && _result._id.toString() !== result.value._id.toString()) {
           return
         }
