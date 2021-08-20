@@ -178,6 +178,7 @@ module.exports = function (orm) {
       const commitData = await orm('CommitData', dbName).findOne({})
       const highestCommitId = (commitData && commitData.highestCommitId) ? commitData.highestCommitId : 0
       const needSync = (clientHighestId + commits.length < highestCommitId)
+      await orm.emit('transport:require-sync:postProcess', commits)
       cb(commits, needSync, highestCommitId);
     });
 

@@ -824,6 +824,9 @@ describe("[Module] Test bulk write", function () {
 			await utils[1].waitToSync(12)
 			findDataOrm1 = await orms[1]('Model').find()
 			findDataOrm0 = await orms[0]('Model').find()
+			for (let doc of findDataOrm0) {
+				delete doc.ref
+			}
 			expect(findDataOrm0).toEqual(findDataOrm1)
 			done()
 		})
@@ -862,6 +865,9 @@ describe("[Module] Test bulk write", function () {
 			await utils[1].waitToSync(19)
 			findDataOrm1 = await orms[1]('Model').find()
 			findDataOrm0 = await orms[0]('Model').find()
+			for (let doc of findDataOrm0) {
+				delete doc.ref
+			}
 			expect(findDataOrm0).toEqual(findDataOrm1)
 			done()
 		})
@@ -1334,7 +1340,7 @@ describe('[Integration] Test all plugins', function () {
 				expect(model.ref).toBe(true)
 			}
 			await utils[1].waitToSync(16)
-			await orms[0]('Model').updateOne({ table: 0 })
+			await orms[0]('Model').updateOne({ table: 0 }, { name: 'Done' })
 			await utils[1].waitToSync(17)
 			const commitsA1 = await orms[0]('Commit').find()
 			expect(commitsA1[0].chain).not.toBe(undefined)
@@ -1348,7 +1354,7 @@ describe('[Integration] Test all plugins', function () {
 			}
 			orms[2].socketConnect(orms[0].ioId)
 			jest.advanceTimersByTime(100) // time to connect
-			await utils[2].waitToSync(17)
+			await utils[2].waitToSync(18)
 			const modelsC = await orms[2]('Model').find()
 			const modelsA2 = await orms[0]('Model').find()
 			for (let i = 0; i < modelsC.length; i++) {

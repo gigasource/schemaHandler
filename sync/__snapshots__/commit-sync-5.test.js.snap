@@ -4,8 +4,6 @@ exports[`[Integration] Test all plugins [Sync-snapshot] Case 2: Client with high
 Array [
   Object {
     "_id": "ObjectID",
-    "approved": false,
-    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"name\\":\\"Testing\\"}]}]",
     "collectionName": "Model",
     "condition": "null",
     "data": Object {
@@ -16,6 +14,7 @@ Array [
     },
     "fromMaster": true,
     "id": 4,
+    "ref": "ObjectID",
     "tags": Array [],
     "uuid": "uuid-v1",
   },
