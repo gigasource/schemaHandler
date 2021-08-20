@@ -4,6 +4,10 @@ const _ = require('lodash')
 
 module.exports = function (orm) {
 	const clearQueue = async () => {
+		if (orm.isMaster()) {
+			clearInterval(intervalClearQueue)
+			return
+		}
 		const clearDate = dayjs().subtract(1, 'hour').toDate()
 		await orm(QUEUE_COMMIT_MODEL).deleteMany({
 			dateAdded: { '$exists': false }
@@ -41,8 +45,12 @@ module.exports = function (orm) {
 	})
 
 	async function tryResend() {
+		if (orm.isMaster()) {
+			clearInterval(tryResendInterval)
+			return
+		}
 		const remainCommit = await orm(QUEUE_COMMIT_MODEL).count()
-		if (!orm.isMaster() && remainCommit && !orm.getQueue('queue:send').length) {
+		if (remainCommit && !orm.getQueue('queue:send').length) {
 			console.log('Retry sending commit !', dayjs().toDate())
 			orm.emit('queue:send')
 		}
