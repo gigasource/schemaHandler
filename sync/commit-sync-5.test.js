@@ -117,6 +117,7 @@ describe("[Module] Test transporter", function() {
 	 *  - ormB sync with ormA
 	 */
   it("Case 1: Transporter", async () => {
+  	lodashMock()
     const { orm: ormA, utils: utilsA } = await ormGenerator(["sync-transporter"], {
       setMaster: true,
 	    name: 'A'
@@ -506,13 +507,13 @@ describe("[Module] Fake doc", function () {
 		orms[1].socketConnect(orms[0].ioId)
 		jest.advanceTimersByTime(100)
 		utils[1].setLockEvent('transport:send', true)
-		const doc = await orms[0]('Model').create({ arr: [{ test: 1 }] })
+		const doc = await orms[0]('Model').create({ arr: [{ test: 1 }] }) // 1
 		await utils[1].waitToSync(1)
-		await orms[1]('Model').updateOne({ _id: doc._id }, { test: 2 })
-		await orms[1]('Model').create({ secondDoc: true })
+		await orms[1]('Model').updateOne({ _id: doc._id }, { test: 2 }) // 2
+		await orms[1]('Model').create({ secondDoc: true }) // 3
 		findDataOrm1 = await orms[1]('Model').find()
 		expect(stringify(findDataOrm1)).toMatchSnapshot()
-		await orms[0]('Model').updateOne({ _id: doc._id }, { $push: { arr: { test: 2 } } })
+		await orms[0]('Model').updateOne({ _id: doc._id }, { $push: { arr: { test: 2 } } }) // 4
 		await utils[1].waitToSync(2)
 		findDataOrm0 = await orms[0]('Model').findOne()
 		expect(stringify(findDataOrm0)).toMatchSnapshot()

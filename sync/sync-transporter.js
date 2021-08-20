@@ -57,27 +57,23 @@ module.exports = function (orm) {
         const wait = setTimeout(() => {
           resolve(false)
         }, 10000)
-        clientSocket.emit('transport:require-sync', args, () => {
+        clientSocket.emit('transport:require-sync', args, async (commits, needSync, masterHighestId) => {
           clearTimeout(wait)
+          console.log('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
+          if (masterHighestId)
+            await orm('CommitData').updateOne({}, { masterHighestId })
+          await orm('CommitData').updateOne({}, {
+            lastTimeSyncWithMaster: new Date()
+          })
+          commits.forEach(commit => commit.dbName = dbName)
+          await orm.emit('transport:requireSync:callback', commits)
+          // clear all queued require sync commands because all "possible" commits is synced
+          if (needSync)
+            debounceRequireSync()
           resolve(true)
         })
       })
     }).off
-
-    clientSocket.on('transport:newCommit', async (commits, needSync, masterHighestId, cb) => {
-      cb()
-      console.log('Received', commits.length, commits.length ? commits[0]._id : '', needSync)
-      if (masterHighestId)
-        await orm('CommitData').updateOne({}, { masterHighestId })
-      await orm('CommitData').updateOne({}, {
-        lastTimeSyncWithMaster: new Date()
-      }, { upsert: true })
-      commits.forEach(commit => commit.dbName = dbName)
-      await orm.emit('transport:requireSync:callback', commits)
-      // clear all queued require sync commands because all "possible" commits is synced
-      if (needSync)
-        debounceRequireSync()
-    })
 
     const off3 = orm.on('health-check', async function () {
       let hasDone = false
@@ -106,7 +102,6 @@ module.exports = function (orm) {
       off3 && off3()
       clientSocket.removeAllListeners('transport:sync');
       clientSocket.removeAllListeners('transport:sync:progress')
-      clientSocket.removeAllListeners('transport:newCommit')
     }
 
     orm.on('transporter:destroy:default', () => {
@@ -172,16 +167,7 @@ module.exports = function (orm) {
       orm.emit('commitRequest', commits);
     });
 
-    let highestIdReceived = null
-    const lockRequireSync = new AwaitLock()
-    let TIMEOUT = 30000 // 30 sec
     socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
-      cb()
-      await lockRequireSync.acquireAsync()
-      if (highestIdReceived && clientHighestId <= highestIdReceived) {
-        lockRequireSync.acquired && lockRequireSync.release()
-        return
-      }
       let commits = (await orm.emit('transport:require-sync:preProcess', clientHighestId, cb)).value
       if (!commits || !Array.isArray(commits))
         commits = []
@@ -192,14 +178,7 @@ module.exports = function (orm) {
       const commitData = await orm('CommitData', dbName).findOne({})
       const highestCommitId = (commitData && commitData.highestCommitId) ? commitData.highestCommitId : 0
       const needSync = (clientHighestId + commits.length < highestCommitId)
-      await orm.emit('transport:require-sync:postProcess', commits)
-      socket.emit('transport:newCommit', commits, needSync, highestCommitId, () => {
-        highestIdReceived = clientHighestId
-        lockRequireSync.acquired && lockRequireSync.release()
-      })
-      setTimeout(() => {
-        lockRequireSync.acquired && lockRequireSync.release()
-      }, TIMEOUT)
+      cb(commits, needSync, highestCommitId);
     });
 
     socket.on('transport:health-check', (cb) => {
