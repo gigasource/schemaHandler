@@ -43,6 +43,10 @@ function clearUndefined(obj) {
       this.update(this.node_, true);
       return this.block();
     }
+    if (this.node instanceof Buffer) {
+      this.update(this.node_, true);
+      return this.block();
+    }
     if (!parent) return;
     if (isLeaf && node === undefined && !Array.isArray(parent)) {
       this.delete();

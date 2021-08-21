@@ -100,6 +100,10 @@ function parseSchema(paths, obj, {prefixPath} = {}) {
       this.update(this.node_, true);
       return this.block();
     }
+    if (this.node instanceof Buffer) {
+      this.update(this.node_, true);
+      return this.block();
+    }
     if (!isRoot && isLeaf && isPrimitive(node)) return;
     /*if (isRoot) {
       return;
