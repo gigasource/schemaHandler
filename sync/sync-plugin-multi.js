@@ -5,6 +5,7 @@ const jsonFn = require('json-fn');
 const dayjs = require('dayjs')
 const {ObjectID} = require('bson')
 const bulkUtils = require('./sync-bulk-utils')
+const { Query } = require('mingo')
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -13,6 +14,7 @@ const syncPlugin = function (orm) {
   orm.handleFindQuery = handleFindQuery
   orm.setHighestCommitIdOfCollection = setHighestCommitIdOfCollection
   orm.registerCommitBaseCollection = registerCommitBaseCollection
+  orm.getCommitData = getCommitData
 
   bulkUtils(orm)
 
@@ -22,6 +24,7 @@ const syncPlugin = function (orm) {
 
   function registerCommitBaseCollection () {
     whitelist.push(...arguments);
+    orm.emit('whiteListRegistered', arguments)
     // register for bulk write (only work for client)
     for (let col of whitelist) {
       orm.on(`commit:handler:shouldNotExecCommand:${col}`, 99999, async function (commit) { // this hook is always the last to be called
@@ -129,41 +132,91 @@ const syncPlugin = function (orm) {
     }
   })
 
-  async function handleFindQuery(query, result) {
-    const _query = _.cloneDeep(query)
-    _query.name = 'Recovery' + _query.name
-    _query.uuid = uuid()
-    const _result = await orm.execChain(_query)
-    if (Array.isArray(result.value)) {
-      const listIds = {}
-      for (let id in result.value) {
-        listIds[result.value[id]._id] = id
-      }
-      const deletedDocs = []
-      for (let doc of _result) {
-        if (doc._deleted) {
-          deletedDocs.push(doc._id.toString())
-          continue
-        }
-        if (listIds[doc._id]) {
-          Object.assign(result.value[listIds[doc._id]], doc)
+  async function handleSkipQuery(_query, query, result) {
+    _.remove(_query.chain, ops => {
+      return ops.fn === 'skip'
+    })
+    // chain includes skip
+    if (_query.chain.length < query.chain.length) {
+      let cursor = orm(query.name)
+      const numberOfFakeDocs = await orm(_query.name).count() // expect this number to be small
+      for (let i = 0; i < query.chain.length; i++) {
+        if (query.chain[i].fn !== 'skip') {
+          cursor = cursor[query.chain[i].fn](...query.chain[i].args)
         } else {
-          result.value.push(doc)
+          cursor = cursor[query.chain[i].fn](Math.max(0, parseInt(query.chain[i].args[0]) - numberOfFakeDocs))
         }
       }
-      _.remove(result.value, doc => {
-        return deletedDocs.includes(doc._id.toString())
+      cursor = cursor.direct()
+      result.value = await cursor
+    }
+  }
+
+  async function handleFindQuery(query, result) {
+    try {
+      const _query = _.cloneDeep(query)
+      if (_query.chain[0].fn.includes('AndUpdate')) {
+        _query.chain[0].fn = _query.chain[0].fn.slice(0, -9)
+      }
+      _query.name = 'Recovery' + _query.name
+      _query.uuid = uuid()
+      await handleSkipQuery(_query, query, result)
+      delete _query.mockCollection
+      let _result = await orm.execChain(_query)
+      const arrCondition = Array.isArray(result.value) ? result.value.map(doc => doc._id) : [result.value ? result.value._id : null]
+      // this is docs in fake collection which can't be found with query's condition
+      const _resultWithId = await orm(_query.name).find({ _id: { $in: arrCondition } })
+      _.remove(_resultWithId, doc => {
+        return Array.isArray(_result) ? !!_result.find(_doc => _doc._id.toString() === doc._id.toString()) : (_result && _result._id.toString() === doc._id.toString())
       })
-    } else {
-      if (_result) {
-        if (!result.value)
-          result.value = {}
-        if (_result._deleted) {
-          Object.assign(result, { value: null })
+      if (Array.isArray(result.value)) {
+        const listIds = {}
+        for (let id in result.value) {
+          listIds[result.value[id]._id] = id
+        }
+        const deletedDocs = []
+        for (let doc of _result) {
+          if (doc._deleted) {
+            deletedDocs.push(doc._id.toString())
+            continue
+          }
+          if (listIds[doc._id]) {
+            Object.assign(result.value[listIds[doc._id]], doc)
+          } else {
+            result.value.push(doc)
+          }
+        }
+        _.remove(result.value, doc => {
+          return deletedDocs.includes(doc._id.toString()) || !!_resultWithId.find(_doc => doc._id.toString() === _doc._id.toString())
+        })
+        if (query.chain.length > 1) {
+          const mingoQuery = new Query({})
+          let cursor = mingoQuery.find(result.value)
+          for (let i = 1; i < query.chain.length; i++) {
+            cursor[query.chain[i].fn](...query.chain[i].args)
+          }
+          result.value = cursor.all()
+        }
+      } else {
+        if (_resultWithId.length) {
+          _result = _resultWithId[0]
+        } else if (result.value && _result && _result._id.toString() !== result.value._id.toString()) {
           return
         }
-        Object.assign(result.value, _result)
+        if (_result) {
+          if (!result.value)
+            result.value = {}
+          if (_result._deleted) {
+            Object.assign(result, { value: null })
+            return
+          }
+          Object.assign(result.value, _result)
+        } else if (_resultWithId.length) {
+          result.value = null
+        }
       }
+    } catch (e) {
+      console.log('Handle find error', e.message)
     }
   }
 
@@ -218,6 +271,21 @@ const syncPlugin = function (orm) {
 
   orm.on('initFakeLayer', function () {
     //todo: fake layer
+    // this is only for single mode
+    orm.on('whiteListRegistered', whiteList => {
+      for (const col of whiteList) {
+        const schema = orm.getSchema(col)
+        if (schema)
+          orm.registerSchema('Recovery' + col, schema, true)
+      }
+    })
+    orm.on('schemaRegistered', (collectionName, dbName, schema) => {
+      if (!whitelist.includes(collectionName)) return
+      const _schema = orm.getSchema('Recovery' + collectionName)
+      if (!_schema)
+        orm.registerSchema('Recovery' + collectionName, schema, true)
+    })
+
     orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, commit) {
       if (!commit.chain) return;
       const isDeleteCmd = target.cmd.includes('delete') || target.cmd.includes('remove')
@@ -245,8 +313,17 @@ const syncPlugin = function (orm) {
           }
         }
         try {
-          if (!isDeleteCmd)
+          if (!isDeleteCmd) {
             this.update('value', await exec())
+          } else {
+            const fakeDocs = await orm(fakeCollectionName).find(target.condition)
+            for (let doc of fakeDocs) {
+              await orm(fakeCollectionName).updateOne({ _id: doc._id }, {
+                _fakeDate: currentDate,
+                _deleted: true
+              })
+            }
+          }
         } catch (e) {
           await orm.emit('commit:report:errorExec', null, e.message, true)
         }
@@ -273,12 +350,18 @@ const syncPlugin = function (orm) {
       }
     });
 
-    const mustRecoverOperation = ['$push', '$pull', '$set', '$unset']
+    const mustRecoverOperation = ['$push', '$pull']
+
     orm.on("commit:update-fake", async function (commit) {
       try {
         const { value: commitDataId } = await orm.emit('getCommitDataId')
+        if (!commit.chain && commit.fromClient && commit.fromClient.toString() === commitDataId.toString()) { // case doNo commit
+          await removeFakeOfCollection(commit.collectionName, { _fakeId: { $lte: commit._fakeId } }) // remove all doc with id smaller than this commit's id
+          return
+        }
         const query = orm.getQuery(commit)
-        if ((!commit.condition || commit.condition === 'null') && !(query.chain && query.chain[0].fn.includes('delete'))) return
+        if ((!commit.condition || commit.condition === 'null') &&
+          !(query.chain && (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('bulk')))) return
         let _parseCondition = commit.condition ? jsonFn.parse(commit.condition) : {}
         let hasMustRecoverOp = false
         for (let op of mustRecoverOperation) {
@@ -287,11 +370,20 @@ const syncPlugin = function (orm) {
             break
           }
         }
+        if (query.chain[0].fn.includes('bulk')) {
+          hasMustRecoverOp = true
+          _parseCondition = orm.emit('handleBulkFake', query.chain[0].args[0])
+          if (!_parseCondition) _parseCondition = {}
+        }
         if (commit.fromClient && commitDataId.toString() === commit.fromClient.toString()) {
-          if (hasMustRecoverOp) {
-            _parseCondition._fakeId = { $gt: commit._fakeId }
+          if (query.chain[0].fn.includes('bulk')) {
+            _parseCondition.$or.push({ _fakeId: commit._fakeId })
+          } else {
+            if (hasMustRecoverOp) {
+              _parseCondition._fakeId = { $gt: commit._fakeId }
+            }
+            query.chain[0].args[0]._fakeId = { $gt: commit._fakeId }
           }
-          query.chain[0].args[0]._fakeId = { $gt: commit._fakeId }
         }
         if (hasMustRecoverOp) {
           await removeFakeOfCollection(commit.collectionName, _parseCondition)
@@ -316,7 +408,7 @@ const syncPlugin = function (orm) {
 
     orm.removeFakeOfCollection = removeFakeOfCollection
 
-    const removeFakeInterval = setInterval(async function () {
+    const removeFakeIntervalFn = async function () {
       if (orm.isMaster()) {
         clearInterval(removeFakeInterval)
         return
@@ -329,7 +421,9 @@ const syncPlugin = function (orm) {
           }
         })
       }
-    }, 3 * 60 * 60 * 1000) //3 hours
+    }
+    const removeFakeInterval = setInterval(removeFakeIntervalFn, 3 * 60 * 60 * 1000) //3 hours
+    removeFakeIntervalFn().then(r => r)
 
     orm.on('commit:remove-all-recovery', 'fake-channel', async function () {
       for (let col of whitelist) {
@@ -352,6 +446,10 @@ const syncPlugin = function (orm) {
       highestCommitId = commitData.highestCommitId
     this.value = highestCommitId;
   })
+
+  async function getCommitData(dbName) {
+    return await orm('CommitData', dbName).findOne({})
+  }
 
   let COMMIT_BULK_WRITE_THRESHOLD = 100
   orm.on('commit:setBulkWriteThreshold', threshold => {
@@ -480,14 +578,12 @@ const syncPlugin = function (orm) {
 
   async function removeFake() {
     for (const collection of whitelist) {
-      const docs = await orm(collection).find()
+      const docs = await orm('Recovery' + collection).find()
       for (const doc of docs) {
-        if (doc._fake) {
-          await orm(collection).remove({_id: doc._id}).direct()
-          delete doc._fake
-          await orm(collection).create(doc)
-        }
+        delete doc._fakeId
+        delete doc._fakeDate
       }
+      await orm(collection).create(docs)
     }
   }
 

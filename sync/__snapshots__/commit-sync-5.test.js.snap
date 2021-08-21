@@ -428,12 +428,96 @@ Array [
   Object {
     "_id": "ObjectID",
     "fakeId": 4,
-    "highestCommitId": 3,
+    "highestCommitId": 4,
     "lastTimeSyncWithMaster": "2021-01-27T17:00:00.000Z",
-    "masterHighestId": 3,
+    "masterHighestId": 4,
   },
 ]
 `;
+
+exports[`[Module] Fake doc Case 11: findOneAndUpdate fake 1`] = `
+Object {
+  "_id": "ObjectID",
+  "test": Array [],
+}
+`;
+
+exports[`[Module] Fake doc Case 11: findOneAndUpdate fake 2`] = `
+Object {
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
+  "_id": "ObjectID",
+  "test": Array [
+    1,
+  ],
+}
+`;
+
+exports[`[Module] Fake doc Case 11: findOneAndUpdate fake 3`] = `
+Object {
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
+  "_id": "ObjectID",
+  "test": Array [
+    1,
+  ],
+}
+`;
+
+exports[`[Module] Fake doc Case 12: find with sort 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
+    "_id": "ObjectID",
+    "test": 2,
+  },
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
+    "_id": "ObjectID",
+    "test": 1,
+  },
+  Object {
+    "_id": "ObjectID",
+    "test": -1,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 12: find with sort 2`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
+    "_id": "ObjectID",
+    "test": 2,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 13: find with skip 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
+    "_id": "ObjectID",
+    "test": 2,
+  },
+  Object {
+    "_id": "ObjectID",
+    "test": 3,
+  },
+  Object {
+    "_id": "ObjectID",
+    "test": 4,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 14: find after update fake 1`] = `Array []`;
+
+exports[`[Module] Fake doc Case 14: find after update fake 2`] = `null`;
 
 exports[`[Module] Test bulk write Case 1: Test bulk write with client 1`] = `
 Array [
@@ -487,6 +571,55 @@ Array [
   },
   Object {
     "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 8: Update bulkwrite 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "b": 1,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 9: Bulkwrite with fake 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 9: Bulkwrite with fake 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 9: Bulkwrite with fake 3`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "a": 1,
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 9: Bulkwrite with fake 4`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "a": 1,
     "test": 1,
   },
 ]
