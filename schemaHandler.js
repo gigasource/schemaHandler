@@ -500,6 +500,7 @@ function isSchemaTypePrimitive(node) {
 
 function isSchemaType(key, node, isRoot) {
   if ([String, Number, Boolean, ObjectID, Date].includes(node)) return true;
+  if (node && node.name === 'ObjectId' && node.prototype && node.prototype._bsontype) return true;
   if (typeof node === 'object' && node.hasOwnProperty('type')) {
     return false;
   }
