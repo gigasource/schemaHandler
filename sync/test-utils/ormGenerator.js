@@ -146,8 +146,8 @@ async function ormGenerator(plugins, options) {
 		await Promise.all(listPromises)
 	}
 
-	function setLockEvent(event, isLock) {
-		isLock[event] = isLock
+	function setLockEvent(event, _isLock) {
+		isLock[event] = _isLock
 	}
 
 	async function waitEventIsCalled(event, numberOfTimes = 1) {
@@ -236,7 +236,7 @@ async function ormGenerator(plugins, options) {
 	}
 
 	let highestId = 0
-	orm.on('update:Commit:c', commit => {
+	orm.on('update:Commit:c', 1, commit => {
 		if (!commit.id || isNaN(commit.id)) return
 		highestId = Math.max(highestId, commit.id)
 		ormHook.emit('newCommit')
@@ -246,12 +246,17 @@ async function ormGenerator(plugins, options) {
 		highestId = Math.max(highestId, result.highestCommitId)
 		ormHook.emit('newCommit')
 	})
+	orm.on('commit:handler:finish:bulk', (keys, lastId) => {
+		if (isNaN(lastId)) return
+		highestId = Math.max(highestId, lastId)
+		ormHook.emit('newCommit')
+	})
 	async function waitToSync(highestCommitId) {
 		await new Promise(async (resolve) => {
 			if (highestId >= highestCommitId)
 				resolve()
 			const { off } = ormHook.on('newCommit', () => {
-				if (highestId === highestCommitId) {
+				if (highestId >= highestCommitId) {
 					resolve()
 					off()
 				}

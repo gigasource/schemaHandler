@@ -27,9 +27,6 @@ module.exports = function (orm, role) {
     } else if (isStateChange === 1) {
       orm.emit('offMaster')
     }
-    if (_isMaster) {
-      orm.emit('commit:remove-all-recovery')
-    }
   })
 
   const checkMaster = (dbName) => {
@@ -42,6 +39,7 @@ module.exports = function (orm, role) {
   orm.isMaster = checkMaster
 
   // customize
+  let fakeId = null
   orm.onQueue('commit:flow:execCommit', async function (query, target, exec, commit) {
     if (orm.mode === 'multi' && !commit.dbName) {
       console.warn('commit.dbName is undefined')
@@ -55,16 +53,21 @@ module.exports = function (orm, role) {
         await orm.emit(`process:commit:${tag}`, _commit)
       }
     }
-    if (_commit && _commit.chain !== commit.chain) {
-      exec = async () => await orm.execChain(orm.getQuery(_commit))
-    }
     commit = _commit;
 
     let value
     if (!checkMaster(commit.dbName)) {
       // client
+      if (!fakeId) {
+        const commitData = await orm('CommitData').findOne()
+        fakeId = commitData && commitData._fakeId ? commitData._fakeId : 1
+      }
       orm.emit('transport:toMaster', commit)
-      await orm.emit('commit:build-fake', query, target, exec, commit, e => eval(e))
+      commit.fromClient = (await orm.emit('getCommitDataId')).value
+      commit._fakeId = fakeId
+      fakeId += 1
+      await orm('CommitData').updateOne({}, { fakeId })
+      await orm.emit('commit:build-fake', query, target, commit, e => eval(e))
     } else {
       commit.fromMaster = true;
       const lock = new AwaitLock()
@@ -76,7 +79,6 @@ module.exports = function (orm, role) {
       orm.emit('createCommit', commit)
       await lock.acquireAsync()
     }
-    if (value) delete value._fake;
     this.value = value
   })
 
@@ -85,7 +87,7 @@ module.exports = function (orm, role) {
   let snapshotMilestone = null
   orm.onQueue('commit:handler:finish', async (commit) => {
     // end of commit's flow, delete all commits which have smaller id than this commit
-    if (!checkMaster(commit.dbName)) {
+    if (orm.mode !== 'multi' && !checkMaster()) {
       await orm('Commit').deleteMany({id: {$lt: commit.id}})
       const commitData = await orm('CommitData').findOne()
       if (commitData && commitData.masterHighestId) {
@@ -116,7 +118,7 @@ module.exports = function (orm, role) {
   orm.onQueue('update:Commit:c', 'fake-channel', async function (commit) {
     if (!commit.id) return
     if (!checkMaster(commit.dbName)) {
-      await orm.emit('commit:remove-fake', commit);
+      await orm.emit('commit:update-fake', commit);
     }
     const run = !(await orm.emit(`commit:handler:shouldNotExecCommand:${commit.collectionName}`, commit));
     let result

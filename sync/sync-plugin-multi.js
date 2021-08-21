@@ -2,13 +2,54 @@ const _ = require('lodash');
 const {parseCondition, parseSchema} = require("../schemaHandler");
 const uuid = require('uuid').v1;
 const jsonFn = require('json-fn');
+const dayjs = require('dayjs')
 const {ObjectID} = require('bson')
+const bulkUtils = require('./sync-bulk-utils')
+const { Query } = require('mingo')
 
 const syncPlugin = function (orm) {
   const whitelist = []
+  let highestCommitIdOfCollection = null
 
-  orm.registerCommitBaseCollection = function () {
+  orm.handleFindQuery = handleFindQuery
+  orm.setHighestCommitIdOfCollection = setHighestCommitIdOfCollection
+  orm.registerCommitBaseCollection = registerCommitBaseCollection
+  orm.getCommitData = getCommitData
+  orm.getWhiteList = getWhiteList
+
+  bulkUtils(orm)
+
+  function setHighestCommitIdOfCollection(col, val) {
+    highestCommitIdOfCollection[col] = val
+  }
+
+  function getWhiteList() {
+    return whitelist
+  }
+
+  function registerCommitBaseCollection () {
     whitelist.push(...arguments);
+    orm.emit('whiteListRegistered', arguments)
+    // register for bulk write (only work for client)
+    for (let col of whitelist) {
+      orm.on(`commit:handler:shouldNotExecCommand:${col}`, 99999, async function (commit) { // this hook is always the last to be called
+        if (orm.isMaster()) {
+          if (!this._value)
+            this.setValue(false)
+          return
+        }
+        if (!highestCommitIdOfCollection) {
+          const commitData = await orm('CommitData').findOne()
+          highestCommitIdOfCollection =
+            commitData && commitData.highestCommitIdOfCollection ? commitData.highestCommitIdOfCollection : {}
+        }
+        if (highestCommitIdOfCollection[col] && commit.id <= highestCommitIdOfCollection[col])
+          this.setValue(true)
+        else
+        if (!this._value)
+          this._value = false
+      })
+    }
   }
 
   orm.on('pre:execChain', -2, function (query) {
@@ -67,19 +108,133 @@ const syncPlugin = function (orm) {
       this.stop();
     } else {
       if (whitelist.includes(query.name) && !query.chain.find(c => c.fn === 'commit')) {
-        const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete']
+        const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete', 'bulkWrite']
+        const findCmds = ['find', 'aggregate']
         let mutateCmd = false;
+        let findCmd = false;
         query.chain.forEach(({fn}) => {
           for (const cmd of cmds) {
-            if (fn.includes(cmd)) return mutateCmd = true;
+            if (fn.includes(cmd)) {
+              mutateCmd = true;
+              break
+            }
+          }
+          for (const cmd of findCmds) {
+            if (fn.includes(cmd)) {
+              findCmd = true;
+              break;
+            }
           }
         })
         if (mutateCmd) {
           query.chain.push({fn: 'commit', args: []})
         }
+        if (findCmd && !orm.isMaster()) {
+          orm.once(`proxyMutateResult:${query.uuid}`, async function (_query, result) {
+            await orm.handleFindQuery(_query, result)
+          })
+        }
       }
     }
   })
+
+  async function handleSkipQuery(_query, query, result) {
+    _.remove(_query.chain, ops => {
+      return ops.fn === 'skip'
+    })
+    // chain includes skip
+    if (_query.chain.length < query.chain.length) {
+      let cursor = orm(query.name)
+      const numberOfFakeDocs = await orm(_query.name).count() // expect this number to be small
+      for (let i = 0; i < query.chain.length; i++) {
+        if (query.chain[i].fn !== 'skip') {
+          cursor = cursor[query.chain[i].fn](...query.chain[i].args)
+        } else {
+          cursor = cursor[query.chain[i].fn](Math.max(0, parseInt(query.chain[i].args[0]) - numberOfFakeDocs))
+        }
+      }
+      cursor = cursor.direct()
+      result.value = await cursor
+    }
+  }
+
+  async function handleFindQuery(query, result) {
+    try {
+      const _query = _.cloneDeep(query)
+      if (_query.chain[0].fn.includes('AndUpdate')) {
+        _query.chain[0].fn = _query.chain[0].fn.slice(0, -9)
+      }
+      _query.name = 'Recovery' + _query.name
+      _query.uuid = uuid()
+      await handleSkipQuery(_query, query, result)
+      delete _query.mockCollection
+      let _result = await orm.execChain(_query)
+      const arrCondition = Array.isArray(result.value) ? result.value.map(doc => doc._id) : [result.value ? result.value._id : null]
+      // this is docs in fake collection which can't be found with query's condition
+      const _resultWithId = await orm(_query.name).find({ _id: { $in: arrCondition } })
+      _.remove(_resultWithId, doc => {
+        return Array.isArray(_result) ? !!_result.find(_doc => _doc._id.toString() === doc._id.toString()) : (_result && _result._id.toString() === doc._id.toString())
+      })
+      if (Array.isArray(result.value)) {
+        const listIds = {}
+        for (let id in result.value) {
+          listIds[result.value[id]._id] = id
+        }
+        const deletedDocs = []
+        for (let doc of _result) {
+          if (doc._deleted) {
+            deletedDocs.push(doc._id.toString())
+            continue
+          }
+          if (listIds[doc._id]) {
+            Object.assign(result.value[listIds[doc._id]], doc)
+          } else {
+            result.value.push(doc)
+          }
+        }
+        _.remove(result.value, doc => {
+          return deletedDocs.includes(doc._id.toString()) || !!_resultWithId.find(_doc => doc._id.toString() === _doc._id.toString())
+        })
+        if (query.chain.length > 1) {
+          const mingoQuery = new Query({})
+          let cursor = mingoQuery.find(result.value)
+          for (let i = 1; i < query.chain.length; i++) {
+            cursor[query.chain[i].fn](...query.chain[i].args)
+          }
+          result.value = cursor.all()
+        }
+      } else {
+        // case findOne
+        if (_resultWithId.length) {
+          // if user want to use findOne, query must return specify doc, or query result can be null
+          if (_result && _result._id.toString() !== _resultWithId[0]._id.toString()) {
+            const mingoQuery = new Query(query.chain[0].args)
+            let cursor = mingoQuery.find(_resultWithId)
+            const finalResultWithId = cursor.all()
+            if (finalResultWithId.length)
+              _result = finalResultWithId[0]
+            else
+              _result = null
+          }
+        } else if (result.value && _result && _result._id.toString() !== result.value._id.toString()) {
+          return
+        }
+        if (_result) {
+          if (!result.value)
+            result.value = {}
+          if (_result._deleted) {
+            Object.assign(result, { value: null })
+            return
+          }
+          Object.assign(result.value, _result)
+        } else if (_resultWithId.length) {
+          result.value = null
+        }
+      }
+    } catch (e) {
+      console.log('Handle find error', e.message)
+    }
+  }
 
   orm.on('commit:auto-assign', function (commit, _query, target) {
     if (target.cmd === "create" || target.cmd === "insertOne") {
@@ -108,7 +263,7 @@ const syncPlugin = function (orm) {
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
         commit._id = new ObjectID()
-        commit.condition = jsonFn.stringify(target.condition);
+        commit.condition = target.condition ? jsonFn.stringify(target.condition) : null;
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
         commit.chain = jsonFn.stringify(_query.chain);
@@ -117,23 +272,6 @@ const syncPlugin = function (orm) {
         }
         // put processCommit here
         const {value: value} = await orm.emit('commit:flow:execCommit', _query, target, exec, commit);
-        // const {value: _commit} = await orm.emit('createCommit:master', _.cloneDeep(commit)); // todo fix this
-        // if (_commit.chain !== commit.chain) {
-        //   exec = async () => await orm.execChain(getQuery(commit))
-        // }
-        // await orm.emit('commit:build-fake', _query, target, exec, _commit, e => eval(e));
-        // let lock = new AwaitLock();
-        // if (isMaster) {
-        //   lock.acquireAsync();
-        //   orm.once(`commit:result:master:${commit.uuid}`, function (result) {
-        //     value = result;
-        //     lock.release();
-        //   });
-        // }
-        // orm.emit("transport:toMaster", commit, _query);
-        // if (isMaster) {
-        //   await lock.acquireAsync();
-        // }
         this.value = value;
       });
     }
@@ -149,116 +287,166 @@ const syncPlugin = function (orm) {
 
   orm.on('initFakeLayer', function () {
     //todo: fake layer
-    orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, exec, commit) {
-      try {
-        if (!commit.chain) return;
+    // this is only for single mode
+    orm.on('whiteListRegistered', whiteList => {
+      for (const col of whiteList) {
+        const schema = orm.getSchema(col)
+        if (schema)
+          orm.registerSchema('Recovery' + col, schema, true)
+      }
+    })
+    orm.on('schemaRegistered', (collectionName, dbName, schema) => {
+      if (!whitelist.includes(collectionName)) return
+      const _schema = orm.getSchema('Recovery' + collectionName)
+      if (!_schema)
+        orm.registerSchema('Recovery' + collectionName, schema, true)
+    })
 
-        if (!target.isMutateCmd) {
-          return this.update('value', await exec());
-        }
-        const _uuid = { uuid: commit.uuid };
-        //case findOneAndUpdate upsert ??
-        //case updateMany
-        //case delete || remove
-        //case create many
-        //todo: assign docId, (s)
-
-        //todo: One
-        if (!target.condition) {
-          //case create, insert
-          let value = await exec();
-          //add recovery layer:
-          if (Array.isArray(value)) {
-            for (const doc of value) {
-              const _doc = await orm(query.name).updateOne({ _id: doc._id }, { $set: { _fake: true } }).direct();
-              value.splice(value.indexOf(doc), 1, _doc);
-              await orm('Recovery').create({ collectionName: query.name, ..._uuid, type: 'create', doc: _doc });
-            }
-            return this.update('value', value);
+    orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, commit) {
+      if (!commit.chain) return;
+      const isDeleteCmd = target.cmd.includes('delete') || target.cmd.includes('remove')
+      const fakeCollectionName = 'Recovery' + commit.collectionName
+      const _query = orm.getQuery(commit)
+      _query.name = fakeCollectionName
+      const exec = async () => await orm.execChain(_query)
+      const currentDate = new Date()
+      if (target.condition) {
+        const docs = await orm(commit.collectionName).find(target.condition).direct()
+        for (let doc of docs) {
+          const _doc = await orm(fakeCollectionName).findOne({ _id: doc._id })
+          if (!_doc) {
+            doc._fakeDate = currentDate
+            doc._fakeId = commit._fakeId
+            if (isDeleteCmd) doc._deleted = true
+            await orm(fakeCollectionName).create(doc)
           } else {
-            value = await orm(query.name).updateOne({ _id: value._id }, { $set: { _fake: true } }).direct();
-            await orm('Recovery').create({ collectionName: query.name, ..._uuid, type: 'create', doc: value });
-            return this.update('value', value);
+            await orm(fakeCollectionName).updateOne({ _id: doc._id }, {
+              _fakeDate: currentDate,
+              ...isDeleteCmd && {
+                _deleted: true
+              }
+            })
           }
-        } else if (target.returnSingleDocument) {
-          const doc = await orm(query.name).findOne(target.condition);
-          if (doc && !doc._fake) {
-            await orm('Recovery').create({
-              collectionName: query.name,
-              doc,
-              ..._uuid
-            });
-          }/* else {
-            const _recovery = await orm('Recovery').findOne({'doc._id': doc._id});
-            await orm('Recovery').create({
-              collectionName: query.name,
-              doc: _recovery.doc,
-              ..._uuid
-            });
-          }*/
-          let value = await exec();
-          if (!doc) {
-            await orm('Recovery').create({ collectionName: query.name, ..._uuid, type: 'create', doc: value })
-          }
-          if (value) {
-            value = await orm(query.name).updateOne({ _id: value._id }, { $set: { _fake: true } }).direct();
-          }
-          this.update('value', value);
-        } else {
-          //updateMany
-          const docs = await orm(query.name).find(target.condition);
-          const jobs = []
-          for (const doc of docs) {
-            if (!doc._fake) {
-              await orm('Recovery').create({
-                collectionName: query.name,
-                doc,
-                ..._uuid
-              });
-              jobs.push(async () => await orm(query.name).updateOne({ _id: doc._id }, { $set: { _fake: true } }).direct())
-            }/* else {
-              const _recovery = await orm('Recovery').findOne({'doc._id': doc._id});
-              await orm('Recovery').create({
-                collectionName: query.name,
-                doc: _recovery.doc,
-                ..._uuid
-              });
-            }*/
-          }
-          let value = await exec();
-          for (const job of jobs) await job();
-          return this.update('value', value);
         }
-        //let doc = await orm.execChain(getQuery(commit));
-        //doc = await Model.updateOne({_id: doc._id}, {_fake: true})
-        // console.log('fake : ', doc);
+        try {
+          if (!isDeleteCmd) {
+            this.update('value', await exec())
+          } else {
+            const fakeDocs = await orm(fakeCollectionName).find(target.condition)
+            for (let doc of fakeDocs) {
+              await orm(fakeCollectionName).updateOne({ _id: doc._id }, {
+                _fakeDate: currentDate,
+                _deleted: true
+              })
+            }
+          }
+        } catch (e) {
+          await orm.emit('commit:report:errorExec', null, e.message, true)
+        }
+      } else {
+        try {
+          const result = await exec()
+          if (Array.isArray(result)) {
+            for (let doc of result) {
+              await orm(fakeCollectionName).updateOne({ _id: doc._id }, { _fakeDate: currentDate, _fakeId: commit._fakeId })
+            }
+          } else {
+            await orm(fakeCollectionName).updateOne({ _id: result._id }, { _fakeDate: currentDate, _fakeId: commit._fakeId })
+          }
+          if (target.cmd === 'bulkWrite')
+            await orm.handleFakeBulkWrite(commit.collectionName, commit._fakeId)
+          this.update('value', result)
+        } catch (e) {
+          if (target.cmd === 'bulkWrite')
+            await orm.handleFakeBulkWrite(commit.collectionName, commit._fakeId)
+          this.update('value', null)
+          await orm.emit('commit:report:errorExec', null, e.message, true)
+        }
+
+      }
+    });
+
+    const mustRecoverOperation = ['$push', '$pull']
+
+    orm.on("commit:update-fake", async function (commit) {
+      try {
+        const { value: commitDataId } = await orm.emit('getCommitDataId')
+        if (!commit.chain && commit.fromClient && commit.fromClient.toString() === commitDataId.toString()) { // case doNo commit
+          await removeFakeOfCollection(commit.collectionName, { _fakeId: { $lte: commit._fakeId } }) // remove all doc with id smaller than this commit's id
+          return
+        }
+        const query = orm.getQuery(commit)
+        if ((!commit.condition || commit.condition === 'null') &&
+          !(query.chain && (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('bulk')))) return
+        let _parseCondition = commit.condition ? jsonFn.parse(commit.condition) : {}
+        let hasMustRecoverOp = false
+        for (let op of mustRecoverOperation) {
+          if (commit.chain && commit.chain.includes(op)) {
+            hasMustRecoverOp = true
+            break
+          }
+        }
+        if (query.chain[0].fn.includes('bulk')) {
+          hasMustRecoverOp = true
+          _parseCondition = orm.emit('handleBulkFake', query.chain[0].args[0])
+          if (!_parseCondition) _parseCondition = {}
+        }
+        if (commit.fromClient && commitDataId.toString() === commit.fromClient.toString()) {
+          if (query.chain[0].fn.includes('bulk')) {
+            _parseCondition.$or.push({ _fakeId: commit._fakeId })
+          } else {
+            if (hasMustRecoverOp) {
+              _parseCondition._fakeId = { $gt: commit._fakeId }
+            }
+            query.chain[0].args[0]._fakeId = { $gt: commit._fakeId }
+          }
+        }
+        if (hasMustRecoverOp) {
+          await removeFakeOfCollection(commit.collectionName, _parseCondition)
+          return
+        }
+        const fakeCollectionName = 'Recovery' + commit.collectionName
+        query.name = fakeCollectionName
+        if (commit.dbName) query.name += `@${commit.dbName}`
+        let result = null
+        try {
+          result = await orm.execChain(query)
+        } catch (e) {
+          await removeFakeOfCollection(commit.collectionName, _parseCondition)
+        }
+        this.value = result
       } catch (e) {}
     });
 
-    orm.on("commit:remove-fake", async function (commit) {
-      //if (orm.name !== 'A') return;
-      let _parseCondition = commit.condition ? jsonFn.parse(commit.condition) : {}
-      let recoveries = await orm('Recovery').find({uuid: commit.uuid});
+    async function removeFakeOfCollection(col, condition) {
+      await orm('Recovery' + col).deleteMany(condition)
+    }
 
-      if (recoveries.length === 0) {
-        const schema = orm.getSchema(commit.collectionName, commit.dbName);
-        _parseCondition = parseCondition(schema, _parseCondition);
-        const condition = _.mapKeys(_parseCondition, (v, k) => `doc.${k}`)
-        recoveries = await orm('Recovery').find(condition);
-      }
-      for (const recovery of recoveries) {
-        if (recovery.type === 'create') {
-          await orm(recovery.collectionName).remove({_id: recovery.doc._id}).direct();
-        } else {
-          await orm(recovery.collectionName).replaceOne({_id: recovery.doc._id}, recovery.doc, { upsert: true }).direct();
+    orm.removeFakeOfCollection = removeFakeOfCollection
+
+    orm.setRemoveFakeInterval = function () {
+      const removeFakeIntervalFn = async function () {
+        if (orm.isMaster()) {
+          clearInterval(removeFakeInterval)
+          return
         }
-        await orm('Recovery').remove({_id: recovery._id});
+        const clearDate = dayjs().subtract(3, 'hour').toDate()
+        for (let col of whitelist) {
+          await orm('Recovery' + col).deleteMany({
+            _fakeDate: {
+              '$lte': clearDate
+            }
+          })
+        }
       }
-
-    });
+      const removeFakeInterval = setInterval(removeFakeIntervalFn, 3 * 60 * 60 * 1000) //3 hours
+      removeFakeIntervalFn().then(r => r)
+    }
 
     orm.on('commit:remove-all-recovery', 'fake-channel', async function () {
-      await orm('Recovery').remove({})
+      for (let col of whitelist) {
+        await orm('Recovery' + col).remove({})
+      }
     })
   })
 
@@ -270,23 +458,37 @@ const syncPlugin = function (orm) {
   orm.on('getHighestCommitId', async function (dbName) {
     let highestCommitId
     const commitData = await orm('CommitData', dbName).findOne({})
-    if (!commitData || !commitData.highestCommitId)
-      highestCommitId = (await orm('Commit', dbName).findOne({}).sort('-id') || {id: 0}).id;
+    if (!commitData || !commitData.highestCommitId) {
+      const commitWithHighestId = await orm('Commit', dbName).find({}).sort('-id').limit(1)
+      highestCommitId = (commitWithHighestId.length ? commitWithHighestId[0] : { id: 0 }).id;
+    }
     else
       highestCommitId = commitData.highestCommitId
     this.value = highestCommitId;
   })
 
-  //should transparent
+  async function getCommitData(dbName) {
+    return await orm('CommitData', dbName).findOne({})
+  }
+
+  let COMMIT_BULK_WRITE_THRESHOLD = 100
+  orm.on('commit:setBulkWriteThreshold', threshold => {
+    COMMIT_BULK_WRITE_THRESHOLD = threshold
+  })
+
   orm.onQueue('transport:requireSync:callback', async function (commits) {
     if (!commits || !commits.length) return
-    try {
-      for (const commit of commits) {
-        //replace behaviour here
-        await orm.emit('createCommit', commit)
+    if (commits.length > COMMIT_BULK_WRITE_THRESHOLD) {
+      await orm.doCreateBulk(commits)
+    } else {
+      try {
+        for (const commit of commits) {
+          //replace behaviour here
+          await orm.emit('createCommit', commit)
+        }
+      } catch (err) {
+        console.log('Error in hook transport:requireSync:callback')
       }
-    } catch (err) {
-      console.log('Error in hook transport:requireSync:callback')
     }
     orm.emit('commit:handler:doneAllCommits')
     console.log('Done requireSync', commits.length, commits[0]._id, new Date())
@@ -396,14 +598,12 @@ const syncPlugin = function (orm) {
 
   async function removeFake() {
     for (const collection of whitelist) {
-      const docs = await orm(collection).find()
+      const docs = await orm('Recovery' + collection).find()
       for (const doc of docs) {
-        if (doc._fake) {
-          await orm(collection).remove({_id: doc._id}).direct()
-          delete doc._fake
-          await orm(collection).create(doc)
-        }
+        delete doc._fakeId
+        delete doc._fakeDate
       }
+      await orm(collection).create(docs)
     }
   }
 
@@ -424,6 +624,19 @@ const syncPlugin = function (orm) {
     await orm('CommitData').updateOne({}, { highestCommitId }, { upsert: true })
     await orm.emit('transport:removeQueue')
     await orm.emit('commit:remove-all-recovery')
+  })
+
+  let commitDataId = null
+  orm.on('getCommitDataId', async function () {
+    if (commitDataId) {
+      return this.value = commitDataId
+    }
+    let commitData = await orm('CommitData').findOne()
+    if (!commitData) {
+      commitData = await orm('CommitData').create({})
+    }
+    commitDataId = commitData._id
+    this.value = commitData._id
   })
 
   // if (isMaster) {

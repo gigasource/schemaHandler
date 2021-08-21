@@ -159,6 +159,7 @@ module.exports = function (orm) {
 			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
 			currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1))[0].uuid
 			for (let collection of unusedCollections) {
+				await orm(collection).deleteMany({}).direct()
 				await orm('Commit').deleteMany({ collectionName: collection })
 			}
 			const promises = []
