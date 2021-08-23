@@ -59,6 +59,7 @@ module.exports = function (orm) {
 			if (syncData && syncData.id === commit.data.syncUUID) {
 				if (syncData.needReSync) {
 					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
+					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
 				}
 				return this.mergeValueAnd(!syncData.needReSync)
 			} else {
@@ -77,6 +78,7 @@ module.exports = function (orm) {
 				await orm('CommitData').updateOne({}, { syncData: _syncData }, { upsert: true })
 				if (_syncData.needReSync) {
 					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
+					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
 				}
 				return this.mergeValueAnd(!_syncData.needReSync)
 			}
