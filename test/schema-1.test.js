@@ -5,7 +5,7 @@ const {
   parseCondition
 } = require("../schemaHandler");
 const orm = require("../orm");
-const {parseSchema} = require("../schemaHandler");
+const { parseSchema } = require("../schemaHandler");
 const { ObjectID } = require("bson");
 
 let id = () => "5fb7f13453d00d8aace1d89b";
@@ -84,7 +84,6 @@ describe("checkEqual", function() {
     expect(stringify(m2)).toMatchInlineSnapshot(`
       Object {
         "_id": "ObjectID",
-        "author": "ObjectID",
         "b": 100,
         "categories": Array [],
         "groups": Array [],
@@ -94,13 +93,13 @@ describe("checkEqual", function() {
             "name": "fanta",
           },
         ],
+        "obj": Object {},
         "strArr": Array [],
       }
     `);
     expect(stringify(m3)).toMatchInlineSnapshot(`
       Object {
         "_id": "ObjectID",
-        "author": "ObjectID",
         "b": 100,
         "categories": Array [],
         "groups": Array [],
@@ -118,6 +117,7 @@ describe("checkEqual", function() {
             "name": "Pepsi",
           },
         ],
+        "obj": Object {},
         "strArr": Array [],
       }
     `);
@@ -141,7 +141,6 @@ describe("checkEqual", function() {
     expect(stringify(m2)).toMatchInlineSnapshot(`
       Object {
         "_id": "ObjectID",
-        "author": "ObjectID",
         "b": 100,
         "categories": Array [
           Object {
@@ -163,6 +162,7 @@ describe("checkEqual", function() {
         ],
         "groups": Array [],
         "items": Array [],
+        "obj": Object {},
         "strArr": Array [],
       }
     `);
@@ -205,8 +205,8 @@ describe("checkEqual", function() {
   });
 
   it("case 8 parse schema", async function() {
-    const m1 = {items: [{a: 1}]}
-    const schema = orm.getSchema('Model');
+    const m1 = { items: [{ a: 1 }] };
+    const schema = orm.getSchema("Model");
     const m2 = parseSchema(schema, m1);
     expect(!!m2._id).toBe(true);
   });
