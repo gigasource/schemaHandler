@@ -1,9 +1,9 @@
 const ObjectID = require('bson').ObjectID;
 const _ = require('lodash');
-const traverse = require("traverse");
-const {convertNameToTestFunction, clearUndefined} = require("./utils");
+const traverse = require('traverse');
+const {convertNameToTestFunction, clearUndefined} = require('./utils');
 
-const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require("./schemaHandler")
+const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require('./schemaHandler')
 
 module.exports = function (orm) {
   const defaultSchema = convertSchemaToPaths({});
@@ -257,36 +257,39 @@ module.exports = function (orm) {
     }
   })
 
+  function isContiguousIntegers(a) {
+    for (const x of a) if (isNaN(x)) return false
+    a.sort((x, y) => (Number(x) - Number(y)))
+    for (let i = 0; i < a.length; i++) {
+      if (i !== Number(a[i])) return false
+    }
+    return true
+  }
+
   function genPaths(_path, obj) {
+    const paths = []
     _path = _path.split('.');
-    const paths = [];
-    traverse(obj).map(function (node) {
-      const {key, path, isRoot, parent, isLeaf} = this;
-      if (checkEqual(_path, path)) {
-        paths.push(path.join('.'));
-      }
-      if (_path.length > path.length) {
-        const __path = _.take(_path, path.length);
-        if (!checkEqual(__path, path)) {
-          return this.block();
+    if (_.last(_path) === '0') {
+      const src = _.get(obj, _path.slice(0, -1).join('.'))
+      if (src === undefined || src === null) return []
+      const keys = _.keys(src)
+      if (isContiguousIntegers(keys)) {
+        for (const key of keys) {
+          paths.push([..._path.slice(0, -1), key].join('.'))
         }
+      } else {
+        paths.push(_path.join('.'))
       }
-      if (node instanceof ObjectID) {
-        return this.block();
-      }
-    })
+    } else paths.push(_path.join('.'))
     return paths;
   }
 
   //populate
-  orm.on('proxyResultPostProcess', async function ({target, result}) {
-    const returnResult = this;
-    if (!result) return;
-    if (returnResult.ok) return;
-    if (result.n && result.ok) return;
 
+  async function doPopulate(target, result) {
     if (target.populates) {
       for (const populate of target.populates) {
+
         const [arg1] = populate;
         let path, select, deselect;
         if (typeof arg1 === 'string') {
@@ -298,47 +301,80 @@ module.exports = function (orm) {
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const refCollectionName = schema[path].$options.ref;
         const refCollection = orm.getCollection(refCollectionName, target.dbName);
-        const paths = genPaths(path, result);
-        for (const _path of paths) {
-          let cursor = refCollection['findById'](_.get(result, _path));
-          if (select !== true) {
-            cursor = cursor.select(select)
+        const ids = []
+        const map = new Map()
+        for (const doc of result) {
+          const paths = genPaths(path, doc);
+          for (const _path of paths) {
+            if (_.get(doc, _path)) ids.push(_.get(doc, _path))
+
           }
-          const refDoc = await cursor.lean();
-          _.set(result, _path, refDoc);
+          // if (paths.length > 1) {
+          //   let arrPath = [...path.split('.')]
+          //   arrPath.pop();
+          //   arrPath = arrPath.join('.');
+          //   const arr = _.get(result, arrPath);
+          //   if (Array.isArray(arr)) {
+          //     _.set(result, arrPath, arr.filter(a => a !== null));
+          //   }
+          // }
         }
-        if (paths.length > 1) {
-          let arrPath = [...path.split('.')]
-          arrPath.pop();
-          arrPath = arrPath.join('.');
-          const arr = _.get(result, arrPath);
-          if (Array.isArray(arr)) {
-            _.set(result, arrPath, arr.filter(a => a !== null));
+        const cursor = refCollection['find']({_id: {$in: ids}})
+        const docs = await cursor.lean()
+        for (const doc of docs) {
+          map.set(doc._id.toString(), doc)
+        }
+        for (const doc of result) {
+          const paths = genPaths(path, doc);
+          for(const _path of paths) {
+            if (_.get(doc, _path)) { //todo: check if _.get(doc, _path) is ObjectID
+              let populatedValue = map.get(_.get(doc, _path).toString())
+              if (_.isString(select)) populatedValue = _.pick(populatedValue, select.split(' '))
+              _.set(doc, _path, populatedValue)
+            }
           }
         }
       }
-
-      returnResult.ok = true;
-      returnResult.value = result;
     }
-  })
 
-  orm.on('proxyResultPostProcess', async function ({target, result}, returnResult) {
-    let cmd = target.cmd;
-    if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
-      await orm.emit(`update:${target.collectionName}`, result, target);
-      if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}`, result, target);
-      const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
-      await orm.emit(`update:${target.collectionName}:${type}`, result, target);
-      if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}:${type}`, result, target);
-    } else if (cmd.includes('find')) {
-      await orm.emit(`find:${target.collectionName}`, result, target);
-      if (orm.mode === 'multi') await orm.emit(`find:${target.collectionName}@${target.dbName}`, result, target);
+    return result
+  }
+
+  orm.on('proxyResultPostProcess', async function ({target, result}) {
+    const returnResult = this;
+    if (returnResult.ok) return;
+    if (target.returnSingleDocument) {
+      if (!result) return
+      if (result.ok && result.n) return
+      returnResult.ok = true
+      returnResult.value = (await doPopulate(target, [result]))[0]
     } else {
-      await orm.emit(`delete:${target.collectionName}`, result, target);
-      if (orm.mode === 'multi') await orm.emit(`delete:${target.collectionName}@${target.dbName}`, result, target);
+      if (result.length >= 1) {
+        const firstResult = result[0]
+        if (!firstResult) return
+        if (firstResult.ok) return
+      }
+      returnResult.ok = true
+      returnResult.value = await doPopulate(target, result)
     }
   })
+
+  // orm.on('proxyResultPostProcess', async function ({target, result}, returnResult) {
+  //   let cmd = target.cmd;
+  //   if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
+  //     await orm.emit(`update:${target.collectionName}`, result, target);
+  //     if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}`, result, target);
+  //     const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
+  //     await orm.emit(`update:${target.collectionName}:${type}`, result, target);
+  //     if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}:${type}`, result, target);
+  //   } else if (cmd.includes('find')) {
+  //     await orm.emit(`find:${target.collectionName}`, result, target);
+  //     if (orm.mode === 'multi') await orm.emit(`find:${target.collectionName}@${target.dbName}`, result, target);
+  //   } else {
+  //     await orm.emit(`delete:${target.collectionName}`, result, target);
+  //     if (orm.mode === 'multi') await orm.emit(`delete:${target.collectionName}@${target.dbName}`, result, target);
+  //   }
+  // })
 
   orm.on('proxyPostQueryHandler', function ({target, proxy}, result) {
     const schema = orm.getSchema(target.collectionName, target.dbName);
@@ -352,7 +388,7 @@ module.exports = function (orm) {
     }
   })
 
-  //add new: true ??
+//add new: true ??
   orm.on('proxyPostQueryHandler', function ({target, proxy}) {
     if (target.new) {
       proxy.setOptions({new: true});
