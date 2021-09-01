@@ -326,7 +326,7 @@ module.exports = function (orm) {
         }
         for (const doc of result) {
           const paths = genPaths(path, doc);
-          for(const _path of paths) {
+          for (const _path of paths) {
             if (_.get(doc, _path)) { //todo: check if _.get(doc, _path) is ObjectID
               let populatedValue = map.get(_.get(doc, _path).toString())
               if (_.isString(select)) populatedValue = _.pick(populatedValue, select.split(' '))
@@ -359,22 +359,24 @@ module.exports = function (orm) {
     }
   })
 
-  // orm.on('proxyResultPostProcess', async function ({target, result}, returnResult) {
-  //   let cmd = target.cmd;
-  //   if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
-  //     await orm.emit(`update:${target.collectionName}`, result, target);
-  //     if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}`, result, target);
-  //     const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
-  //     await orm.emit(`update:${target.collectionName}:${type}`, result, target);
-  //     if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}:${type}`, result, target);
-  //   } else if (cmd.includes('find')) {
-  //     await orm.emit(`find:${target.collectionName}`, result, target);
-  //     if (orm.mode === 'multi') await orm.emit(`find:${target.collectionName}@${target.dbName}`, result, target);
-  //   } else {
-  //     await orm.emit(`delete:${target.collectionName}`, result, target);
-  //     if (orm.mode === 'multi') await orm.emit(`delete:${target.collectionName}@${target.dbName}`, result, target);
-  //   }
-  // })
+  orm.on('proxyResultPostProcess', async function ({target, result}) {
+    let cmd = target.cmd;
+    for (const _result of (target.returnSingleDocument ? [result] : result)) {
+      if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
+        await orm.emit(`update:${target.collectionName}`, _result, target);
+        if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}`, _result, target);
+        const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
+        await orm.emit(`update:${target.collectionName}:${type}`, _result, target);
+        if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}:${type}`, _result, target);
+      } else if (cmd.includes('find')) {
+        await orm.emit(`find:${target.collectionName}`, _result, target);
+        if (orm.mode === 'multi') await orm.emit(`find:${target.collectionName}@${target.dbName}`, _result, target);
+      } else {
+        await orm.emit(`delete:${target.collectionName}`, _result, target);
+        if (orm.mode === 'multi') await orm.emit(`delete:${target.collectionName}@${target.dbName}`, _result, target);
+      }
+    }
+  })
 
   orm.on('proxyPostQueryHandler', function ({target, proxy}, result) {
     const schema = orm.getSchema(target.collectionName, target.dbName);
