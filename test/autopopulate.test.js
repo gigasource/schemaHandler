@@ -368,4 +368,45 @@ describe("test populate", function() {
     `);
     expect(class1.students[0].weight).toBeUndefined();
   });
+  test(" populate findOneAndUpdate result", async () => {
+    const a = await A.create({ name: "a" });
+    const a1 = await A.create({ name: "a1" });
+    const b = await B.create({ name: "b" });
+    const b1 = await B.findOneAndUpdate({ _id: b._id }, { name: "b1" });
+    const b2 = await B.findOneAndUpdate(
+      { _id: b._id },
+      { name: "b2", a: a._id }
+    );
+    const b3 = await B.findOneAndUpdate(
+      { _id: b._id },
+      { name: "b3", a: a1._id }
+    );
+    expect(b2.a.name).toBe("a");
+    expect(b3.a.name).toBe("a1");
+  });
+  test("populate findOne result", async () => {
+    const a = await A.create({ name: "a" });
+    const b = await B.create({ name: "b", a: a._id });
+    const _b = await B.findOne();
+    expect(_b.a.name).toBe("a");
+  });
+  test("populate updateMany result", async () => {
+    const a = await A.create({ name: "a" });
+    const a1 = await A.create({ name: "a1" });
+    for (let i = 0; i < 10; i++) {
+      await B.create({ name: `b${i}`, a: a._id });
+    }
+    const updatedBs = await B.updateMany({ a: a._id }, { a: a1._id });
+    expect(updatedBs).toMatchInlineSnapshot(`
+      Object {
+        "n": 10,
+        "nModified": 10,
+        "ok": 1,
+      }
+    `);
+    const db = await B.find({})
+    for(let i = 0 ; i < 10; i++) {
+      expect(db[i].a.name).toBe('a1')
+    }
+  });
 });
