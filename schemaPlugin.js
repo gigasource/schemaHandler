@@ -266,21 +266,25 @@ module.exports = function (orm) {
     return true
   }
 
+  //todo: optimize this function
   function genPaths(_path, obj) {
-    const paths = []
     _path = _path.split('.');
-    if (_.last(_path) === '0') {
-      const src = _.get(obj, _path.slice(0, -1).join('.'))
-      if (src === undefined || src === null) return []
-      const keys = _.keys(src)
-      if (isContiguousIntegers(keys)) {
-        for (const key of keys) {
-          paths.push([..._path.slice(0, -1), key].join('.'))
-        }
-      } else {
-        paths.push(_path.join('.'))
+    const paths = [];
+    traverse(obj).map(function (node) {
+      const {key, path, isRoot, parent, isLeaf} = this;
+      if (checkEqual(_path, path)) {
+        paths.push(path.join('.'));
       }
-    } else paths.push(_path.join('.'))
+      if (_path.length > path.length) {
+        const __path = _.take(_path, path.length);
+        if (!checkEqual(__path, path)) {
+          return this.block();
+        }
+      }
+      if (node instanceof ObjectID) {
+        return this.block();
+      }
+    })
     return paths;
   }
 

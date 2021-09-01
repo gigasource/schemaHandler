@@ -210,7 +210,7 @@ describe("test populate", function() {
     expect(message.author.company.name).toBe("gigasource");
   });
   test("performance", async () => {
-    const n = 1000;
+    const n = 200;
     const listA = await A.create(_.range(n).map(i => ({ name: "" + i })));
 
     await B.create(_.range(n).map(i => ({ name: "" + i, a: listA[i]._id })));
@@ -404,9 +404,67 @@ describe("test populate", function() {
         "ok": 1,
       }
     `);
-    const db = await B.find({})
-    for(let i = 0 ; i < 10; i++) {
-      expect(db[i].a.name).toBe('a1')
+    const db = await B.find({});
+    for (let i = 0; i < 10; i++) {
+      expect(db[i].a.name).toBe("a1");
     }
+  });
+  test("multi level array", async () => {
+    const Cell = registerSchema("Cell", {
+      x: Number,
+      y: Number
+    });
+    const Grid = registerSchema("Grid", {
+      rows: [
+        {
+          rowId: Number,
+          cells: [
+            {
+              type: ObjectID,
+              ref: "Cell",
+              autopopulate: true
+            }
+          ]
+        }
+      ]
+    });
+
+    const cell0_0 = await Cell.create({ x: 0, y: 0 });
+    const cell1_0 = await Cell.create({ x: 1, y: 0 });
+    const grid = await Grid.create({
+      rows: [
+        { rowId: 0, cells: [cell0_0._id] },
+        { rowId: 1, cells: [cell1_0._id] }
+      ]
+    });
+    expect(stringify(grid)).toMatchInlineSnapshot(`
+      Object {
+        "_id": "ObjectID",
+        "rows": Array [
+          Object {
+            "_id": "ObjectID",
+            "cells": Array [
+              Object {
+                "_id": "ObjectID",
+                "x": 0,
+                "y": 0,
+              },
+            ],
+            "rowId": 0,
+          },
+          Object {
+            "_id": "ObjectID",
+            "cells": Array [
+              Object {
+                "_id": "ObjectID",
+                "x": 1,
+                "y": 0,
+              },
+            ],
+            "rowId": 1,
+          },
+        ],
+      }
+    `);
   });
 });
