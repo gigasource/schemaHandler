@@ -270,7 +270,7 @@ module.exports = function (orm) {
   function genPaths(_path, obj) {
     _path = _path.split('.');
     const paths = [];
-    traverse(obj).map(function (node) {
+    traverse(obj).forEach(function (node) {
       const {key, path, isRoot, parent, isLeaf} = this;
       if (checkEqual(_path, path)) {
         paths.push(path.join('.'));
@@ -281,7 +281,7 @@ module.exports = function (orm) {
           return this.block();
         }
       }
-      if (node instanceof ObjectID) {
+      if ((node instanceof ObjectID) || (node instanceof Buffer)) {
         return this.block();
       }
     })
