@@ -310,18 +310,12 @@ module.exports = function (orm) {
         for (const doc of result) {
           const paths = genPaths(path, doc);
           for (const _path of paths) {
-            if (_.get(doc, _path)) ids.push(_.get(doc, _path))
-
+            if (ObjectID.isValid(_.get(doc, _path))) ids.push(_.get(doc, _path))
+            else {
+              //set null if not instance of ObjectID / can't populate
+              _.set(doc, _path, null)
+            }
           }
-          // if (paths.length > 1) {
-          //   let arrPath = [...path.split('.')]
-          //   arrPath.pop();
-          //   arrPath = arrPath.join('.');
-          //   const arr = _.get(result, arrPath);
-          //   if (Array.isArray(arr)) {
-          //     _.set(result, arrPath, arr.filter(a => a !== null));
-          //   }
-          // }
         }
         const cursor = refCollection['find']({_id: {$in: ids}})
         const docs = await cursor.lean()
@@ -330,12 +324,21 @@ module.exports = function (orm) {
         }
         for (const doc of result) {
           const paths = genPaths(path, doc);
+          const pathsContainNullElementsInArray = new Set()
           for (const _path of paths) {
-            if (_.get(doc, _path)) { //todo: check if _.get(doc, _path) is ObjectID
-              let populatedValue = map.get(_.get(doc, _path).toString())
-              if (_.isString(select)) populatedValue = _.pick(populatedValue, select.split(' '))
+            if (ObjectID.isValid(_.get(doc, _path))) {
+              let populatedValue = map.get(_.get(doc, _path).toString()) || null
+              if (populatedValue && _.isString(select)) populatedValue = _.pick(populatedValue, select.split(' '))
               _.set(doc, _path, populatedValue)
+            } else {
+              const subPath = _path.split('.').slice(0, -1)
+              if (_.isArray(_.get(doc, subPath.join('.')))) {
+                pathsContainNullElementsInArray.add(subPath.join('.'))
+              }
             }
+          }
+          for (const _path of pathsContainNullElementsInArray) {
+            _.set(doc, _path, _.get(doc, _path).filter(a => a !== null))
           }
         }
       }

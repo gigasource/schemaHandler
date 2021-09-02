@@ -10,7 +10,7 @@ const { parseSchema } = require("../schemaHandler");
 const { ObjectID } = require("bson");
 
 let id = () => "5fb7f13453d00d8aace1d89b";
-let A, B, C, D, E;
+let A, B, C, D, E, F;
 jest.setTimeout(10000000);
 
 const collections = [];
@@ -80,12 +80,17 @@ describe("test populate", function() {
       name: String,
       b: [{ type: ObjectID, autopopulate: true, ref: "B" }]
     };
+    const schemaF = {
+      name: String,
+      d: [{ type: ObjectID, autopopulate: true, ref: "D" }]
+    };
     A = registerSchema("A", schemaA);
     B = registerSchema("B", schemaB);
     B1 = registerSchema("B1", schemaB1);
     C = registerSchema("C", schemaC);
     D = registerSchema("D", schemaD);
     E = registerSchema("E", schemaE);
+    F = registerSchema("F", schemaF);
     //Model = orm.getCollection('Model')
     done();
   });
@@ -273,16 +278,13 @@ describe("test populate", function() {
       }
     `);
   });
-  test("nulls as ref (array)", async () => {
+  test("remove nulls as ref in array", async () => {
     const a = await A.create({ name: "a" });
     const d = await D.create({ name: "d", a: [null, null, null, a._id] });
     expect(stringify(d)).toMatchInlineSnapshot(`
       Object {
         "_id": "ObjectID",
         "a": Array [
-          null,
-          null,
-          null,
           Object {
             "_id": "ObjectID",
             "name": "a",
@@ -292,6 +294,117 @@ describe("test populate", function() {
       }
     `);
   });
+  test("remove nulls as ref in deep array", async () => {
+    const a = await A.create({ name: "a" });
+    const a1 = await A.create({ name: "a1" });
+    const d = await D.create({ name: "d", a: [a._id, null, a1._id] });
+    const f = await F.create({ name: "f", d: [null, d._id, null, null] });
+    expect(stringify(f)).toMatchInlineSnapshot(`
+      Object {
+        "_id": "ObjectID",
+        "d": Array [
+          Object {
+            "_id": "ObjectID",
+            "a": Array [
+              Object {
+                "_id": "ObjectID",
+                "name": "a",
+              },
+              Object {
+                "_id": "ObjectID",
+                "name": "a1",
+              },
+            ],
+            "name": "d",
+          },
+        ],
+        "name": "f",
+      }
+    `);
+    expect(f.d.length).toBe(1);
+    expect(f.d[0].a.length).toBe(2);
+  });
+  test("empty array ref", async () => {
+    const d = await D.create({ name: "d", a: [] });
+    expect(stringify(d)).toMatchInlineSnapshot(`
+      Object {
+        "_id": "ObjectID",
+        "a": Array [],
+        "name": "d",
+      }
+    `);
+  });
+  test("deep empty array", async () => {
+    const d = await D.create({ name: "d", a: [] });
+    const f = await F.create({ name: "f", d: [d._id] });
+    expect(stringify(f)).toMatchInlineSnapshot(`
+      Object {
+        "_id": "ObjectID",
+        "d": Array [
+          Object {
+            "_id": "ObjectID",
+            "a": Array [],
+            "name": "d",
+          },
+        ],
+        "name": "f",
+      }
+    `);
+    expect(f.d[0].a.length).toBe(0);
+  });
+
+  test("not exist ref", async () => {
+    const b = await B.create({ name: "b", a: new ObjectID() });
+    expect(b.a).toBe(null);
+  });
+  test("not exist ref array", async () => {
+    const b = await B.create({ name: "b" });
+    const e = await E.create({
+      name: "e",
+      b: [
+        b._id,
+        new ObjectID(),
+        {},
+        null,
+        undefined,
+        new Date(),
+        "1234",
+        b._id.toString(),
+        false,
+        true
+      ]
+    });
+    expect(stringify(e)).toMatchInlineSnapshot(`
+      Object {
+        "_id": "ObjectID",
+        "b": Array [
+          Object {
+            "_id": "ObjectID",
+            "name": "b",
+          },
+          Object {
+            "_id": "ObjectID",
+            "name": "b",
+          },
+        ],
+        "name": "e",
+      }
+    `);
+    expect(e.b.length).toBe(2);
+  });
+  test("missing ref", async () => {
+    const a = await A.create({ name: "a" });
+    const b = await B.create({ name: "b" });
+    const d = await D.create({ name: "d" });
+    expect(stringify(d)).toMatchInlineSnapshot(`
+      Object {
+        "_id": "ObjectID",
+        "a": Array [],
+        "name": "d",
+      }
+    `);
+  });
+
   test("population of undefined fields in a collection of docs", async () => {
     const a = await A.create({ name: "a" });
     const b = await B.create({ name: "b", a: a._id });
