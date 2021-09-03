@@ -295,7 +295,7 @@ module.exports = function (orm) {
       for (const populate of target.populates) {
 
         const [arg1] = populate;
-        let path, select, deselect;
+        let path, select;
         if (typeof arg1 === 'string') {
           [path, select] = populate;
         } else {
@@ -328,7 +328,12 @@ module.exports = function (orm) {
           for (const _path of paths) {
             if (ObjectID.isValid(_.get(doc, _path))) {
               let populatedValue = map.get(_.get(doc, _path).toString()) || null
-              if (populatedValue && _.isString(select)) populatedValue = _.pick(populatedValue, select.split(' '))
+              if (populatedValue && _.isString(select)) {
+                const selectList = select.split(' ').filter(s => !s.startsWith('-'))
+                const deselectList = select.split(' ').filter(s => s.startsWith('-')).map(s => s.slice(1))
+                if (selectList.length) populatedValue = _.pick(populatedValue,  selectList)
+                if (deselectList.length) populatedValue = _.omit(populatedValue, deselectList)
+              }
               _.set(doc, _path, populatedValue)
             } else {
               const subPath = _path.split('.').slice(0, -1)
