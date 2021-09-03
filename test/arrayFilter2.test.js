@@ -112,6 +112,7 @@ describe("checkEqual", function() {
     expect(stringify(_model)).toMatchInlineSnapshot(`
       Object {
         "_id": "ObjectID",
+        "b": 100,
         "categories": Array [
           Object {
             "_id": "ObjectID",

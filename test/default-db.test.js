@@ -53,6 +53,9 @@ describe("checkEqual", function() {
     expect(ModelSchema).toMatchInlineSnapshot(`
       Object {
         "_id": Object {
+          "$options": Object {
+            "default": [Function],
+          },
           "$type": "ObjectID",
         },
         "a": Object {
@@ -192,9 +195,5 @@ describe("checkEqual", function() {
     `);
   });
 
-  it("case5", async function() {
-
-  });
-
-
+  it("case5", async function() {});
 });
