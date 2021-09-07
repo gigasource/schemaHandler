@@ -481,6 +481,29 @@ describe("test populate", function() {
     `);
     expect(class1.students[0].weight).toBeUndefined();
   });
+  test("deselect", async() => {
+    const Brand = registerSchema('Brand', {
+      name: String,
+      country: String
+    })
+    const Rubik = registerSchema('Rubik', {
+      name: String,
+      type: String,
+      brand: {
+        type: ObjectID,
+        autopopulate: "-country",
+        ref: "Brand"
+      }
+    })
+    const gan = await Brand.create({name: 'Gan', country: 'China'})
+    const gan11Pro = await Rubik.create({
+      name: 'Gan 11 pro',
+      type: '3x3',
+      brand: gan._id
+    })
+    expect(gan11Pro.brand.name).toBe('Gan')
+    expect(gan11Pro.brand.country).toBeUndefined()
+  })
   test(" populate findOneAndUpdate result", async () => {
     const a = await A.create({ name: "a" });
     const a1 = await A.create({ name: "a1" });
