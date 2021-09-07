@@ -4,7 +4,7 @@ const _ = require('lodash')
 
 module.exports = function (orm) {
 	const clearQueue = async () => {
-		if (orm.isMaster()) {
+		if (orm.isMaster && orm.isMaster()) {
 			clearInterval(intervalClearQueue)
 			return
 		}

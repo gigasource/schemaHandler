@@ -117,6 +117,8 @@ describe("[Module] Test transporter", function() {
 	 *  - ormB sync with ormA
 	 */
   it("Case 1: Transporter", async () => {
+	  jest.useFakeTimers()
+	  lodashMock()
     const { orm: ormA, utils: utilsA } = await ormGenerator(["sync-transporter"], {
       setMaster: true,
 	    name: 'A'
@@ -126,6 +128,7 @@ describe("[Module] Test transporter", function() {
 	    name: 'B'
     });
     ormB.socketConnect(ormA.ioId);
+	  jest.advanceTimersByTime(100)
     await ormA.waitForClient(ormB.name)
     await utilsA.mockCommits(10)
 	  ormA.on('commit:sync:master', async function (clientHighestId) {
@@ -595,6 +598,42 @@ describe("[Module] Fake doc", function () {
 		await utils.mockModelAndCreateCommits(0)
 		const doc = await orm('Model').create({ test: 3 }).direct()
 		await orm('Model').updateOne({ _id: doc._id }, { test: 4 })
+		findDataOrm = await orm('Model').find({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
+		findDataOrm = await orm('Model').findOne({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 15: Find deleted query in fake find', async function (done) {
+		jest.useFakeTimers()
+		let findDataOrm
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		const doc1 = await orm('Model').create({ test: 3 })
+		const doc2 = await orm('Model').create({ test: 3 })
+		await orm('Model').deleteOne({ _id: doc1._id })
+		findDataOrm = await orm('Model').find({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
+		findDataOrm = await orm('Model').findOne({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 16: Find changed doc', async function (done) {
+		jest.useFakeTimers()
+		let findDataOrm
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		const doc1 = await orm('Model').create({ test: 3 }).direct()
+		await orm('Model').updateOne({ _id: doc1._id }, { test: 4 })
+		const doc2 = await orm('Model').create({ test: 3 })
 		findDataOrm = await orm('Model').find({ test: 3 })
 		expect(stringify(findDataOrm)).toMatchSnapshot()
 		findDataOrm = await orm('Model').findOne({ test: 3 })

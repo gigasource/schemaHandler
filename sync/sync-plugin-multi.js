@@ -169,9 +169,9 @@ const syncPlugin = function (orm) {
       await handleSkipQuery(_query, query, result)
       delete _query.mockCollection
       let _result = await orm.execChain(_query)
-      const arrCondition = Array.isArray(result.value) ? result.value.map(doc => doc._id) : [result.value ? result.value._id : null]
+      const ids = Array.isArray(result.value) ? result.value.map(doc => doc._id) : [result.value ? result.value._id : null]
       // this is docs in fake collection which can't be found with query's condition
-      const _resultWithId = await orm(_query.name).find({ _id: { $in: arrCondition } })
+      const _resultWithId = await orm(_query.name).find({ _id: { $in: ids } })
       _.remove(_resultWithId, doc => {
         return Array.isArray(_result) ? !!_result.find(_doc => _doc._id.toString() === doc._id.toString()) : (_result && _result._id.toString() === doc._id.toString())
       })
@@ -206,27 +206,40 @@ const syncPlugin = function (orm) {
       } else {
         // case findOne
         if (_resultWithId.length) {
-          // if user want to use findOne, query must return specify doc, or query result can be null
+          // if user want to use findOne, the found doc can have different field in fake collection
+          // these codes are to check whether the found doc is match with the condition or we have
+          // to find a new doc which match the condition
           if (_result && _result._id.toString() !== _resultWithId[0]._id.toString()) {
-            const mingoQuery = new Query(query.chain[0].args)
+            const mingoQuery = new Query(...query.chain[0].args)
             let cursor = mingoQuery.find(_resultWithId)
             const finalResultWithId = cursor.all()
             if (finalResultWithId.length)
               _result = finalResultWithId[0]
-            else
-              _result = null
+            else {
+              let resultWithoutDeleted = await orm(_query.name).findOne({ _deleted: { $exists: false}, ...query.chain[0].args[0] })
+              if (resultWithoutDeleted)
+                _result = resultWithoutDeleted
+              else
+                _result = null
+            }
           }
-        } else if (result.value && _result && _result._id.toString() !== result.value._id.toString()) {
-          return
+        } else {
+          let resultWithoutDeleted = await orm(_query.name).findOne({ _deleted: { $exists: false}, ...query.chain[0].args[0] })
+          // replace deleted result with new result
+          if (resultWithoutDeleted && _result && _result._deleted) {
+            _result = resultWithoutDeleted
+          }
         }
         if (_result) {
           if (!result.value)
             result.value = {}
           if (_result._deleted) {
             Object.assign(result, { value: null })
-            return
+          } else if (_result._id && result.value._id && result.value._id.toString() !== _result._id.toString()) {
+            result.value = _result
+          } else {
+            Object.assign(result.value, _result)
           }
-          Object.assign(result.value, _result)
         } else if (_resultWithId.length) {
           result.value = null
         }
