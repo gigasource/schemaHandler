@@ -60,7 +60,7 @@ module.exports = function (orm, role) {
       // client
       if (!fakeId) {
         const commitData = await orm('CommitData').findOne()
-        fakeId = commitData && commitData._fakeId ? commitData._fakeId : 1
+        fakeId = commitData && commitData.fakeId ? commitData.fakeId : 1
       }
       orm.emit('transport:toMaster', commit)
       commit.fromClient = (await orm.emit('getCommitDataId')).value

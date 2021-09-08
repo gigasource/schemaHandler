@@ -318,7 +318,7 @@ module.exports = function (orm) {
           }
         }
         const cursor = refCollection['find']({_id: {$in: ids}})
-        const docs = await cursor.lean()
+        const docs = await cursor
         for (const doc of docs) {
           map.set(doc._id.toString(), doc)
         }
