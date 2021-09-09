@@ -44,7 +44,12 @@ module.exports = function (orm) {
 	orm._setSyncCollection = function (collection) {
 		// for client to check whether run commit or not
 		orm.on(`commit:handler:shouldNotExecCommand:${collection}`, async function (commit) {
-			if (orm.isMaster() || !commit.data.snapshot || commit.data.deletedDoc) {
+			if (orm.isMaster() || !commit.data.snapshot) {
+				return this.mergeValueAnd(false)
+			}
+			if (commit.data.deletedDoc) {
+				const chain = orm(collection).deleteMany({ _id: { $in: commit.data.deletedDoc } }).chain
+				commit.chain = JSON.stringify(chain)
 				return this.mergeValueAnd(false)
 			}
 			const commitData = await orm('CommitData').findOne()
@@ -83,9 +88,24 @@ module.exports = function (orm) {
 				return
 			if (!commit.condition)
 				commit.condition = '{}'
-			const deletedDoc = await orm(collection).find(jsonFn.parse(commit.condition))
 			if (!commit.data)
 				commit.data = {}
+			const parsedCondition = jsonFn.parse(commit.condition)
+			const deletedDoc = []
+			if (target.cmd.includes('One')) {
+				const foundDoc = await orm(collection).findOne(parsedCondition)
+				if (foundDoc) {
+					deletedDoc.push(foundDoc)
+					if (!parsedCondition._id) {
+						parsedCondition._id = foundDoc._id
+						commit.condition = jsonFn.stringify(parsedCondition)
+						commit.data.addId = true
+						commit.chain = jsonFn.stringify(orm(collection).deleteOne(parsedCondition).chain)
+					}
+				}
+			} else {
+				deletedDoc.push(...await orm(collection).find(parsedCondition))
+			}
 			commit.data.snapshot = true
 			commit.data.deletedDoc = deletedDoc.map(doc => doc._id)
 		})
@@ -94,7 +114,7 @@ module.exports = function (orm) {
 		orm.on(`commit:handler:finish:${collection}`, -1, async function (result, commit) {
 			if (commit.data && commit.data.snapshot) {
 				if (commit.data.deletedDoc) {
-					// docId can be string so we need to find new condition
+					// master always creates snapshot, so data.docId is ObjectID
 					await orm('Commit').deleteMany({'data.docId': {$in: commit.data.deletedDoc},
 						'data.snapshot': true, 'data.deletedDoc': {$exists: false}})
 				}

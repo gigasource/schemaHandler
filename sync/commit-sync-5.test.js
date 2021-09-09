@@ -1271,6 +1271,8 @@ describe('[Integration] Test all plugins', function () {
 			expect(commitDataB.syncData.id).toEqual(commitDataA.syncData.id)
 			const models = await orms[1]('Model').count()
 			expect(models).toEqual(5)
+			const commitsA = await orms[0]('Commit').find()
+			expect(_.last(commitsA).data.addId).toBe(true)
 			done()
 		})
 		orms[0].startSyncSnapshot()
