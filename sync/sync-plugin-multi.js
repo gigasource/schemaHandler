@@ -389,8 +389,13 @@ const syncPlugin = function (orm) {
           return
         }
         const query = orm.getQuery(commit)
+        // return if query is create or insert
+        if (query.chain && (query.chain[0].fn.includes('create') || query.chain[0].fn.includes('insert')))
+          return
+        // check whether query is delete
         if ((!commit.condition || commit.condition === 'null') &&
-          !(query.chain && (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('bulk')))) return
+          !(query.chain && (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('bulk'))))
+          return
         let _parseCondition = commit.condition ? jsonFn.parse(commit.condition) : {}
         let hasMustRecoverOp = false
         for (let op of mustRecoverOperation) {
@@ -446,9 +451,15 @@ const syncPlugin = function (orm) {
         const clearDate = dayjs().subtract(3, 'hour').toDate()
         for (let col of whitelist) {
           await orm('Recovery' + col).deleteMany({
-            _fakeDate: {
-              '$lte': clearDate
-            }
+            $or: [{
+              _fakeDate: {
+                '$lte': clearDate
+              }
+            }, {
+              _fakeDate: {
+                $exists: false
+              }
+            }]
           })
         }
       }
