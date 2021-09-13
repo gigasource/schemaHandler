@@ -603,4 +603,20 @@ describe("test populate", function() {
       }
     `);
   });
+  test("circular dependencies", async() => {
+    const Account = registerSchema("Account", {
+      name: String,
+      createdBy: {
+        type: ObjectID,
+        ref: "Account",
+        autopopulate: true
+      }
+    })
+    const a = await Account.create({name: 'duong', createdBy: null})
+    const b = await Account.create({name: 'thinh', createdBy: a._id})
+    const c = await Account.create({name: 'xa', createdBy: b._id})
+    expect(b.createdBy.name).toBe("duong")
+    expect(c.createdBy.createdBy.name).toBe("duong")
+  })
+
 });
