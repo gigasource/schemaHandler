@@ -544,8 +544,10 @@ const syncPlugin = function (orm) {
         return // Commit exists
     }
     try {
-      if (orm.isMaster())
+      if (orm.isMaster()) {
+        commit.execDate = new Date()
         commit.isPending = true
+      }
       this.value = await orm(`Commit`, commit.dbName).create(commit);
       updateHighestId(commit.id)
       await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true })

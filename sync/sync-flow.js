@@ -64,6 +64,7 @@ module.exports = function (orm, role) {
       }
       orm.emit('transport:toMaster', commit)
       commit.fromClient = (await orm.emit('getCommitDataId')).value
+      commit.createdDate = new Date()
       commit._fakeId = fakeId
       fakeId += 1
       await orm('CommitData').updateOne({}, { fakeId })
