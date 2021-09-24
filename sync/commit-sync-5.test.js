@@ -640,6 +640,20 @@ describe("[Module] Fake doc", function () {
 		expect(stringify(findDataOrm)).toMatchSnapshot()
 		done()
 	})
+
+	it('Case 17: FindOneUpdate with upsert', async function (done) {
+		jest.useFakeTimers()
+		let findDataOrm
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		const doc1 = await orm('Model').findOneAndUpdate({}, { test: 3 }, { upsert: true })
+		expect(doc1._fakeId).not.toBe(undefined)
+		expect(doc1._fakeDate).not.toBe(undefined)
+		done()
+	})
 })
 
 describe("[Module] Test bulk write", function () {
@@ -828,6 +842,7 @@ describe("[Module] Test bulk write", function () {
 	})
 
 	it("Case 5: Bulk write with snapshot", async function (done) {
+		await delay(300)
 		let findDataOrm1
 		let findDataOrm0
 

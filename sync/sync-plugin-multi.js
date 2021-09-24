@@ -343,7 +343,13 @@ const syncPlugin = function (orm) {
         }
         try {
           if (!isDeleteCmd) {
-            this.update('value', await exec())
+            const value = await exec()
+            if (query.chain[0].args.length === 3 && query.chain[0].args[2].upsert && value._id) {
+              value._fakeDate = currentDate
+              value._fakeId = commit._fakeId
+              await orm(fakeCollectionName).updateOne({ _id: value._id }, { $set: { _fakeDate: currentDate, _fakeId: commit._fakeId } })
+            }
+            this.update('value', value)
           } else {
             const fakeDocs = await orm(fakeCollectionName).find(target.condition)
             for (let doc of fakeDocs) {

@@ -14,6 +14,7 @@ Array [
       "snapshot": true,
       "syncUUID": "syncUUID",
     },
+    "execDate": "2021-01-27T17:00:00.000Z",
     "fromMaster": true,
     "id": 4,
     "tags": Array [],
@@ -27,6 +28,7 @@ Array [
   Object {
     "_id": "ObjectID",
     "collectionName": "DummyCollection",
+    "execDate": "2021-01-27T17:00:00.000Z",
     "id": 3,
     "uuid": "uuid-v1",
   },
