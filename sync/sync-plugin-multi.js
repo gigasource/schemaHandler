@@ -448,7 +448,9 @@ const syncPlugin = function (orm) {
 
     orm.removeFakeOfCollection = removeFakeOfCollection
 
-    orm.setRemoveFakeInterval = function () {
+    let removeFakeInterval = null
+    orm.setRemoveFakeInterval = function (intervalTime) {
+      if (removeFakeInterval) return
       const removeFakeIntervalFn = async function () {
         if (orm.isMaster()) {
           clearInterval(removeFakeInterval)
@@ -469,7 +471,7 @@ const syncPlugin = function (orm) {
           })
         }
       }
-      const removeFakeInterval = setInterval(removeFakeIntervalFn, 3 * 60 * 60 * 1000) //3 hours
+      removeFakeInterval = setInterval(removeFakeIntervalFn, intervalTime) //3 hours
       removeFakeIntervalFn().then(r => r)
     }
 

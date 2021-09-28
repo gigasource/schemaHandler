@@ -62,10 +62,10 @@ module.exports = function (orm, role) {
         const commitData = await orm('CommitData').findOne()
         fakeId = commitData && commitData.fakeId ? commitData.fakeId : 1
       }
-      orm.emit('transport:toMaster', commit)
       commit.fromClient = (await orm.emit('getCommitDataId')).value
       commit.createdDate = new Date()
       commit._fakeId = fakeId
+      orm.emit('transport:toMaster', commit)
       fakeId += 1
       await orm('CommitData').updateOne({}, { fakeId })
       await orm.emit('commit:build-fake', query, target, commit, e => eval(e))
