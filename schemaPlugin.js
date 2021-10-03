@@ -99,7 +99,12 @@ module.exports = function (orm) {
         const args = [...arguments];
         let objId = args.shift();
         if (typeof objId === 'string') {
-          objId = new ObjectID(objId)
+          try {
+            objId = new ObjectID(objId)
+          } catch (e) {
+            console.error(`Invalid value for objectId ${objId}`, e.message, e.stack)
+            throw e
+          }
         }
         target.condition = {_id: objId};
         target.cursor = target.cursor['findOne']({_id: objId});
