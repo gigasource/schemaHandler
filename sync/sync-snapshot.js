@@ -1,5 +1,6 @@
 const AwaitLock = require('await-lock').default;
 const uuid = require('uuid')
+const {ObjectID} = require('bson')
 const jsonFn = require('json-fn')
 
 module.exports = function (orm) {
@@ -158,7 +159,11 @@ module.exports = function (orm) {
 				if (commit.ref) {
 					const doc = await orm(commit.collectionName).findOne({ _id: commit.ref })
 					doc && cleanDoc(doc)
-					commit.chain = jsonFn.stringify(orm(commit.collectionName).create(doc).chain)
+					if (!doc) {
+						commit.chain = null
+					} else {
+						commit.chain = jsonFn.stringify(orm(commit.collectionName).create(doc).chain)
+					}
 				}
 			}
 		})
@@ -197,8 +202,20 @@ module.exports = function (orm) {
 					break
 				delete doc.snapshot
 				await orm('Commit').deleteMany({ 'data.docId': doc._id, 'data.snapshot': true })
-				await orm(collection).deleteOne({ _id: doc._id }).direct()
-				await orm(collection).create(doc).commit({ currentHighestUUID, syncUUID: syncData.id, snapshot: true })
+				await orm.emit('createCommit', {
+					_id: new ObjectID(),
+					collectionName: collection,
+					data: {
+						currentHighestUUID,
+						syncUUID: syncData.id,
+						snapshot: true,
+						docId: doc._id
+					},
+					ref: doc._id,
+					fromMaster: true,
+					uuid: uuid.v4()
+				})
+				await orm(collection).updateOne({ _id: doc._id }, { $unset: {snapshot: ''} }).direct()
 			}
 		}
 

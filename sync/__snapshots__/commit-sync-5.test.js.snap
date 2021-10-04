@@ -5,7 +5,6 @@ Array [
   Object {
     "_id": "ObjectID",
     "collectionName": "Model",
-    "condition": "null",
     "data": Object {
       "currentHighestUUID": "UUID",
       "docId": "ObjectID",
@@ -16,7 +15,6 @@ Array [
     "fromMaster": true,
     "id": 4,
     "ref": "ObjectID",
-    "tags": Array [],
     "uuid": "uuid-v1",
   },
 ]
@@ -26,7 +24,6 @@ exports[`[Integration] Test all plugins [Sync-snapshot] Case 2: Client with high
 Array [
   Object {
     "_id": "ObjectID",
-    "approved": false,
     "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"table\\":10,\\"_id\\":\\"ObjectID\\"}]}]",
     "collectionName": "Model",
     "condition": "null",
@@ -41,7 +38,6 @@ Array [
   },
   Object {
     "_id": "ObjectID",
-    "approved": false,
     "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Testing\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
     "collectionName": "Model",
     "condition": "{\\"table\\":10}",
@@ -57,24 +53,6 @@ Array [
     "collectionName": "DummyCollection",
     "execDate": "2021-01-27T17:00:00.000Z",
     "id": 3,
-    "uuid": "uuid-v1",
-  },
-  Object {
-    "_id": "ObjectID",
-    "approved": false,
-    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"name\\":\\"Testing\\"}]}]",
-    "collectionName": "Model",
-    "condition": "null",
-    "data": Object {
-      "currentHighestUUID": "UUID",
-      "docId": "ObjectID",
-      "snapshot": true,
-      "syncUUID": "syncUUID",
-    },
-    "execDate": "2021-01-27T17:00:00.000Z",
-    "fromMaster": true,
-    "id": 4,
-    "tags": Array [],
     "uuid": "uuid-v1",
   },
 ]
