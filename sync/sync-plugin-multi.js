@@ -16,6 +16,7 @@ const syncPlugin = function (orm) {
   orm.registerCommitBaseCollection = registerCommitBaseCollection
   orm.getCommitData = getCommitData
   orm.getWhiteList = getWhiteList
+  orm.setExpireAfterNumberOfId = setExpireAfterNumberOfId
 
   bulkUtils(orm)
 
