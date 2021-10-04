@@ -27,6 +27,14 @@ const syncPlugin = function (orm) {
     return whitelist
   }
 
+  function setExpireAfterNumberOfId(numberOfId) {
+    orm.onQueue('commit:handler:finish', async (commit) => {
+      if (orm.mode !== 'multi' && !checkMaster()) {
+        await orm('Commit').deleteMany({id: { $lt: commit.id - numberOfId }})
+      }
+    })
+  }
+
   function registerCommitBaseCollection () {
     whitelist.push(...arguments);
     orm.emit('whiteListRegistered', arguments)
