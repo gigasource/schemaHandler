@@ -16,6 +16,7 @@ const syncPlugin = function (orm) {
   orm.registerCommitBaseCollection = registerCommitBaseCollection
   orm.getCommitData = getCommitData
   orm.getWhiteList = getWhiteList
+  orm.setExpireAfterNumberOfId = setExpireAfterNumberOfId
 
   bulkUtils(orm)
 
@@ -26,6 +27,14 @@ const syncPlugin = function (orm) {
 
   function getWhiteList() {
     return whitelist
+  }
+
+  function setExpireAfterNumberOfId(numberOfId) {
+    orm.onQueue('commit:handler:finish', async (commit) => {
+      if (orm.mode !== 'multi' && !checkMaster()) {
+        await orm('Commit').deleteMany({id: { $lt: commit.id - numberOfId }})
+      }
+    })
   }
 
   function registerCommitBaseCollection () {
@@ -180,9 +189,9 @@ const syncPlugin = function (orm) {
       await handleSkipQuery(_query, query, result)
       delete _query.mockCollection
       let _result = await orm.execChain(_query)
-      const arrCondition = Array.isArray(result.value) ? result.value.map(doc => doc._id) : [result.value ? result.value._id : null]
+      const ids = Array.isArray(result.value) ? result.value.map(doc => doc._id) : [result.value ? result.value._id : null]
       // this is docs in fake collection which can't be found with query's condition
-      const _resultWithId = await orm(_query.name).find({ _id: { $in: arrCondition } })
+      const _resultWithId = await orm(_query.name).find({ _id: { $in: ids } })
       _.remove(_resultWithId, doc => {
         return Array.isArray(_result) ? !!_result.find(_doc => _doc._id.toString() === doc._id.toString()) : (_result && _result._id.toString() === doc._id.toString())
       })
@@ -217,27 +226,40 @@ const syncPlugin = function (orm) {
       } else {
         // case findOne
         if (_resultWithId.length) {
-          // if user want to use findOne, query must return specify doc, or query result can be null
+          // if user want to use findOne, the found doc can have different field in fake collection
+          // these codes are to check whether the found doc is match with the condition or we have
+          // to find a new doc which match the condition
           if (_result && _result._id.toString() !== _resultWithId[0]._id.toString()) {
-            const mingoQuery = new Query(query.chain[0].args)
+            const mingoQuery = new Query(...query.chain[0].args)
             let cursor = mingoQuery.find(_resultWithId)
             const finalResultWithId = cursor.all()
             if (finalResultWithId.length)
               _result = finalResultWithId[0]
-            else
-              _result = null
+            else {
+              let resultWithoutDeleted = await orm(_query.name).findOne({ _deleted: { $exists: false}, ...query.chain[0].args[0] })
+              if (resultWithoutDeleted)
+                _result = resultWithoutDeleted
+              else
+                _result = null
+            }
           }
-        } else if (result.value && _result && _result._id.toString() !== result.value._id.toString()) {
-          return
+        } else {
+          let resultWithoutDeleted = await orm(_query.name).findOne({ _deleted: { $exists: false}, ...query.chain[0].args[0] })
+          // replace deleted result with new result
+          if (resultWithoutDeleted && _result && _result._deleted) {
+            _result = resultWithoutDeleted
+          }
         }
         if (_result) {
           if (!result.value)
             result.value = {}
           if (_result._deleted) {
             Object.assign(result, { value: null })
-            return
+          } else if (_result._id && result.value._id && result.value._id.toString() !== _result._id.toString()) {
+            result.value = _result
+          } else {
+            Object.assign(result.value, _result)
           }
-          Object.assign(result.value, _result)
         } else if (_resultWithId.length) {
           result.value = null
         }
@@ -340,7 +362,13 @@ const syncPlugin = function (orm) {
         }
         try {
           if (!isDeleteCmd) {
-            this.update('value', await exec())
+            const value = await exec()
+            if (query.chain[0].args.length === 3 && query.chain[0].args[2].upsert && value._id) {
+              value._fakeDate = currentDate
+              value._fakeId = commit._fakeId
+              await orm(fakeCollectionName).updateOne({ _id: value._id }, { $set: { _fakeDate: currentDate, _fakeId: commit._fakeId } })
+            }
+            this.update('value', value)
           } else {
             const fakeDocs = await orm(fakeCollectionName).find(target.condition)
             for (let doc of fakeDocs) {
@@ -386,8 +414,13 @@ const syncPlugin = function (orm) {
           return
         }
         const query = orm.getQuery(commit)
+        // return if query is create or insert
+        if (query.chain && (query.chain[0].fn.includes('create') || query.chain[0].fn.includes('insert')))
+          return
+        // check whether query is delete
         if ((!commit.condition || commit.condition === 'null') &&
-          !(query.chain && (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('bulk')))) return
+          !(query.chain && (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('bulk'))))
+          return
         let _parseCondition = commit.condition ? jsonFn.parse(commit.condition) : {}
         let hasMustRecoverOp = false
         for (let op of mustRecoverOperation) {
@@ -434,7 +467,9 @@ const syncPlugin = function (orm) {
 
     orm.removeFakeOfCollection = removeFakeOfCollection
 
-    orm.setRemoveFakeInterval = function () {
+    let removeFakeInterval = null
+    orm.setRemoveFakeInterval = function (intervalTime) {
+      if (removeFakeInterval) return
       const removeFakeIntervalFn = async function () {
         if (orm.isMaster()) {
           clearInterval(removeFakeInterval)
@@ -443,13 +478,19 @@ const syncPlugin = function (orm) {
         const clearDate = dayjs().subtract(3, 'hour').toDate()
         for (let col of whitelist) {
           await orm('Recovery' + col).deleteMany({
-            _fakeDate: {
-              '$lte': clearDate
-            }
+            $or: [{
+              _fakeDate: {
+                '$lte': clearDate
+              }
+            }, {
+              _fakeDate: {
+                $exists: false
+              }
+            }]
           })
         }
       }
-      const removeFakeInterval = setInterval(removeFakeIntervalFn, 3 * 60 * 60 * 1000) //3 hours
+      removeFakeInterval = setInterval(removeFakeIntervalFn, intervalTime) //3 hours
       removeFakeIntervalFn().then(r => r)
     }
 
@@ -530,8 +571,10 @@ const syncPlugin = function (orm) {
         return // Commit exists
     }
     try {
-      if (orm.isMaster())
+      if (orm.isMaster()) {
+        commit.execDate = new Date()
         commit.isPending = true
+      }
       this.value = await orm(`Commit`, commit.dbName).create(commit);
       updateHighestId(commit.id)
       await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true })
@@ -629,7 +672,7 @@ const syncPlugin = function (orm) {
       await removeFake()
     else
       await removeAll()
-    const highestCommitId = (await orm('Commit').findOne({}).sort('-id') || {id: 0}).id;
+    const highestCommitId = isMaster ? (await orm('Commit').findOne({}).sort('-id') || {id: 0}).id : 0;
     await orm('CommitData').updateOne({}, { highestCommitId }, { upsert: true })
     await orm.emit('transport:removeQueue')
     await orm.emit('commit:remove-all-recovery')

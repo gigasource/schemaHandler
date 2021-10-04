@@ -5,7 +5,7 @@ const MongoClient = require('mongodb').MongoClient;
 const _ = require('lodash');
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const ObjectID = require('bson').ObjectID;
-const uuid = require("uuid").v1;
+const uuid = require('uuid').v1;
 const error = require('combine-errors');
 
 class Orm extends EventEmitter {
@@ -162,7 +162,7 @@ const _orm = new Proxy(Orm, {
 });
 
 const mquery = require('mquery');
-const pluralize = require("mongoose-legacy-pluralize");
+const pluralize = require('mongoose-legacy-pluralize');
 
 function factory(orm) {
   function builder(resolver) {
@@ -326,7 +326,7 @@ function createCollectionQuery(query) {
                 for (const {fn, args} of chain) {
                   cursor = cursor[fn](...args);
                 }
-                if (process.env.NODE_ENV === 'test'){
+                if (process.env.NODE_ENV === 'test') {
                   orm.emit('beforeReturnValue', query, target);
                 }
                 return (await orm.resultPostProcess((await cursor), target));
@@ -336,11 +336,11 @@ function createCollectionQuery(query) {
               await orm.emit(`proxyMutateResult:${query.uuid}`, query, r)
               return resolve(r.value);
             }
-            if (process.env.NODE_ENV === 'test'){
+            if (process.env.NODE_ENV === 'test') {
               orm.emit('beforeReturnValue', query, target);
             }
             const returnValue = await orm.resultPostProcess(result, target);
-            const wrapperReturnValue = { value: returnValue }
+            const wrapperReturnValue = {value: returnValue}
             await orm.emit(`proxyMutateResult:${query.uuid}`, query, wrapperReturnValue)
             resolve(wrapperReturnValue.value);
           } catch (e) {
@@ -441,28 +441,13 @@ async function resultPostProcess(result, target) {
     return _result;
   }*/
 
-  if (target.returnSingleDocument) {
-    const returnResult = await this.emit('proxyResultPostProcess', {target, result: _result});
+  try {
+    const returnResult = await this.emit('proxyResultPostProcess', {target, result: _result})
     if (returnResult.ok) {
       _result = returnResult.value;
     }
-  } else {
-    let docs = []
-
-    try {
-      for (const doc of _result) {
-        const returnResult = await this.emit('proxyResultPostProcess', {target, result: doc});
-        if (returnResult.ok) {
-          docs.push(returnResult.value);
-        } else {
-          docs.push(doc);
-        }
-      }
-    } catch (e) {
-      console.warn(e);
-    }
-
-    _result = docs;
+  } catch (e) {
+    console.warn(e)
   }
 
   if (!this._useProxyForResult || target.lean) return _result;
@@ -566,7 +551,7 @@ function connect(connectionInfo) {
       orm.connecting = false;
       console.log('db connected');
       orm.cache.set('client', client);
-      orm.cache.on("expired", function (key, value) {
+      orm.cache.on('expired', function (key, value) {
         if (key === 'client') {
           orm.closed = true;
           client.close();

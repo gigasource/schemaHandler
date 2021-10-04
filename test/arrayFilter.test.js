@@ -61,7 +61,7 @@ describe("checkEqual", function() {
     let arrayFilters = [filter1];
     parseCondition(paths, condition, { arrayFilters });
     expect(stringify(arrayFilters)).toMatchInlineSnapshot(
-      `"[{\\"cate\\":{\\"_id\\":\\"ObjectID\\"}}]"`
+      `"[{\\"cate._id\\":\\"ObjectID\\"}]"`
     );
   });
   it("case2", async function() {
@@ -75,7 +75,7 @@ describe("checkEqual", function() {
     let arrayFilters = [filter1, filter2];
     parseCondition(paths, condition, { arrayFilters });
     expect(stringify(arrayFilters)).toMatchInlineSnapshot(
-      `"[{\\"cate\\":{\\"_id\\":\\"ObjectID\\"}},{\\"product\\":{\\"_id\\":\\"ObjectID\\"}}]"`
+      `"[{\\"cate._id\\":\\"ObjectID\\"},{\\"product._id\\":\\"ObjectID\\"}]"`
     );
   });
 
@@ -90,7 +90,7 @@ describe("checkEqual", function() {
     let arrayFilters = [filter1, filter2];
     parseCondition(paths, condition, { arrayFilters });
     expect(stringify(arrayFilters)).toMatchInlineSnapshot(
-      `"[{\\"_id\\":\\"ObjectID\\"},{\\"product\\":{\\"_id\\":\\"ObjectID\\"}}]"`
+      `"[{\\"_id\\":\\"ObjectID\\"},{\\"product._id\\":\\"ObjectID\\"}]"`
     );
   });
 });

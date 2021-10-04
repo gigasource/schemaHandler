@@ -1,9 +1,9 @@
 const ObjectID = require('bson').ObjectID;
 const _ = require('lodash');
-const traverse = require("traverse");
-const {convertNameToTestFunction, clearUndefined} = require("./utils");
+const traverse = require('traverse');
+const {convertNameToTestFunction, clearUndefined} = require('./utils');
 
-const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require("./schemaHandler")
+const {parseCondition, parseSchema, convertSchemaToPaths, checkEqual} = require('./schemaHandler')
 
 module.exports = function (orm) {
   const defaultSchema = convertSchemaToPaths({});
@@ -99,7 +99,12 @@ module.exports = function (orm) {
         const args = [...arguments];
         let objId = args.shift();
         if (typeof objId === 'string') {
-          objId = new ObjectID(objId)
+          try {
+            objId = new ObjectID(objId)
+          } catch (e) {
+            console.error(`Invalid value for objectId ${objId}`, e.message, e.stack)
+            throw e
+          }
         }
         target.condition = {_id: objId};
         target.cursor = target.cursor['findOne']({_id: objId});
@@ -257,10 +262,20 @@ module.exports = function (orm) {
     }
   })
 
+  function isContiguousIntegers(a) {
+    for (const x of a) if (isNaN(x)) return false
+    a.sort((x, y) => (Number(x) - Number(y)))
+    for (let i = 0; i < a.length; i++) {
+      if (i !== Number(a[i])) return false
+    }
+    return true
+  }
+
+  //todo: optimize this function
   function genPaths(_path, obj) {
     _path = _path.split('.');
     const paths = [];
-    traverse(obj).map(function (node) {
+    traverse(obj).forEach(function (node) {
       const {key, path, isRoot, parent, isLeaf} = this;
       if (checkEqual(_path, path)) {
         paths.push(path.join('.'));
@@ -271,7 +286,7 @@ module.exports = function (orm) {
           return this.block();
         }
       }
-      if (node instanceof ObjectID) {
+      if ((node instanceof ObjectID) || (node instanceof Buffer)) {
         return this.block();
       }
     })
@@ -279,16 +294,13 @@ module.exports = function (orm) {
   }
 
   //populate
-  orm.on('proxyResultPostProcess', async function ({target, result}) {
-    const returnResult = this;
-    if (!result) return;
-    if (returnResult.ok) return;
-    if (result.n && result.ok) return;
 
+  async function doPopulate(target, result) {
     if (target.populates) {
       for (const populate of target.populates) {
+
         const [arg1] = populate;
-        let path, select, deselect;
+        let path, select;
         if (typeof arg1 === 'string') {
           [path, select] = populate;
         } else {
@@ -298,45 +310,88 @@ module.exports = function (orm) {
         const schema = orm.getSchema(target.collectionName, target.dbName) || defaultSchema;
         const refCollectionName = schema[path].$options.ref;
         const refCollection = orm.getCollection(refCollectionName, target.dbName);
-        const paths = genPaths(path, result);
-        for (const _path of paths) {
-          let cursor = refCollection['findById'](_.get(result, _path));
-          if (select !== true) {
-            cursor = cursor.select(select)
+        const ids = []
+        const map = new Map()
+        for (const doc of result) {
+          const paths = genPaths(path, doc);
+          for (const _path of paths) {
+            if (ObjectID.isValid(_.get(doc, _path))) ids.push(_.get(doc, _path))
+            else {
+              //set null if not instance of ObjectID / can't populate
+              _.set(doc, _path, null)
+            }
           }
-          const refDoc = await cursor.lean();
-          _.set(result, _path, refDoc);
         }
-        if (paths.length > 1) {
-          let arrPath = [...path.split('.')]
-          arrPath.pop();
-          arrPath = arrPath.join('.');
-          const arr = _.get(result, arrPath);
-          if (Array.isArray(arr)) {
-            _.set(result, arrPath, arr.filter(a => a !== null));
+        const cursor = refCollection['find']({_id: {$in: ids}})
+        const docs = ids.length ? await cursor : []
+        for (const doc of docs) {
+          map.set(doc._id.toString(), doc)
+        }
+        for (const doc of result) {
+          const paths = genPaths(path, doc);
+          const pathsContainNullElementsInArray = new Set()
+          for (const _path of paths) {
+            if (ObjectID.isValid(_.get(doc, _path))) {
+              let populatedValue = map.get(_.get(doc, _path).toString()) || null
+              if (populatedValue && _.isString(select)) {
+                const selectList = select.split(' ').filter(s => !s.startsWith('-'))
+                const deselectList = select.split(' ').filter(s => s.startsWith('-')).map(s => s.slice(1))
+                if (selectList.length) populatedValue = _.pick(populatedValue,  selectList)
+                if (deselectList.length) populatedValue = _.omit(populatedValue, deselectList)
+              }
+              _.set(doc, _path, populatedValue)
+            } else {
+              const subPath = _path.split('.').slice(0, -1)
+              if (_.isArray(_.get(doc, subPath.join('.')))) {
+                pathsContainNullElementsInArray.add(subPath.join('.'))
+              }
+            }
+          }
+          for (const _path of pathsContainNullElementsInArray) {
+            _.set(doc, _path, _.get(doc, _path).filter(a => a !== null))
           }
         }
       }
+    }
 
-      returnResult.ok = true;
-      returnResult.value = result;
+    return result
+  }
+
+  orm.on('proxyResultPostProcess', async function ({target, result}) {
+    const returnResult = this;
+    if (returnResult.ok) return;
+    if (target.returnSingleDocument) {
+      if (!result) return
+      if (result.ok && result.n) return
+      returnResult.ok = true
+      returnResult.value = (await doPopulate(target, [result]))[0]
+    } else {
+      if (result.length >= 1) {
+        const firstResult = result[0]
+        if (!firstResult) return
+        if (firstResult.ok) return
+      }
+      returnResult.ok = true
+      returnResult.value = await doPopulate(target, result)
     }
   })
 
-  orm.on('proxyResultPostProcess', async function ({target, result}, returnResult) {
+  orm.on('proxyResultPostProcess', async function ({target, result}) {
     let cmd = target.cmd;
-    if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
-      await orm.emit(`update:${target.collectionName}`, result, target);
-      if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}`, result, target);
-      const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
-      await orm.emit(`update:${target.collectionName}:${type}`, result, target);
-      if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}:${type}`, result, target);
-    } else if (cmd.includes('find')) {
-      await orm.emit(`find:${target.collectionName}`, result, target);
-      if (orm.mode === 'multi') await orm.emit(`find:${target.collectionName}@${target.dbName}`, result, target);
-    } else {
-      await orm.emit(`delete:${target.collectionName}`, result, target);
-      if (orm.mode === 'multi') await orm.emit(`delete:${target.collectionName}@${target.dbName}`, result, target);
+    for (const _result of (target.returnSingleDocument ? [result] : result)) {
+      if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
+        await orm.emit(`update:${target.collectionName}`, _result, target);
+        if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}`, _result, target);
+        const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
+        await orm.emit(`update:${target.collectionName}:${type}`, _result, target);
+        if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}:${type}`, _result, target);
+      } else if (cmd.includes('find')) {
+        await orm.emit(`find:${target.collectionName}`, _result, target);
+        if (orm.mode === 'multi') await orm.emit(`find:${target.collectionName}@${target.dbName}`, _result, target);
+      } else {
+        await orm.emit(`delete:${target.collectionName}`, _result, target);
+        if (orm.mode === 'multi') await orm.emit(`delete:${target.collectionName}@${target.dbName}`, _result, target);
+      }
     }
   })
 
@@ -352,7 +407,7 @@ module.exports = function (orm) {
     }
   })
 
-  //add new: true ??
+//add new: true ??
   orm.on('proxyPostQueryHandler', function ({target, proxy}) {
     if (target.new) {
       proxy.setOptions({new: true});

@@ -60,11 +60,12 @@ module.exports = function (orm, role) {
       // client
       if (!fakeId) {
         const commitData = await orm('CommitData').findOne()
-        fakeId = commitData && commitData._fakeId ? commitData._fakeId : 1
+        fakeId = commitData && commitData.fakeId ? commitData.fakeId : 1
       }
-      orm.emit('transport:toMaster', commit)
       commit.fromClient = (await orm.emit('getCommitDataId')).value
+      commit.createdDate = new Date()
       commit._fakeId = fakeId
+      orm.emit('transport:toMaster', commit)
       fakeId += 1
       await orm('CommitData').updateOne({}, { fakeId })
       await orm.emit('commit:build-fake', query, target, commit, e => eval(e))
@@ -88,7 +89,6 @@ module.exports = function (orm, role) {
   orm.onQueue('commit:handler:finish', async (commit) => {
     // end of commit's flow, delete all commits which have smaller id than this commit
     if (orm.mode !== 'multi' && !checkMaster()) {
-      await orm('Commit').deleteMany({id: {$lt: commit.id}})
       const commitData = await orm('CommitData').findOne()
       if (commitData && commitData.masterHighestId) {
         if (commitData.masterHighestId - commit.id > COMMIT_LARGE_SYNC_THRESHOLD) {

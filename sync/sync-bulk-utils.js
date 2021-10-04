@@ -61,14 +61,14 @@ module.exports = function (orm) {
       case 'deleteOne':
         result = {
           deleteOne: {
-            filter: chain[0].args.length ? chain[0].args[0] : {}
+            filter: chain[0].args.length && chain[0].args[0] ? chain[0].args[0] : {}
           }
         }
         break
       case 'deleteMany':
         result = {
           deleteMany: {
-            filter: chain[0].args.length ? chain[0].args[0] : {}
+            filter: chain[0].args.length && chain[0].args[0] ? chain[0].args[0] : {}
           }
         }
         break

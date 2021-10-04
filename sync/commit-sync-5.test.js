@@ -117,7 +117,8 @@ describe("[Module] Test transporter", function() {
 	 *  - ormB sync with ormA
 	 */
   it("Case 1: Transporter", async () => {
-  	lodashMock()
+	  jest.useFakeTimers()
+	  lodashMock()
     const { orm: ormA, utils: utilsA } = await ormGenerator(["sync-transporter"], {
       setMaster: true,
 	    name: 'A'
@@ -127,6 +128,7 @@ describe("[Module] Test transporter", function() {
 	    name: 'B'
     });
     ormB.socketConnect(ormA.ioId);
+	  jest.advanceTimersByTime(100)
     await ormA.waitForClient(ormB.name)
     await utilsA.mockCommits(10)
 	  ormA.on('commit:sync:master', async function (clientHighestId) {
@@ -507,13 +509,13 @@ describe("[Module] Fake doc", function () {
 		orms[1].socketConnect(orms[0].ioId)
 		jest.advanceTimersByTime(100)
 		utils[1].setLockEvent('transport:send', true)
-		const doc = await orms[0]('Model').create({ arr: [{ test: 1 }] }) // 1
+		const doc = await orms[0]('Model').create({ arr: [{ test: 1 }] })
 		await utils[1].waitToSync(1)
-		await orms[1]('Model').updateOne({ _id: doc._id }, { test: 2 }) // 2
-		await orms[1]('Model').create({ secondDoc: true }) // 3
+		await orms[1]('Model').updateOne({ _id: doc._id }, { test: 2 })
+		await orms[1]('Model').create({ secondDoc: true })
 		findDataOrm1 = await orms[1]('Model').find()
 		expect(stringify(findDataOrm1)).toMatchSnapshot()
-		await orms[0]('Model').updateOne({ _id: doc._id }, { $push: { arr: { test: 2 } } }) // 4
+		await orms[0]('Model').updateOne({ _id: doc._id }, { $push: { arr: { test: 2 } } })
 		await utils[1].waitToSync(2)
 		findDataOrm0 = await orms[0]('Model').findOne()
 		expect(stringify(findDataOrm0)).toMatchSnapshot()
@@ -600,6 +602,56 @@ describe("[Module] Fake doc", function () {
 		expect(stringify(findDataOrm)).toMatchSnapshot()
 		findDataOrm = await orm('Model').findOne({ test: 3 })
 		expect(stringify(findDataOrm)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 15: Find deleted query in fake find', async function (done) {
+		jest.useFakeTimers()
+		let findDataOrm
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		const doc1 = await orm('Model').create({ test: 3 })
+		const doc2 = await orm('Model').create({ test: 3 })
+		await orm('Model').deleteOne({ _id: doc1._id })
+		findDataOrm = await orm('Model').find({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
+		findDataOrm = await orm('Model').findOne({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 16: Find changed doc', async function (done) {
+		jest.useFakeTimers()
+		let findDataOrm
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		const doc1 = await orm('Model').create({ test: 3 }).direct()
+		await orm('Model').updateOne({ _id: doc1._id }, { test: 4 })
+		const doc2 = await orm('Model').create({ test: 3 })
+		findDataOrm = await orm('Model').find({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
+		findDataOrm = await orm('Model').findOne({ test: 3 })
+		expect(stringify(findDataOrm)).toMatchSnapshot()
+		done()
+	})
+
+	it('Case 17: FindOneUpdate with upsert', async function (done) {
+		jest.useFakeTimers()
+		let findDataOrm
+		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+			setMaster: false,
+			name: 'B'
+		});
+		await utils.mockModelAndCreateCommits(0)
+		const doc1 = await orm('Model').findOneAndUpdate({}, { test: 3 }, { upsert: true })
+		expect(doc1._fakeId).not.toBe(undefined)
+		expect(doc1._fakeDate).not.toBe(undefined)
 		done()
 	})
 })
@@ -790,6 +842,7 @@ describe("[Module] Test bulk write", function () {
 	})
 
 	it("Case 5: Bulk write with snapshot", async function (done) {
+		await delay(300)
 		let findDataOrm1
 		let findDataOrm0
 
@@ -1245,6 +1298,8 @@ describe('[Integration] Test all plugins', function () {
 			expect(commitDataB.syncData.id).toEqual(commitDataA.syncData.id)
 			const models = await orms[1]('Model').count()
 			expect(models).toEqual(5)
+			const commitsA = await orms[0]('Commit').find()
+			expect(_.last(commitsA).data.addId).toBe(true)
 			done()
 		})
 		orms[0].startSyncSnapshot()
