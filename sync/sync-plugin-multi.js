@@ -30,7 +30,7 @@ const syncPlugin = function (orm) {
 
   function setExpireAfterNumberOfId(numberOfId) {
     orm.onQueue('commit:handler:finish', async (commit) => {
-      if (orm.mode !== 'multi' && !checkMaster()) {
+      if (orm.mode !== 'multi' && !orm.isMaster()) {
         await orm('Commit').deleteMany({id: { $lt: commit.id - numberOfId }})
       }
     })
