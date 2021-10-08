@@ -10,6 +10,7 @@ const hooks = require('../../hooks/hooks')
 const Orm = require('../../orm')
 const uuid = require('uuid')
 const { Socket, Io } = require('../../io/io')
+const globalHook = new hooks()
 
 /**
  *
@@ -242,6 +243,7 @@ async function ormGenerator(plugins, options) {
 		ormHook.emit('newCommit')
 	})
 	orm.on('update:CommitData', result => {
+		orm
 		if (!result.highestCommitId || isNaN(result.highestCommitId)) return
 		highestId = Math.max(highestId, result.highestCommitId)
 		ormHook.emit('newCommit')
@@ -266,6 +268,13 @@ async function ormGenerator(plugins, options) {
 	//</editor-fold>
 
 	await orm('Commit').createIndex( { id: 1 })
+
+	const off = globalHook.on('destroy', () => {
+		orm.removeAllListeners()
+		if (orm.socket)
+			orm.socket.removeAllListeners()
+		off()
+	}).off
 
 	return {
 		orm,
@@ -301,3 +310,4 @@ module.exports.genOrm = async function (numberOfOrm, plugins) {
 	}
 	return result
 }
+module.exports.globalHook = globalHook

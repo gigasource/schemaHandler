@@ -1,6 +1,6 @@
 const { Socket, Io } = require("../io/io");
 const ormGenerator = require("./test-utils/ormGenerator");
-const { genOrm } = ormGenerator
+const { genOrm, globalHook } = ormGenerator
 const delay = require("delay");
 const { stringify } = require("../utils");
 const lodashMock = require('./test-utils/lodashMock')
@@ -665,6 +665,11 @@ describe("[Module] Test bulk write", function () {
 		done()
 	})
 
+	afterEach(done => {
+		globalHook.emit('destroy')
+		done()
+	})
+
 	it("Case 1: Test bulk write with client", async function () {
 		jest.useFakeTimers()
 		const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
@@ -842,7 +847,6 @@ describe("[Module] Test bulk write", function () {
 	})
 
 	it("Case 5: Bulk write with snapshot", async function (done) {
-		await delay(300)
 		let findDataOrm1
 		let findDataOrm0
 
@@ -864,6 +868,10 @@ describe("[Module] Test bulk write", function () {
 		await orms[0]('Model').create({ table: 10 })
 		await orms[0]('Model').updateOne({ table: 10 }, { name: 'Testing' })
 		await utils[1].waitToSync(2)
+		const findData1 = await orms[1]('Model').find()
+		const findData0 = await orms[0]('Model').find()
+		const commits0 = await orms[0]('Commit').find()
+		const commits1 = await orms[1]('Commit').find()
 		orms[1].socket.isFakeDisconnect = true
 		for (let i = 0; i < 4; i++) {
 			await orms[0]('Model').create({ table: i })
