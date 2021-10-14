@@ -238,11 +238,11 @@ module.exports = function (orm) {
           const _parseCondition = parseCondition(schema, condition.$match);
           target.condition = _parseCondition;
           args[0].unshift({ $match: _parseCondition });
-          try {
-            target.cursor = target.cursor[key](...args);
-          } catch (e) {
-            console.error(e);
-          }
+        }
+        try {
+          target.cursor = target.cursor[key](...args);
+        } catch (e) {
+          console.error(e);
         }
         return proxy;
       }
