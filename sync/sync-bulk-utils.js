@@ -127,6 +127,8 @@ module.exports = function (orm) {
 
   async function doCreateBulk(commits) {
     const bulkOp = {}
+    if (!commits.length)
+      return
     for (const commit of commits) {
       const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName)
       if (commit.id <= highestId) continue

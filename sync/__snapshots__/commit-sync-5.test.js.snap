@@ -1,11 +1,32 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`[Integration] Test all plugins [Sync validation] Case 13: Validate new commit failed and snapshot fix wrong commit 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "commitId": 3,
+    "expectedSum": 1,
+    "realSum": 0,
+    "type": "validation-failed",
+  },
+]
+`;
+
+exports[`[Integration] Test all plugins [Sync validation] Case 13: Validate new commit failed and snapshot fix wrong commit 2`] = `
+Object {
+  "_cnt": 1,
+  "_id": "ObjectID",
+  "table": 5,
+}
+`;
+
 exports[`[Integration] Test all plugins [Sync-snapshot] Case 2: Client with highest commit id sync with master 1`] = `
 Array [
   Object {
     "_id": "ObjectID",
     "collectionName": "Model",
     "data": Object {
+      "_cnt": 1,
       "currentHighestUUID": "UUID",
       "docId": "ObjectID",
       "snapshot": true,
@@ -37,8 +58,9 @@ Array [
     "uuid": "uuid-v1",
   },
   Object {
+    "_cnt": 0,
     "_id": "ObjectID",
-    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Testing\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Testing\\",\\"$inc\\":{\\"_cnt\\":1}}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
     "collectionName": "Model",
     "condition": "{\\"table\\":10}",
     "data": Object {},
@@ -53,6 +75,339 @@ Array [
     "collectionName": "DummyCollection",
     "execDate": "2021-01-27T17:00:00.000Z",
     "id": 3,
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`[Integration] Test all plugins [Sync-snapshot] Case 4: Client do not need to resync 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 7,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 15,
+    "prevId": 14,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 16,
+    "prevId": 15,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 4,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 17,
+    "prevId": 16,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 5,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 18,
+    "prevId": 17,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 19,
+    "prevId": 18,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 6,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 20,
+    "prevId": 19,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 7,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 21,
+    "prevId": 20,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 8,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
+exports[`[Integration] Test all plugins [Sync-snapshot] Case 4: Client do not need to resync 2`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"table\\":10,\\"_id\\":\\"ObjectID\\"}]}]",
+    "collectionName": "Model",
+    "condition": "null",
+    "data": Object {
+      "docId": "ObjectID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 1,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"table\\":10,\\"_id\\":\\"ObjectID\\"}]}]",
+    "collectionName": "Model",
+    "condition": "null",
+    "data": Object {
+      "docId": "ObjectID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 2,
+    "tags": Array [],
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "collectionName": "DummyCollection",
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "id": 3,
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"_cnt\\":7,\\"name\\":\\"Testing\\"}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 7,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 15,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 16,
+    "prevId": 15,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 17,
+    "prevId": 16,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 18,
+    "prevId": 17,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_id": "ObjectID",
+    "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10}]}]",
+    "collectionName": "Model",
+    "data": Object {
+      "_cnt": 0,
+      "currentHighestUUID": "UUID",
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 19,
+    "prevId": 18,
+    "ref": "ObjectID",
     "uuid": "uuid-v1",
   },
 ]
@@ -91,6 +446,7 @@ Array [
 
 exports[`[Module] Fake doc Case 2: Find one and update 1`] = `
 Object {
+  "_cnt": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -103,6 +459,7 @@ exports[`[Module] Fake doc Case 2: Find one and update 2`] = `Array []`;
 exports[`[Module] Fake doc Case 2: Find one and update 3`] = `
 Array [
   Object {
+    "_cnt": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -113,6 +470,7 @@ Array [
 
 exports[`[Module] Fake doc Case 2-a: Find one and update 1`] = `
 Object {
+  "_cnt": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -132,6 +490,7 @@ Array [
 exports[`[Module] Fake doc Case 2-a: Find one and update 3`] = `
 Array [
   Object {
+    "_cnt": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -143,6 +502,7 @@ Array [
 exports[`[Module] Fake doc Case 3: Update then find 1`] = `
 Array [
   Object {
+    "_cnt": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -156,6 +516,7 @@ exports[`[Module] Fake doc Case 3: Update then find 2`] = `Array []`;
 exports[`[Module] Fake doc Case 3: Update then find 3`] = `
 Array [
   Object {
+    "_cnt": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -209,6 +570,7 @@ exports[`[Module] Fake doc Case 5: Handle remove fake 3`] = `Array []`;
 
 exports[`[Module] Fake doc Case 6: With master and 2 clients 1`] = `
 Object {
+  "_cnt": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -232,6 +594,7 @@ Object {
 
 exports[`[Module] Fake doc Case 6: With master and 2 clients 4`] = `
 Object {
+  "_cnt": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -244,6 +607,7 @@ Object {
 
 exports[`[Module] Fake doc Case 6: With master and 2 clients 5`] = `
 Object {
+  "_cnt": 2,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -258,6 +622,7 @@ Object {
 
 exports[`[Module] Fake doc Case 6: With master and 2 clients 6`] = `
 Object {
+  "_cnt": 2,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -275,6 +640,7 @@ exports[`[Module] Fake doc Case 7: Case delete and then master update 1`] = `nul
 
 exports[`[Module] Fake doc Case 7: Case delete and then master update 2`] = `
 Object {
+  "_cnt": 1,
   "_id": "ObjectID",
   "test": 2,
 }
@@ -285,6 +651,7 @@ exports[`[Module] Fake doc Case 7: Case delete and then master update 3`] = `nul
 exports[`[Module] Fake doc Case 8: Create and do a query update 1`] = `
 Array [
   Object {
+    "_cnt": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -298,6 +665,7 @@ exports[`[Module] Fake doc Case 8: Create and do a query update 2`] = `Array []`
 exports[`[Module] Fake doc Case 8: Create and do a query update 3`] = `
 Array [
   Object {
+    "_cnt": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -308,6 +676,7 @@ Array [
 
 exports[`[Module] Fake doc Case 9: Reapply query after remove fake 1`] = `
 Object {
+  "_cnt": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -322,6 +691,7 @@ Object {
 
 exports[`[Module] Fake doc Case 9: Reapply query after remove fake 2`] = `
 Object {
+  "_cnt": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -336,6 +706,7 @@ Object {
 
 exports[`[Module] Fake doc Case 9: Reapply query after remove fake 3`] = `
 Object {
+  "_cnt": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -350,6 +721,55 @@ Object {
 
 exports[`[Module] Fake doc Case 9: Reapply query after remove fake 4`] = `
 Object {
+  "_cnt": 3,
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 2,
+  "_id": "ObjectID",
+  "arr": Array [
+    Object {
+      "test": 1,
+    },
+    Object {
+      "test": 2,
+    },
+  ],
+  "test": 2,
+}
+`;
+
+exports[`[Module] Fake doc Case 9: Reapply query after remove fake 5`] = `
+Object {
+  "_cnt": 1,
+  "_id": "ObjectID",
+  "arr": Array [
+    Object {
+      "test": 1,
+    },
+    Object {
+      "test": 2,
+    },
+  ],
+}
+`;
+
+exports[`[Module] Fake doc Case 9: Reapply query after remove fake 6`] = `
+Object {
+  "_cnt": 1,
+  "_id": "ObjectID",
+  "arr": Array [
+    Object {
+      "test": 1,
+    },
+    Object {
+      "test": 2,
+    },
+  ],
+}
+`;
+
+exports[`[Module] Fake doc Case 9: Reapply query after remove fake 7`] = `
+Object {
+  "_cnt": 3,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 2,
   "_id": "ObjectID",
@@ -368,6 +788,7 @@ Object {
 exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 1`] = `
 Array [
   Object {
+    "_cnt": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -389,6 +810,7 @@ Array [
 
 exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 2`] = `
 Object {
+  "_cnt": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -404,6 +826,7 @@ Object {
 exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 3`] = `
 Array [
   Object {
+    "_cnt": 1,
     "_id": "ObjectID",
     "arr": Array [
       Object {
@@ -426,6 +849,7 @@ Array [
 exports[`[Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 4`] = `
 Array [
   Object {
+    "_cnt": 3,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 3,
     "_id": "ObjectID",
@@ -469,6 +893,7 @@ Object {
 
 exports[`[Module] Fake doc Case 11: findOneAndUpdate fake 2`] = `
 Object {
+  "_cnt": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -480,6 +905,7 @@ Object {
 
 exports[`[Module] Fake doc Case 11: findOneAndUpdate fake 3`] = `
 Object {
+  "_cnt": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -584,7 +1010,74 @@ Object {
 }
 `;
 
+exports[`[Module] Fake doc Case 16: Find changed doc 3`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
+    "_id": "ObjectID",
+    "test": 3,
+  },
+]
+`;
+
+exports[`[Module] Fake doc Case 16: Find changed doc 4`] = `
+Object {
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 2,
+  "_id": "ObjectID",
+  "test": 3,
+}
+`;
+
+exports[`[Module] Fake doc Case 17: FindOneUpdate with upsert 1`] = `
+Array [
+  Object {
+    "_cnt": 2,
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
+    "_id": "ObjectID",
+    "test": 3,
+  },
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 2,
+    "_id": "ObjectID",
+    "test": 3,
+  },
+]
+`;
+
 exports[`[Module] Test bulk write Case 1: Test bulk write with client 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
+    "_id": "ObjectID",
+    "items": Array [
+      Object {
+        "_id": "ObjectID",
+        "id": 0,
+        "name": "A",
+        "quantity": "100",
+      },
+    ],
+    "table": 10,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 1: Test bulk write with client 2`] = `
+Object {
+  "_cnt": 1,
+  "_fakeDate": "2021-01-27T17:00:00.000Z",
+  "_fakeId": 1,
+  "_id": "ObjectID",
+  "test": 3,
+}
+`;
+
+exports[`[Module] Test bulk write Case 1: Test bulk write with client 3`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",
@@ -628,6 +1121,20 @@ Array [
 `;
 
 exports[`[Module] Test bulk write Case 2: Test bulk write 3 1`] = `
+Array [
+  Object {
+    "_fakeDate": "2021-01-27T17:00:00.000Z",
+    "_fakeId": 1,
+    "_id": "ObjectID",
+  },
+  Object {
+    "_id": "ObjectID",
+    "test": 1,
+  },
+]
+`;
+
+exports[`[Module] Test bulk write Case 2: Test bulk write 3 2`] = `
 Array [
   Object {
     "_fakeDate": "2021-01-27T17:00:00.000Z",

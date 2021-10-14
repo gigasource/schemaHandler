@@ -229,6 +229,23 @@ module.exports = function (orm) {
         }
         return defaultFn(...args);
       }
+    } else if (key === 'aggregate') {
+      returnResult.ok = true;
+      returnResult.value = function () {
+        const args = [...arguments];
+        if (args.length && args[0].length && args[0][0].$match) {
+          const condition = args[0].shift();
+          const _parseCondition = parseCondition(schema, condition.$match);
+          target.condition = _parseCondition;
+          args[0].unshift({ $match: _parseCondition });
+          try {
+            target.cursor = target.cursor[key](...args);
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        return proxy;
+      }
     }
   })
 

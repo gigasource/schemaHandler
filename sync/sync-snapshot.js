@@ -60,33 +60,20 @@ module.exports = function (orm) {
 				commit.chain = JSON.stringify(chain)
 				return this.mergeValueAnd(false)
 			}
-			const commitData = await orm('CommitData').findOne()
-			const syncData = commitData ? commitData.syncData : null
-			if (syncData && syncData.id === commit.data.syncUUID) {
-				if (syncData.needReSync) {
-					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
-					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
-				}
-				return this.mergeValueAnd(!syncData.needReSync)
+			const doc = await orm(collection).findOne({ _id: commit.data.docId }).direct()
+			if (!doc) {
+				this.setValue(false)
 			} else {
-				const currentHighestUUID = commit.data.currentHighestUUID
-
-				// because command create has been ran, so the second highest id commit
-				// will be the one with uuid we are looking for
-				const highestCommits = await orm('Commit').find({}).sort({ id: - 1}).limit(2)
-				const _syncData = {
-					id: commit.data.syncUUID,
-					needReSync: true
-				}
-				if (highestCommits.length > 1 && highestCommits[1].uuid === currentHighestUUID) {
-					_syncData.needReSync = false
-				}
-				await orm('CommitData').updateOne({}, { syncData: _syncData }, { upsert: true })
-				if (_syncData.needReSync) {
+				if (!doc._cnt) doc._cnt = 0
+				if (doc._cnt !== commit.data._cnt) {
+					// need resync
 					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
 					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
+					this.setValue(false)
+				} else {
+					this.setValue(true)
 				}
-				return this.mergeValueAnd(!_syncData.needReSync)
+				this.stop()
 			}
 		})
 
@@ -209,7 +196,8 @@ module.exports = function (orm) {
 						currentHighestUUID,
 						syncUUID: syncData.id,
 						snapshot: true,
-						docId: doc._id
+						docId: doc._id,
+						_cnt: doc._cnt ? doc._cnt : 0
 					},
 					ref: doc._id,
 					fromMaster: true,

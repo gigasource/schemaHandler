@@ -17,6 +17,8 @@ const syncPlugin = function (orm) {
   orm.getCommitData = getCommitData
   orm.getWhiteList = getWhiteList
   orm.setExpireAfterNumberOfId = setExpireAfterNumberOfId
+  orm.validateCommit = validateCommit
+  orm.validateCommits = validateCommits
 
   bulkUtils(orm)
 
@@ -147,6 +149,13 @@ const syncPlugin = function (orm) {
           }
         })
         if (mutateCmd) {
+          if (query.chain[0].fn.includes('update') || query.chain[0].fn.includes('Update')) {
+            query.chain[0].args[1].$inc = { _cnt: 1 }
+          }
+          if (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('remove')) {
+            if (!query.chain[0].args || query.chain[0].args.length === 0)
+              query.chain[0].args = [{}]
+          }
           query.chain.push({fn: 'commit', args: []})
         }
         if (findCmd && !orm.isMaster()) {
@@ -530,6 +539,9 @@ const syncPlugin = function (orm) {
   orm.onQueue('transport:requireSync:callback', async function (commits) {
     if (!commits || !commits.length) return
     if (commits.length > COMMIT_BULK_WRITE_THRESHOLD) {
+      await validateCommits(commits)
+      if (!commits.length)
+        return
       await orm.doCreateBulk(commits)
     } else {
       try {
@@ -554,6 +566,54 @@ const syncPlugin = function (orm) {
     else
       highestIdInMemory = Math.max(highestIdInMemory, newHighestId)
   }
+
+  const VALIDATE_STATUS = {
+    BEHIND_MASTER: 'behind-master',
+    AHEAD_MASTER: 'ahead-master',
+    EQUAL_MASTER: 'equal-master',
+    NULL: null
+  }
+  async function validateCommits(commits) {
+    let lastAhead = -1
+    for (let i = 0; i < commits.length; i++) {
+      const status = await validateCommit(commits[i])
+      if (status === VALIDATE_STATUS.AHEAD_MASTER) {
+        lastAhead = i
+      } else if (status === VALIDATE_STATUS.BEHIND_MASTER) {
+        break
+      }
+    }
+    if (lastAhead !== -1) {
+      _.remove(commits, (item, i) => i <= lastAhead)
+    }
+  }
+  async function validateCommit(commit) {
+    try {
+      if (!commit.condition) {
+        return VALIDATE_STATUS.NULL
+      }
+      if (orm.isMaster()) {
+        const condition = jsonFn.parse(commit.condition)
+        const sumObj = (await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]))
+        if (sumObj && sumObj.length)
+          commit._cnt = sumObj[0].sum
+      } else {
+        const condition = jsonFn.parse(commit.condition)
+        const sumObj = await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]).direct()
+        if ((!sumObj || !sumObj.length) && commit._cnt !== undefined) {
+          orm.emit('commit:report:validationFailed', commit, null)
+          return VALIDATE_STATUS.BEHIND_MASTER
+        } else if (commit._cnt !== sumObj[0].sum) {
+          orm.emit('commit:report:validationFailed', commit, sumObj[0].sum)
+          return commit._cnt < sumObj[0].sum ? VALIDATE_STATUS.AHEAD_MASTER : VALIDATE_STATUS.BEHIND_MASTER
+        }
+      }
+      return true
+    } catch (err) {
+      console.log('Error while validating', e)
+    }
+  }
+
   //customize
   orm.onQueue('createCommit', async function (commit) {
     if (!commit.id) {
@@ -570,6 +630,7 @@ const syncPlugin = function (orm) {
       if (commit.id <= highestId)
         return // Commit exists
     }
+    await validateCommit(commit)
     try {
       if (orm.isMaster()) {
         commit.execDate = new Date()
