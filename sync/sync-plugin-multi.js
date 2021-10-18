@@ -128,8 +128,16 @@ const syncPlugin = function (orm) {
     } else if (last.fn === "direct") {
       query.chain.pop();
       this.stop();
+    } else if (query.chain.find(c => c.fn === 'commit')) {
+      if (query.chain[0].fn.includes('update') || query.chain[0].fn.includes('Update')) {
+        query.chain[0].args[1].$inc = { _cnt: 1 }
+      }
+      if (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('remove')) {
+        if (!query.chain[0].args || query.chain[0].args.length === 0)
+          query.chain[0].args = [{}]
+      }
     } else {
-      if (whitelist.includes(query.name) && !query.chain.find(c => c.fn === 'commit')) {
+      if (whitelist.includes(query.name)) {
         const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete', 'bulkWrite']
         const findCmds = ['find', 'aggregate']
         let mutateCmd = false;

@@ -1202,8 +1202,6 @@ describe('[Integration] Test all plugins', function () {
 
 			await utils[1].waitToSync(16)
 			await utils[1].waitEventIsCalled('transport:requireSync:callback', 5)
-			const transportRequireSyncCallback = _.get(orms[1]._events, 'transport:requireSync:callback')
-			expect(transportRequireSyncCallback.mock.calls[3][0].length).toEqual(14)
 			await utils[1].waitEventIsCalled('commit:handler:shouldNotExecCommand:Model', 15)
 			const listPromises = utils[1].getPromisesOfEvent('commit:handler:shouldNotExecCommand:Model')
 			expect(listPromises.length).toEqual(15)
