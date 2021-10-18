@@ -3,13 +3,8 @@ const _ = require('lodash')
 const { v1 } = require('uuid')
 
 module.exports = function (orm) {
-  const connectedClientSocket = {}
-  const connectedMasterSocket = {}
 
   orm.on('initSyncForClient', function (clientSocket, dbName) {
-    if (connectedClientSocket[clientSocket.id])
-      return
-    connectedClientSocket[clientSocket.id] = true
     orm.emit('transporter:destroy:default')
 
     const off1 = orm.on('transport:send', async (_dbName, queueCommit) => {
@@ -96,7 +91,6 @@ module.exports = function (orm) {
     }).off
 
     function closeAllConnection() {
-      delete connectedClientSocket[clientSocket.id]
       off1 && off1()
       off2 && off2()
       off3 && off3()
@@ -118,6 +112,9 @@ module.exports = function (orm) {
     })
 
     debounceRequireSync()
+    this.value = {
+      closeAllConnection
+    }
   })
   /*------Non server only-------*/
   orm.on('reset-session', async function () {
@@ -130,11 +127,7 @@ module.exports = function (orm) {
   }
   /*----------------------------*/
 
-  orm.onQueue('initSyncForMaster', (socket, dbName) => {
-    if (connectedMasterSocket[socket.id])
-      return
-    connectedMasterSocket[socket.id] = true
-
+  orm.onQueue('initSyncForMaster', function (socket, dbName) {
     const debounceTransportSync = _.debounce(async (id) => {
       const commitData = await orm('CommitData').findOne()
       socket.emit('transport:sync', Math.max(id, commitData ? commitData.highestCommitId : 0))
@@ -187,7 +180,6 @@ module.exports = function (orm) {
     })
 
     function closeAllConnection() {
-      delete connectedMasterSocket[socket.id]
       off1 && off1()
       off2 && off2()
       socket.removeAllListeners('commitRequest')
@@ -200,6 +192,9 @@ module.exports = function (orm) {
     })
 
     doSessionCheck(socket).then(r => r)
+    this.value = {
+      closeAllConnection
+    }
   })
 
   // end of health check
