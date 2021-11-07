@@ -270,7 +270,7 @@ function createCollectionQuery(query) {
       if (fn.includes('insert') || fn.includes('create')/* || fn === 'findById'*/
         || fn.includes('countDocuments') || fn.includes('aggregate')
         || fn.includes('Index') || fn.includes('indexes')
-        || fn.includes('findAndModify') || fn.includes('drop') || fn.includes('bulkWrite')) result = true;
+        || fn.includes('findAndModify') || fn.includes('drop') || fn.includes('bulkWrite') || fn.includes('stats')) result = true;
     }
     return result;
   }, false);
