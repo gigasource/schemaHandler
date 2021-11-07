@@ -121,14 +121,16 @@ module.exports = function (orm) {
 				return
 			}
 			if (!orm.isMaster()) return
-			if (commit.condition)
+			if (!orm.createQuery.includes(orm.shorthand[commit._c]))
 				await orm(collection).updateMany(jsonFn.parse(commit.condition), { snapshot: true }).direct()
-			else if (commit.data && commit.data.docId)
-				await orm(collection).updateOne({ _id: commit.data.docId }, { snapshot: true }).direct()
-			else if (result && Array.isArray(result)) {
-				console.log('[Snapshot] case create many')
-				for (let doc of result)
-					await orm(collection).updateOne({ _id: doc._id }, { snapshot: true }).direct()
+			else {
+				if (result && Array.isArray(result)) {
+					console.log('[Snapshot] case create many')
+					for (let doc of result)
+						await orm(collection).updateOne({ _id: doc._id }, { snapshot: true }).direct()
+				} else if (result) {
+					await orm(collection).updateOne({ _id: result._id }, { snapshot: true }).direct()
+				}
 			}
 		})
 

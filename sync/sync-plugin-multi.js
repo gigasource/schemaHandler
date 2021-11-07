@@ -10,7 +10,28 @@ const { Query } = require('mingo')
 const syncPlugin = function (orm) {
   const whitelist = []
   let highestCommitIdOfCollection = null
+  const shorthand = {
+    'createMany': 'cm',
+    'create': 'c',
+    'insertMany': 'im',
+    'insert': 'i',
+    'insertOne': 'io',
+    'updateOne': 'uo',
+    'update': 'u',
+    'updateMany': 'um',
+    'remove': 'r',
+    'removeOne': 'ro',
+    'deleteMany': 'dm',
+    'delete': 'd',
+    'deleteOne': 'do',
+    'findOneAndUpdate': 'foau',
+    'replaceOne': 'ro',
+    'bulkWrite': 'bw'
+  }
+  const createQuery = Object.keys(shorthand).filter(key => key.includes('create') || key.includes('insert')).map(key => shorthand[key])
 
+  orm.shorthand = shorthand
+  orm.createQuery = createQuery
   orm.handleFindQuery = handleFindQuery
   orm.setHighestCommitIdOfCollection = setHighestCommitIdOfCollection
   orm.registerCommitBaseCollection = registerCommitBaseCollection
@@ -292,6 +313,7 @@ const syncPlugin = function (orm) {
         if (_.get(_query, "chain[0].args[0]._id")) {
           commit.data.docId = _.get(_query, "chain[0].args[0]._id");
         }
+        commit._c = shorthand[target.cmd] ? shorthand[target.cmd] : null
         // put processCommit here
         const {value: value} = await orm.emit('commit:flow:execCommit', _query, target, exec, commit);
         this.value = value;
