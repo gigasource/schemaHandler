@@ -20,6 +20,9 @@ const syncPlugin = function (orm) {
   orm.validateCommit = validateCommit
   orm.validateCommits = validateCommits
 
+  orm('Commit').createIndex({ id: 1 }).then(r => r)
+  orm('Commit').createIndex({ collectionName: 1 }).then(r => r)
+
   bulkUtils(orm)
 
   function setHighestCommitIdOfCollection(col, val) {
@@ -313,6 +316,7 @@ const syncPlugin = function (orm) {
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
         commit._id = new ObjectID()
         commit.condition = target.condition ? jsonFn.stringify(target.condition) : null;
+        commit._b = target.isBulk
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
         commit.chain = jsonFn.stringify(_query.chain);
@@ -597,23 +601,27 @@ const syncPlugin = function (orm) {
   }
   async function validateCommit(commit) {
     try {
-      if (!commit.condition) {
+      if (!commit.condition && !commit._b) {
         return VALIDATE_STATUS.NULL
       }
-      if (orm.isMaster()) {
-        const condition = jsonFn.parse(commit.condition)
-        const sumObj = (await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]))
-        if (sumObj && sumObj.length)
-          commit._cnt = sumObj[0].sum
+      if (commit._b) {
+        // validate bulk
       } else {
-        const condition = jsonFn.parse(commit.condition)
-        const sumObj = await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]).direct()
-        if ((!sumObj || !sumObj.length) && commit._cnt !== undefined) {
-          orm.emit('commit:report:validationFailed', commit, null)
-          return VALIDATE_STATUS.BEHIND_MASTER
-        } else if (commit._cnt !== sumObj[0].sum) {
-          orm.emit('commit:report:validationFailed', commit, sumObj[0].sum)
-          return commit._cnt < sumObj[0].sum ? VALIDATE_STATUS.AHEAD_MASTER : VALIDATE_STATUS.BEHIND_MASTER
+        if (orm.isMaster()) {
+          const condition = jsonFn.parse(commit.condition)
+          const sumObj = (await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]))
+          if (sumObj && sumObj.length)
+            commit._cnt = sumObj[0].sum
+        } else {
+          const condition = jsonFn.parse(commit.condition)
+          const sumObj = await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]).direct()
+          if ((!sumObj || !sumObj.length) && commit._cnt !== undefined) {
+            orm.emit('commit:report:validationFailed', commit, null)
+            return VALIDATE_STATUS.BEHIND_MASTER
+          } else if (commit._cnt !== sumObj[0].sum) {
+            orm.emit('commit:report:validationFailed', commit, sumObj[0].sum)
+            return commit._cnt < sumObj[0].sum ? VALIDATE_STATUS.AHEAD_MASTER : VALIDATE_STATUS.BEHIND_MASTER
+          }
         }
       }
       return true
@@ -759,22 +767,6 @@ const syncPlugin = function (orm) {
     commitDataId = commitData._id
     this.value = commitData._id
   })
-
-  // if (isMaster) {
-  //   //use only for master
-  //
-  //   orm.on('update:Commit:c', async function (commit) {
-  //     let query = getQuery(commit);
-  //     if (commit.dbName) query.name += `@${commit.dbName}`;
-  //     const result = await orm.execChain(query);
-  //     orm.emit(`commit:result:${commit.uuid}`, result);
-  //     await orm.emit('master:transport:sync', commit.id);
-  //   })
-  //
-  //   orm.on('commit:sync:master', async function (clientHighestId, dbName) {
-  //     this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}});
-  //   })
-  // }
 
   orm.emit('initFakeLayer');
 }

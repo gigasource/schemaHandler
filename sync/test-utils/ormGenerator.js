@@ -243,7 +243,6 @@ async function ormGenerator(plugins, options) {
 		ormHook.emit('newCommit')
 	})
 	orm.on('update:CommitData', result => {
-		orm
 		if (!result.highestCommitId || isNaN(result.highestCommitId)) return
 		highestId = Math.max(highestId, result.highestCommitId)
 		ormHook.emit('newCommit')

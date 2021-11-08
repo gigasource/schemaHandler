@@ -65,7 +65,11 @@ module.exports = function (orm) {
 				this.setValue(false)
 			} else {
 				if (!doc._cnt) doc._cnt = 0
-				if (doc._cnt !== commit.data._cnt) {
+				if (commit._cnt === undefined) { // handle old snapshot commit with no _cnt
+					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
+					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
+					this.setValue(false)
+				} else if (doc._cnt !== commit._cnt) {
 					// need resync
 					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
 					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})

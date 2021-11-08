@@ -101,6 +101,40 @@ module.exports = function (orm) {
     }
   }
 
+  async function validateBulkQueries(queries, commit, isMaster = false) {
+    if (isMaster) {
+      commit.data.var = []
+      for (let id = 0; id < queries.length; id++) {
+        const query = queries[id]
+        if (query.updateOne || query.updateMany || query.deleteOne || query.deleteMany) {
+          const sumObj = (await orm(commit.collectionName).aggregate([{ $match: query.filter }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]))
+          commit.data.var.push(sumObj)
+        }
+        if (query.updateOne || query.updateMany) {
+          const key = Object.keys(query)[0]
+          query[key].update.$inc = { _cnt : 1 }
+        }
+        if (query.insertOne || query.insertMany) {
+          commit.data.var.push(null)
+        }
+        if (query.replaceOne) {
+          const foundDoc = await orm(commit.collectionName).find(query.filter)
+          query.replaceOne.replacement._cnt = (foundDoc._cnt ? foundDoc._cnt : 0) + id + 1
+        }
+      }
+    } else {
+      for (let id = 0; id < queries.length; id++) {
+        const query = queries[id]
+        if (query.updateOne || query.updateMany || query.deleteOne || query.deleteMany) {
+          const sumObj = (await orm(commit.collectionName).aggregate([{ $match: query.filter }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]))
+          if (sumObj !== commit.data.var[id]) {
+            // is wrong commit
+          }
+        }
+      }
+    }
+  }
+
   async function doBulkQuery(col, bulkOp) {
     await orm.removeFakeOfCollection(col, {})
     while (true) {
