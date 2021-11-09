@@ -203,8 +203,8 @@ module.exports = function (orm) {
 						syncUUID: syncData.id,
 						snapshot: true,
 						docId: doc._id,
-						_cnt: doc._cnt ? doc._cnt : 0
 					},
+					_cnt: doc._cnt ? doc._cnt : 0,
 					ref: doc._id,
 					fromMaster: true,
 					uuid: uuid.v4()

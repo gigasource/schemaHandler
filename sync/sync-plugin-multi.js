@@ -337,7 +337,6 @@ const syncPlugin = function (orm) {
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
         commit._id = new ObjectID()
         commit.condition = target.condition ? jsonFn.stringify(target.condition) : null;
-        commit._b = target.isBulk
         orm.emit(`commit:auto-assign`, commit, _query, target);
         orm.emit(`commit:auto-assign:${_query.name}`, commit, _query, target);
         commit.chain = jsonFn.stringify(_query.chain);
@@ -623,11 +622,12 @@ const syncPlugin = function (orm) {
   }
   async function validateCommit(commit) {
     try {
-      if (!commit.condition && !commit._b) {
+      if (!commit.condition && commit._c !== 'bw') {
         return VALIDATE_STATUS.NULL
       }
-      if (commit._b) {
+      if (commit._c === 'bw') {
         // validate bulk
+        await orm.validateBulkQueries(commit, orm.isMaster())
       } else {
         if (orm.isMaster()) {
           const condition = jsonFn.parse(commit.condition)
@@ -648,7 +648,7 @@ const syncPlugin = function (orm) {
       }
       return true
     } catch (err) {
-      console.log('Error while validating', e)
+      console.log('Error while validating', err)
     }
   }
 

@@ -1058,6 +1058,154 @@ describe('main sync test', function () {
 			expect(stringify(findDataOrm1)).toMatchSnapshot()
 			done()
 		})
+
+		it('Case 10: Sync bulkWrite', async (done) => {
+			jest.useFakeTimers()
+			lodashMock()
+			const { orms, utils } = await genOrm(2,
+				['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+					'sync-queue-commit', 'sync-snapshot', 'sync-report'])
+			utils.forEach(util => {
+				util.mockModelAndCreateCommits(0)
+			})
+			orms[1].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+
+			const doc = await orms[1]('Model').create({ test: true })
+			await utils[1].waitToSync(1)
+			const doc1Id = '61744744310ae54008f7f36b'
+			await orms[0]('Model').bulkWrite([
+				{
+					updateOne: {
+						filter: {
+							_id: doc._id
+						},
+						update: {
+							$set: {
+								test: false
+							}
+						}
+					}
+				},
+				{
+					replaceOne: {
+						filter: {
+							_id: doc._id
+						},
+						replacement: {
+							_id: doc._id,
+							replaced: true
+						}
+					}
+				},
+				{
+					insertOne: {
+						document: {
+							_id: doc1Id,
+							test: true
+						}
+					}
+				},
+				{
+					replaceOne: {
+						filter: {
+							_id: doc1Id
+						},
+						replacement: {
+							_id: doc1Id,
+							replaced: true
+						}
+					}
+				}
+			])
+			const commits = await orms[0]('Commit').find()
+			expect(commits[1].data.var).toMatchSnapshot()
+			await utils[1].waitToSync(2)
+			const data = await orms[1]('Model').find()
+			expect(data.length).toEqual(2)
+			expect(data[0].replaced).toBe(true)
+			expect(data[1].replaced).toBe(true)
+			expect(data[0]._cnt).toBe(2)
+			expect(data[1]._cnt).toBe(4)
+			const validationFailed = await orms[1]('CommitReport').find({ type: 'validation-failed' })
+			expect(validationFailed.length).toEqual(0)
+			done()
+		})
+
+		it('Case 11: Sync bulkWrite validate failed', async (done) => {
+			jest.useFakeTimers()
+			lodashMock()
+			const { orms, utils } = await genOrm(2,
+				['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+					'sync-queue-commit', 'sync-snapshot', 'sync-report'])
+			utils.forEach(util => {
+				util.mockModelAndCreateCommits(0)
+			})
+			orms[1].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+
+			const doc = await orms[1]('Model').create({ test: true })
+			await utils[1].waitToSync(1)
+			const doc1Id = '61744744310ae54008f7f36b'
+			await orms[1]('Model').updateOne({ _id: doc._id }, { _cnt: 3 }).direct()
+			await orms[0]('Model').bulkWrite([
+				{
+					updateOne: {
+						filter: {
+							_id: doc._id
+						},
+						update: {
+							$set: {
+								test: false
+							}
+						}
+					}
+				},
+				{
+					replaceOne: {
+						filter: {
+							_id: doc._id
+						},
+						replacement: {
+							_id: doc._id,
+							replaced: true
+						}
+					}
+				},
+				{
+					insertOne: {
+						document: {
+							_id: doc1Id,
+							test: true
+						}
+					}
+				},
+				{
+					replaceOne: {
+						filter: {
+							_id: doc1Id
+						},
+						replacement: {
+							_id: doc1Id,
+							replaced: true
+						}
+					}
+				}
+			])
+			const commits = await orms[0]('Commit').find()
+			expect(commits[1].data.var).toMatchSnapshot()
+			await utils[1].waitToSync(2)
+			const data = await orms[1]('Model').find()
+			expect(data.length).toEqual(2)
+			expect(data[0].replaced).toBe(true)
+			expect(data[1].replaced).toBe(true)
+			expect(data[0]._cnt).toBe(2)
+			expect(data[1]._cnt).toBe(4)
+			const a = await orms[1]('CommitReport').find()
+			const validationFailed = await orms[1]('CommitReport').find({ type: 'validation-failed' })
+			expect(validationFailed.length).toEqual(1)
+			done()
+		})
 	})
 
 	describe('[Integration] Test all plugins', function () {
