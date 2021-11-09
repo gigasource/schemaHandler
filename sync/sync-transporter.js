@@ -46,7 +46,8 @@ module.exports = function (orm) {
     const off2 = orm.onQueue('transport:require-sync', async function () {
       console.log('[Require sync]')
       const {value: highestId} = await orm.emit('getHighestCommitId', dbName)
-      const args = [highestId];
+      const {value: highestArchiveId} = await orm.emit('getHighestArchiveId', dbName)
+      const args = [highestId, highestArchiveId];
       orm.emit('commit:sync:args', args);
       this.value = await new Promise((resolve) => {
         const wait = setTimeout(() => {
@@ -160,12 +161,12 @@ module.exports = function (orm) {
       orm.emit('commitRequest', commits);
     });
 
-    socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
-      let commits = (await orm.emit('transport:require-sync:preProcess', clientHighestId, cb)).value
+    socket.on('transport:require-sync', async function ([clientHighestId = 0, clientHighestArchiveId = 0], cb) {
+      let commits = (await orm.emit('transport:require-sync:preProcess', clientHighestId)).value
       if (!commits || !Array.isArray(commits))
         commits = []
       clientHighestId = Math.max(clientHighestId, commits.length ? _.last(commits).id : 0)
-      const commitsNeedToSync = (await orm.emit('commit:sync:master', clientHighestId, dbName)).value
+      const commitsNeedToSync = (await orm.emit('commit:sync:master', clientHighestId, clientHighestArchiveId, dbName)).value
       commitsNeedToSync && commitsNeedToSync.length && commits.push(...commitsNeedToSync)
       // const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
       const commitData = await orm('CommitData', dbName).findOne({})

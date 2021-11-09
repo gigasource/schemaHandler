@@ -1703,5 +1703,38 @@ describe('main sync test', function () {
 			expect(findData0).toEqual(findData1)
 			done()
 		})
+
+		it('[Sync archive] Case 15: Sync archived commit', async (done) => {
+			jest.useFakeTimers()
+			lodashMock()
+			let findData0
+			let findData1
+			const { orms, utils } = await genOrm(2,
+				['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+					'sync-queue-commit', 'sync-archive'])
+			utils.forEach(util => {
+				util.mockModelAndCreateCommits(0)
+			})
+			for (let i = 0; i < 10; i++) {
+				await orms[0]('Model').create({
+					test: i
+				})
+			}
+			const condition = { test: { $lt: 4 } }
+			await orms[0].doArchive('Model', condition)
+			findData0 = await orms[0]('Model').find(condition)
+			for (let doc of findData0) {
+				expect(doc._arc).toBe(true)
+			}
+			const archivedCommits = await orms[0]('CommitArchive').find()
+			expect(archivedCommits.length).toEqual(4)
+			await orms[0]('Commit').deleteOne({ id: 1 })
+			orms[1].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+			await utils[1].waitToArchiveSync(4)
+			findData1 = await orms[1]('Model').find()
+			expect(_.last(findData1).test).toEqual(0)
+			done()
+		})
 	})
 })

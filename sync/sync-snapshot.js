@@ -8,7 +8,6 @@ module.exports = function (orm) {
 	const handlers = []
 	const unusedCollections = ['DummyCollection']
 	let SNAPSHOT_COMMIT_CACHE = 300
-	let currentHighestUUID = 0
 
 	async function createCommitCache() {
 		await orm.emit('createCommit', { collectionName: 'DummyCollection', uuid: uuid.v4() })
@@ -170,9 +169,11 @@ module.exports = function (orm) {
 				return
 			}
 			if (!orm.isMaster()) return
-			if (!orm.createQuery.includes(orm.shorthand[commit._c]))
-				await orm(collection).updateMany(jsonFn.parse(commit.condition), { snapshot: true }).direct()
-			else {
+			if (!orm.createQuery.includes(orm.shorthand[commit._c])) {
+				const condition = jsonFn.parse(commit.condition)
+				condition._arc = { $exists: false }
+				await orm(collection).updateMany(condition, { snapshot: true }).direct()
+			} else {
 				if (result && Array.isArray(result)) {
 					console.log('[Snapshot] case create many')
 					for (let doc of result)
@@ -199,7 +200,6 @@ module.exports = function (orm) {
 					_id: new ObjectID(),
 					collectionName: collection,
 					data: {
-						currentHighestUUID,
 						syncUUID: syncData.id,
 						snapshot: true,
 						docId: doc._id,
@@ -243,7 +243,6 @@ module.exports = function (orm) {
 			orm.emit('commit:setUseCacheStatus', false)
 			await createCommitCache()
 			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
-			currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1))[0].uuid
 			for (let collection of unusedCollections) {
 				await orm(collection).deleteMany({}).direct()
 				await orm('Commit').deleteMany({ collectionName: collection })

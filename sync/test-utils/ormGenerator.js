@@ -4,7 +4,8 @@ const pluginsList = {
 	'sync-queue-commit': require('../sync-queue-commit'),
 	'sync-snapshot': require('../sync-snapshot'),
 	'sync-transporter': require('../sync-transporter'),
-	'sync-report': require('../sync-report')
+	'sync-report': require('../sync-report'),
+	'sync-archive': require('../sync-archive')
 }
 const hooks = require('../../hooks/hooks')
 const Orm = require('../../orm')
@@ -237,6 +238,7 @@ async function ormGenerator(plugins, options) {
 	}
 
 	let highestId = 0
+	let highestArchiveId = 0
 	orm.on('update:Commit:c', 1, commit => {
 		if (!commit.id || isNaN(commit.id)) return
 		highestId = Math.max(highestId, commit.id)
@@ -252,12 +254,29 @@ async function ormGenerator(plugins, options) {
 		highestId = Math.max(highestId, lastId)
 		ormHook.emit('newCommit')
 	})
+	orm.on('commit:handler:finish:archive', (commit) => {
+		if (!commit.id) return
+		highestArchiveId = Math.max(highestArchiveId, commit.id)
+		ormHook.emit('newArchiveCommit')
+	})
 	async function waitToSync(highestCommitId) {
 		await new Promise(async (resolve) => {
 			if (highestId >= highestCommitId)
 				resolve()
 			const { off } = ormHook.on('newCommit', () => {
 				if (highestId >= highestCommitId) {
+					resolve()
+					off()
+				}
+			})
+		})
+	}
+	async function waitToArchiveSync(highestCommitArchiveId) {
+		await new Promise(async (resolve) => {
+			if (highestArchiveId >= highestCommitArchiveId)
+				resolve()
+			const { off } = ormHook.on('newArchiveCommit', () => {
+				if (highestId >= highestCommitArchiveId) {
 					resolve()
 					off()
 				}
@@ -288,7 +307,8 @@ async function ormGenerator(plugins, options) {
 			waitForAnEvent,
 			getNumberOfTimesCalled,
 			getNumberOfTimesOnCalled,
-			mockModelAndCreateCommits
+			mockModelAndCreateCommits,
+			waitToArchiveSync
 		}
 	}
 }

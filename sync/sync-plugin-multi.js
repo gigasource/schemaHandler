@@ -571,6 +571,7 @@ const syncPlugin = function (orm) {
 
   orm.onQueue('transport:requireSync:callback', async function (commits) {
     if (!commits || !commits.length) return
+    const archivedCommits = _.remove(commits, commit => !!commit.data._arc)
     if (commits.length > COMMIT_BULK_WRITE_THRESHOLD) {
       await validateCommits(commits)
       if (!commits.length)
@@ -586,8 +587,11 @@ const syncPlugin = function (orm) {
         console.log('Error in hook transport:requireSync:callback')
       }
     }
+    if (archivedCommits) {
+      await orm.emit('commit:archive:bulk', archivedCommits)
+    }
     orm.emit('commit:handler:doneAllCommits')
-    console.log('Done requireSync', commits.length, commits[0]._id, new Date())
+    console.log('Done requireSync', commits.length, archivedCommits, commits.length ? commits[0]._id : archivedCommits[0]._id, new Date())
   })
 
   let highestIdInMemory = null
@@ -694,7 +698,7 @@ const syncPlugin = function (orm) {
   let commitsCache = []
   let CACHE_THRESHOLD = 300
   let USE_CACHE = true
-  orm.on('commit:sync:master', async function (clientHighestId, dbName) {
+  orm.on('commit:sync:master', async function (clientHighestId, clientHighestArchiveId, dbName) {
     if (!commitsCache.length) {
       commitsCache = await orm('Commit').find().sort({ id: -1 }).limit(CACHE_THRESHOLD)
       commitsCache.reverse()
@@ -708,6 +712,11 @@ const syncPlugin = function (orm) {
       })
     } else {
       this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}, isPending: { $exists: false }}).limit(CACHE_THRESHOLD);
+    }
+    if (this.value.length < CACHE_THRESHOLD) {
+      const archivedCommits = (await orm.emit('commit:getArchive', clientHighestArchiveId, CACHE_THRESHOLD - this.value.length)).value
+      if (archivedCommits && Array.isArray(archivedCommits))
+        this.value.push(...archivedCommits)
     }
   })
   orm.on('commit:handler:finish', 1, async commit => {
