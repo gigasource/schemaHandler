@@ -189,7 +189,7 @@ module.exports = function (orm) {
 			const { syncData } = await orm('CommitData').findOne()
 			await orm('Commit').deleteMany({ collectionName: collection, 'data.snapshot': {$exists: false } })
 			if (syncData.firstTimeSync)
-				await orm(collection).updateMany({}, { snapshot: true }).direct()
+				await orm(collection).updateMany({ _arc: { $exists: false }}, { snapshot: true }).direct()
 			while (true) {
 				const doc = await orm(collection).findOne({ snapshot: true })
 				if (!doc)

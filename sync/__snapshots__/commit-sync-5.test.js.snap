@@ -1,5 +1,70 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`main sync test [Integration] Test all plugins [Sync snapshot] Case 17: Create many 1`] = `
+Array [
+  Object {
+    "_cnt": 0,
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 4,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_cnt": 0,
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 5,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_cnt": 0,
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 6,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+  Object {
+    "_cnt": 0,
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+      "syncUUID": "syncUUID",
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "fromMaster": true,
+    "id": 7,
+    "ref": "ObjectID",
+    "uuid": "uuid-v1",
+  },
+]
+`;
+
 exports[`main sync test [Integration] Test all plugins [Sync validation] Case 13: Validate new commit failed and snapshot fix wrong commit 1`] = `
 Array [
   Object {
@@ -27,7 +92,6 @@ Array [
     "_id": "ObjectID",
     "collectionName": "Model",
     "data": Object {
-      "currentHighestUUID": "UUID",
       "docId": "ObjectID",
       "snapshot": true,
       "syncUUID": "syncUUID",

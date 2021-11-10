@@ -107,7 +107,7 @@ const syncArchive = function (orm) {
     while (true) {
       const doc = await orm(collectionName).findOne({ _arc: true, $or: [{snapshot: true}, {ref: true}] })
       if (!doc) break
-      await orm(collectionName).updateOne({ _id: doc._id }, { $unset: { snapshot: '', ref: '' } })
+      await orm(collectionName).updateOne({ _id: doc._id }, { $unset: { snapshot: '', ref: '' } }).direct()
       await orm('Commit').deleteMany({ 'data.docId': doc._id, 'data.snapshot': true })
     }
     const foundDocs = await orm(collectionName).find(condition)

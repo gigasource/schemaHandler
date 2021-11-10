@@ -571,7 +571,7 @@ const syncPlugin = function (orm) {
 
   orm.onQueue('transport:requireSync:callback', async function (commits) {
     if (!commits || !commits.length) return
-    const archivedCommits = _.remove(commits, commit => !!commit.data._arc)
+    const archivedCommits = _.remove(commits, commit => commit.data && !!commit.data._arc)
     if (commits.length > COMMIT_BULK_WRITE_THRESHOLD) {
       await validateCommits(commits)
       if (!commits.length)
@@ -591,7 +591,7 @@ const syncPlugin = function (orm) {
       await orm.emit('commit:archive:bulk', archivedCommits)
     }
     orm.emit('commit:handler:doneAllCommits')
-    console.log('Done requireSync', commits.length, archivedCommits, commits.length ? commits[0]._id : archivedCommits[0]._id, new Date())
+    console.log('Done requireSync', commits.length, archivedCommits.length, commits.length ? commits[0]._id : archivedCommits[0]._id, new Date())
   })
 
   let highestIdInMemory = null
