@@ -233,12 +233,19 @@ async function ormGenerator(plugins, options) {
 				data: 'test'
 			})
 		}
+		orm.on(`commit:handler:finish:archive:${modelName}`, (commit) => {
+			if (!commit.id) return
+			if (!highestArchiveId[modelName])
+				highestArchiveId[modelName] = 0
+			highestArchiveId[modelName] = Math.max(highestArchiveId[modelName], commit.id)
+			ormHook.emit('newArchiveCommit')
+		})
 		await waitForAnEvent('createCommit')
 		await waitForAnEvent('commit:handler:finish')
 	}
 
 	let highestId = 0
-	let highestArchiveId = 0
+	let highestArchiveId = {}
 	orm.on('update:Commit:c', 1, commit => {
 		if (!commit.id || isNaN(commit.id)) return
 		highestId = Math.max(highestId, commit.id)
@@ -254,11 +261,6 @@ async function ormGenerator(plugins, options) {
 		highestId = Math.max(highestId, lastId)
 		ormHook.emit('newCommit')
 	})
-	orm.on('commit:handler:finish:archive', (commit) => {
-		if (!commit.id) return
-		highestArchiveId = Math.max(highestArchiveId, commit.id)
-		ormHook.emit('newArchiveCommit')
-	})
 	async function waitToSync(highestCommitId) {
 		await new Promise(async (resolve) => {
 			if (highestId >= highestCommitId)
@@ -271,12 +273,12 @@ async function ormGenerator(plugins, options) {
 			})
 		})
 	}
-	async function waitToArchiveSync(highestCommitArchiveId) {
+	async function waitToArchiveSync(col, highestCommitArchiveId) {
 		await new Promise(async (resolve) => {
-			if (highestArchiveId >= highestCommitArchiveId)
+			if (highestArchiveId[col] && highestArchiveId[col] >= highestCommitArchiveId)
 				resolve()
 			const { off } = ormHook.on('newArchiveCommit', () => {
-				if (highestId >= highestCommitArchiveId) {
+				if (highestArchiveId[col] && highestArchiveId[col] >= highestCommitArchiveId) {
 					resolve()
 					off()
 				}

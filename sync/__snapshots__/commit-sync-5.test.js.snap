@@ -1,5 +1,23 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`main sync test [Integration] Test all plugins [Sync archive] Case 16: Sync archive before snapshot 1`] = `
+Object {
+  "Model": Object {
+    "condition": "{}",
+    "highestArchiveId": 4,
+  },
+}
+`;
+
+exports[`main sync test [Integration] Test all plugins [Sync archive] Case 16: Sync archive before snapshot 2`] = `
+Object {
+  "Model": Object {
+    "condition": "{}",
+    "highestArchiveId": 4,
+  },
+}
+`;
+
 exports[`main sync test [Integration] Test all plugins [Sync snapshot] Case 17: Create many 1`] = `
 Array [
   Object {

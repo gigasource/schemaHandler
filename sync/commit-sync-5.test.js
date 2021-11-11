@@ -1731,7 +1731,7 @@ describe('main sync test', function () {
 			await orms[0]('Commit').deleteOne({ id: 1 })
 			orms[1].socketConnect(orms[0].ioId)
 			jest.advanceTimersByTime(100) // time to connect
-			await utils[1].waitToArchiveSync(4)
+			await utils[1].waitToArchiveSync('Model', 4)
 			findData1 = await orms[1]('Model').find()
 			expect(_.last(findData1).test).toEqual(0)
 			done()
@@ -1762,7 +1762,7 @@ describe('main sync test', function () {
 			orms[0].on('snapshot-done', async () => {
 				orms[1].socketConnect(orms[0].ioId)
 				jest.advanceTimersByTime(100) // time to connect
-				await utils[1].waitToArchiveSync(4)
+				await utils[1].waitToArchiveSync('Model', 4)
 				const commits = await orms[1]('Commit').find()
 				const data = await orms[1]('Model').find()
 				expect(data.length).toEqual(10)
@@ -1775,6 +1775,10 @@ describe('main sync test', function () {
 					expect(data[id].test).toEqual(i)
 				}
 				expect(commits.length).toEqual(6)
+				const commitData1 = await orms[1]('CommitData').findOne()
+				expect(commitData1.archiveCondition).toMatchSnapshot()
+				const commitData0 = await orms[0]('CommitData').findOne()
+				expect(commitData0.archiveCondition).toMatchSnapshot()
 				done()
 			})
 			orms[0].startSyncSnapshot().then(r => r)
@@ -1822,7 +1826,7 @@ describe('main sync test', function () {
 				await orms[0].doArchive('Model', condition)
 				orms[1].socketConnect(orms[0].ioId)
 				jest.advanceTimersByTime(100) // time to connect
-				await utils[1].waitToArchiveSync(4)
+				await utils[1].waitToArchiveSync('Model', 4)
 				const commits = await orms[1]('Commit').find()
 				const data = await orms[1]('Model').find()
 				expect(data.length).toEqual(10)
@@ -1867,13 +1871,45 @@ describe('main sync test', function () {
 				const archivedCommits = await orms[0]('CommitArchive').find()
 				expect(archivedCommits.length).toEqual(4)
 				await orms[0].emit('master:transport:sync')
-				await utils[1].waitToArchiveSync(4)
+				await utils[1].waitToArchiveSync('Model', 4)
 				const data1 = await orms[1]('Model').find()
 				const data0 = await orms[0]('Model').find()
 				expect(data1.length).toEqual(data0.length)
 				for (let id = 0; id < data1.length; id++) {
 					expect(data1[id].test).toEqual(data0[id].test)
 				}
+				done()
+			})
+			orms[0].startSyncSnapshot().then(r => r)
+		})
+
+		it('[Sync archive] Case 20: Sync archive with condition', async (done) => {
+			jest.useFakeTimers()
+			lodashMock()
+			const { orms, utils } = await genOrm(2,
+				['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+					'sync-queue-commit', 'sync-archive', 'sync-snapshot'])
+			utils.forEach(util => {
+				util.mockModelAndCreateCommits(0)
+			})
+			orms.forEach(orm => {
+				orm.setSyncCollection('Model')
+				orm.emit('setArchiveCondition', 'Model', { test: { $gt: 5 } })
+			})
+			for (let i = 0; i < 10; i++) {
+				await orms[0]('Model').create({
+					test: i
+				})
+			}
+			await orms[0].doArchive('Model', {}, ['test'])
+			orms[0].on('snapshot-done', async () => {
+				const commits0 = await orms[0]('Commit').find()
+				expect(commits0.length).toEqual(0)
+				orms[1].socketConnect(orms[0].ioId)
+				jest.advanceTimersByTime(100) // time to connect
+				await utils[1].waitToArchiveSync('Model', 10)
+				const data1 = await orms[1]('Model').find()
+				expect(data1.length).toEqual(4)
 				done()
 			})
 			orms[0].startSyncSnapshot().then(r => r)

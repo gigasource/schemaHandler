@@ -5,8 +5,12 @@ const syncArchive = function (orm) {
   orm('CommitArchive').createIndex({ id: 1 }).then(r => r)
   let highestArchiveId = null
   orm.doArchive = doArchive
-  orm.on('commit:getArchive', async function (highestArchiveId, lim = 300) {
-    const archivedCommits = await orm('CommitArchive').find({ id: { $gt: highestArchiveId } }).sort({ id: 1 }).limit(lim)
+  orm.on('commit:getArchive', async function (condition, lim = 300) {
+    condition = jsonFn.parse(condition)
+    if (!condition['$or'].length) {
+      condition = {}
+    }
+    const archivedCommits = await orm('CommitArchive').find(condition).sort({ id: 1 }).limit(lim)
     const result = (await Promise.all(archivedCommits.map(async commit => {
       const foundDoc = await orm(commit.collectionName).findOne({ _id: commit.data.docId })
       if (!foundDoc) {
@@ -37,10 +41,9 @@ const syncArchive = function (orm) {
       }
       commit.id = highestArchiveId
       highestArchiveId += 1
-      await orm('CommitData').updateOne({}, { highestArchiveId })
-    } else {
-      await orm('CommitData').updateOne({}, { highestArchiveId: commit.id })
     }
+    await orm('CommitData').updateOne({}, { [`archiveCondition.${commit.collectionName}.highestArchiveId`]: commit.id })
+    archiveCondition[commit.collectionName].highestArchiveId = commit.id
     if (!isExists)
       await orm('CommitArchive').create(commit)
     else
@@ -48,23 +51,53 @@ const syncArchive = function (orm) {
     await orm.emit('commit:handler:finish:archive', commit)
   })
 
-  orm.on('getHighestArchiveId', async function (dbName) {
-    let highestCommitId
-    const commitData = await orm('CommitData', dbName).findOne({})
-    if (!commitData || !commitData.highestArchiveId) {
-      const commitWithHighestId = await orm('CommitArchive', dbName).find({}).sort('-id').limit(1)
-      highestCommitId = (commitWithHighestId.length ? commitWithHighestId[0] : { id: 0 }).id;
+  let archiveCondition = null
+  orm.on('setArchiveCondition', async function (collectionName, condition, highestId= 0, dbName) {
+    const newCondition = {}
+    Object.keys(condition).forEach(field => {
+      newCondition[`c_${field}`] = condition[field]
+    })
+    condition = newCondition
+    await orm.emit('getArchiveCondition')
+    // todo: consider sync starting position
+    // const newHighestId = await orm('CommitArchive', dbName).find({ ...condition, collectionName }).sort('-id').limit(1)
+    archiveCondition[collectionName] = {
+      highestArchiveId: highestId,
+      condition
     }
-    else
-      highestCommitId = commitData.highestArchiveId
-    this.value = highestCommitId;
+    await orm('CommitData').updateOne({}, { [`archiveCondition.${collectionName}`]: { highestArchiveId: highestId, condition: jsonFn.stringify(condition) } }, { upsert: true })
+  })
+
+  orm.on('getArchiveCondition', async function (dbName) {
+    if (archiveCondition === null) {
+      const commitData = await orm('CommitData', dbName).findOne({})
+      archiveCondition = commitData && commitData.archiveCondition ? commitData.archiveCondition : {}
+      Object.keys(archiveCondition).forEach(col => {
+        const { highestArchiveId, condition } = archiveCondition[col]
+        archiveCondition[col] = {
+          highestArchiveId,
+          condition: jsonFn.parse(condition)
+        }
+      })
+    }
+    this.value = jsonFn.stringify({ $or: Object.keys(archiveCondition).map(col => {
+      return {
+        id: { $gt: archiveCondition[col].highestArchiveId },
+        collectionName: col,
+        ...archiveCondition[col].condition
+      }
+    }) })
   })
 
   orm.onQueue('commit:archive:bulk', async function (commits) {
+    if (archiveCondition === null)
+      await orm.emit('getArchiveCondition')
     if (!commits.length) return
     const groups = _.groupBy(commits, commit => commit.collectionName)
     const keys = Object.keys(groups)
     for (const col of keys) {
+      if (!archiveCondition[col])
+        await orm.emit('setArchiveCondition', col, {})
       const queries = groups[col].map(commit => {
         const query = jsonFn.parse(commit.chain)
         return {
@@ -81,8 +114,14 @@ const syncArchive = function (orm) {
         console.log('Error while doing bulkWrite for archived docs of collection', col, err)
       }
     }
-    await orm.emit('commit:handler:finish:archive', _.last(commits))
-    await orm('CommitData').updateOne({}, { highestArchiveId: _.last(commits).id })
+    Object.keys(groups).map(async col => {
+      await orm('CommitData').updateOne({}, {
+        [`archiveCondition.${col}.highestArchiveId`]: _.last(groups[col]).id
+      })
+      orm.emit(`commit:handler:finish:archive:${col}`, _.last(groups[col]))
+      archiveCondition[col].highestArchiveId = _.last(groups[col]).id
+    })
+    orm.emit('commit:handler:finish:archive', _.last(commits))
   })
 
   orm.onQueue('update:CommitArchive:c', async function (commit) {
@@ -99,8 +138,16 @@ const syncArchive = function (orm) {
     }
   })
 
-  async function doArchive(collectionName, condition) {
+  async function doArchive(collectionName, condition, conditionFields = [], dbName) {
     if (!orm.isMaster || !orm.isMaster()) return
+    const commitData = await orm('CommitData').findOne()
+    if (!commitData) return
+    if (!commitData.archiveCondition)
+      commitData.archiveCondition = {}
+    const { archiveCondition } = commitData
+    if (!archiveCondition[collectionName]) {
+      orm.emit('setArchiveCondition', collectionName, {}, 0, dbName)
+    }
     await orm(collectionName).updateMany(condition, { _arc: true }).direct()
     // remove snapshot of docs
     // todo: test case with ref
@@ -112,6 +159,10 @@ const syncArchive = function (orm) {
     }
     const foundDocs = await orm(collectionName).find(condition)
     for (const doc of foundDocs) {
+      const newCondition = {}
+      conditionFields.forEach(field => {
+        newCondition[`c_${field}`] = doc[field]
+      })
       await orm.emit('createArchive', {
         collectionName: collectionName,
         data: {
@@ -119,7 +170,8 @@ const syncArchive = function (orm) {
           docId: doc._id,
         },
         _cnt: doc._cnt ? doc._cnt : 0,
-        ref: doc._id
+        ref: doc._id,
+        ...newCondition
       })
     }
   }
