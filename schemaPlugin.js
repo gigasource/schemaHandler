@@ -296,7 +296,7 @@ module.exports = function (orm) {
   //populate
 
   async function doPopulate(target, result) {
-    if (target.populates) {
+    if (target.populates && !target.query.noEffect) {
       for (const populate of target.populates) {
 
         const [arg1] = populate;
@@ -336,7 +336,7 @@ module.exports = function (orm) {
               if (populatedValue && _.isString(select)) {
                 const selectList = select.split(' ').filter(s => !s.startsWith('-'))
                 const deselectList = select.split(' ').filter(s => s.startsWith('-')).map(s => s.slice(1))
-                if (selectList.length) populatedValue = _.pick(populatedValue,  selectList)
+                if (selectList.length) populatedValue = _.pick(populatedValue, selectList)
                 if (deselectList.length) populatedValue = _.omit(populatedValue, deselectList)
               }
               _.set(doc, _path, populatedValue)
@@ -419,5 +419,15 @@ module.exports = function (orm) {
     const schema = orm.getSchema(collectionName, dbName);
     this.value = parseSchema(schema, args[0]);
     this.value._id = new ObjectID();
+  })
+
+  //handle noEffect
+  orm.noEffect = () => [];
+  orm.on('pre:execChain', -10, function (query) {
+    if (_.last(query.chain).fn === 'noEffect') {
+      query.noEffect = true;
+      query.chain.pop();
+      return;
+    }
   })
 }
