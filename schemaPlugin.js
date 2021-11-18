@@ -440,7 +440,7 @@ module.exports = function (orm) {
 
   //handle noEffect
   orm.noEffect = () => [];
-  orm.on('pre:execChain', -3, function (query) {
+  orm.on('pre:execChain', -10, function (query) {
     if (_.last(query.chain).fn === 'noEffect') {
       query.noEffect = true;
       query.chain.pop();
