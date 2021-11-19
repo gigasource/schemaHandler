@@ -43,6 +43,7 @@ module.exports = function (orm) {
         await orm(col).create(doc)
       }
     }
+    await orm('CommitData').updateOne({}, { $unset: { isReplacingMaster: '' } })
     await removeFake()
   }
 }
