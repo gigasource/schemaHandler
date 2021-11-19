@@ -19,13 +19,15 @@ module.exports = function (orm) {
         delete doc._fakeId
         delete doc._fakeDate
       }
-      await orm(collection).create(docs)
+      try {
+        await orm(collection).create(docs)
+      } catch (err) {}
     }
   }
 
   async function startReplacingMaster() {
     await orm.emit('reset-session')
-    await orm('CommitData').updateOne({}, { highestCommitId: 0, highestArchiveId: 0 })
+    await orm('CommitData').updateOne({}, { highestCommitId: 0, highestArchiveId: 0, isReplacingMaster: true })
     await orm('Commit').deleteMany()
     await orm('CommitArchive').deleteMany()
     await orm.startSyncSnapshot()
