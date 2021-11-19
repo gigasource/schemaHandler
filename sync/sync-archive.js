@@ -2,9 +2,13 @@ const _ = require('lodash')
 const jsonFn = require('json-fn')
 
 const syncArchive = function (orm) {
+  const conditionFieldsList = {}
+
+  orm.doArchive = doArchive
+  orm.setDefaultConditionFields = setDefaultConditionFields
+
   orm('CommitArchive').createIndex({ id: 1 }).then(r => r)
   let highestArchiveId = null
-  orm.doArchive = doArchive
   orm.on('commit:getArchive', async function (condition, lim = 300) {
     condition = jsonFn.parse(condition)
     if (!condition['$or'].length) {
@@ -140,6 +144,8 @@ const syncArchive = function (orm) {
 
   async function doArchive(collectionName, condition, conditionFields = [], dbName) {
     if (!orm.isMaster || !orm.isMaster()) return
+    if (conditionFieldsList[collectionName] && conditionFields.length === 0)
+      conditionFields = conditionFieldsList[collectionName]
     const commitData = await orm('CommitData').findOne()
     if (!commitData) return
     if (!commitData.archiveCondition)
@@ -173,6 +179,36 @@ const syncArchive = function (orm) {
         ref: doc._id,
         ...newCondition
       })
+    }
+  }
+
+  function setDefaultConditionFields(collection, conditionFields = []) {
+    conditionFieldsList[collection] = conditionFields
+  }
+
+  async function recreateArchive(collections) {
+    await orm('CommitArchive').deleteMany({})
+    for (let collection of collections) {
+      await orm(collection).update({ _arc: true }, { _m: true })
+      const conditionFields = conditionFieldsList[collection] ? conditionFieldsList[collection] : []
+      while (true) {
+        const doc = await orm(collection).findOne({ _arc: true, _m: true })
+        const newCondition = {}
+        conditionFields.forEach(field => {
+          newCondition[`c_${field}`] = doc[field]
+        })
+        await orm(collection).updateOne({ _id: doc._id }, { $unset: { _m: '' } }).direct()
+        await orm.emit('createArchive', {
+          collectionName: collection,
+          data: {
+            _arc: true,
+            docId: doc._id
+          },
+          _cnt: doc._cnt ? doc._cnt : 0,
+          ref: doc._id,
+          ...newCondition
+        })
+      }
     }
   }
 }

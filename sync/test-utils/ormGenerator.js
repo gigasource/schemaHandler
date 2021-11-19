@@ -185,7 +185,7 @@ async function ormGenerator(plugins, options) {
 			orm.io = new Io()
 			orm.io.listen(orm.ioId)
 			orm.io.on('connect', (socket) => {
-				orm.emit('initSyncForMaster', socket)
+				orm.emit('initSyncForMaster', socket, socket.name === 'syncAll')
 				ormHook.emit('io:newClient', socket.name)
 				isConnected[socket.name] = socket
 			})

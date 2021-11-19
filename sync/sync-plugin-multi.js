@@ -6,9 +6,11 @@ const dayjs = require('dayjs')
 const {ObjectID} = require('bson')
 const bulkUtils = require('./sync-bulk-utils')
 const { Query } = require('mingo')
+const replaceMasterUtils = require('./sync-utils/replace-master')
 
 const syncPlugin = function (orm) {
   const whitelist = []
+  const unwantedCol = []
   let highestCommitIdOfCollection = null
   const shorthand = {
     'createMany': 'cm',
@@ -40,11 +42,14 @@ const syncPlugin = function (orm) {
   orm.setExpireAfterNumberOfId = setExpireAfterNumberOfId
   orm.validateCommit = validateCommit
   orm.validateCommits = validateCommits
+  orm.getUnwantedCol = getUnwantedCol
+  orm.addUnwantedCol = addUnwantdeCol
 
   orm('Commit').createIndex({ id: 1 }).then(r => r)
   orm('Commit').createIndex({ collectionName: 1 }).then(r => r)
 
   bulkUtils(orm)
+  replaceMasterUtils(orm)
 
   function setHighestCommitIdOfCollection(col, val) {
     highestCommitIdOfCollection[col] = val
@@ -53,6 +58,14 @@ const syncPlugin = function (orm) {
 
   function getWhiteList() {
     return whitelist
+  }
+
+  function getUnwantedCol() {
+    return unwantedCol
+  }
+
+  function addUnwantdeCol(cols) {
+    unwantedCol.push(...cols)
   }
 
   function setExpireAfterNumberOfId(numberOfId) {
@@ -92,6 +105,10 @@ const syncPlugin = function (orm) {
   orm.registerUnsavedCollection = function () {
     unsavedList.push(...arguments);
   }
+
+  orm.on('reset-session', async function () {
+    await orm('CommitData').updateOne({}, { sessionId: uuid() }, { upsert: true })
+  })
 
   orm.on('commit:handler:postProcess', async commit => {
     if (unsavedList.includes(commit.collectionName))
@@ -698,20 +715,24 @@ const syncPlugin = function (orm) {
   let commitsCache = []
   let CACHE_THRESHOLD = 300
   let USE_CACHE = true
-  orm.on('commit:sync:master', async function (clientHighestId, archiveCondition, dbName) {
+  orm.on('commit:sync:master', async function (clientHighestId, archiveCondition, syncAll, dbName) {
     if (!commitsCache.length) {
-      commitsCache = await orm('Commit').find().sort({ id: -1 }).limit(CACHE_THRESHOLD)
+      commitsCache = await orm('Commit').find({ collectionName: { $nin: orm.getUnwantedCol() } }).sort({ id: -1 }).limit(CACHE_THRESHOLD)
       commitsCache.reverse()
     }
     if (commitsCache.length &&
       clientHighestId >= commitsCache[0].id &&
       clientHighestId < _.last(commitsCache).id &&
-      USE_CACHE) {
+      USE_CACHE && !syncAll) {
       this.value = commitsCache.filter(commit => {
         return commit.id > clientHighestId
       })
     } else {
-      this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}, isPending: { $exists: false }}).limit(CACHE_THRESHOLD);
+      const additionalCondition = syncAll ? {} : {collectionName: { $nin: orm.getUnwantedCol() }}
+      this.value = await orm('Commit', dbName).find({
+        id: {$gt: clientHighestId}, isPending: { $exists: false },
+        ...additionalCondition
+      }).limit(CACHE_THRESHOLD);
     }
     if (this.value.length < CACHE_THRESHOLD) {
       const archivedCommits = (await orm.emit('commit:getArchive', archiveCondition, CACHE_THRESHOLD - this.value.length)).value
@@ -722,7 +743,7 @@ const syncPlugin = function (orm) {
   orm.on('commit:handler:finish', 1, async commit => {
     if (commitsCache.length) {
       const highestCachedId = commitsCache.length ? _.last(commitsCache).id : 0
-      commitsCache.push(...(await orm('Commit').find({id: {$gt: highestCachedId}, isPending: { $exists: false }}).limit(CACHE_THRESHOLD)))
+      commitsCache.push(...(await orm('Commit').find({id: {$gt: highestCachedId}, isPending: { $exists: false }, collectionName: { $nin: orm.getUnwantedCol() }}).limit(CACHE_THRESHOLD)))
     }
     while (commitsCache.length > CACHE_THRESHOLD)
       commitsCache.shift()
@@ -756,17 +777,6 @@ const syncPlugin = function (orm) {
     console.log('Done commitRequest', commits.length, commits[0]._id, new Date())
   })
 
-  async function removeFake() {
-    for (const collection of whitelist) {
-      const docs = await orm('Recovery' + collection).find()
-      for (const doc of docs) {
-        delete doc._fakeId
-        delete doc._fakeDate
-      }
-      await orm(collection).create(docs)
-    }
-  }
-
   async function removeAll() {
     await orm('Commit').deleteMany()
     for (const collection of whitelist) {
@@ -777,9 +787,8 @@ const syncPlugin = function (orm) {
   // this must be called after master is set
   orm.on('setUpNewMaster', async function (isMaster) {
     if (isMaster)
-      await removeFake()
-    else
-      await removeAll()
+      return
+    await removeAll()
     const highestCommitId = isMaster ? (await orm('Commit').findOne({}).sort('-id') || {id: 0}).id : 0;
     await orm('CommitData').updateOne({}, { highestCommitId }, { upsert: true })
     await orm.emit('transport:removeQueue')

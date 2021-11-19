@@ -1914,5 +1914,42 @@ describe('main sync test', function () {
 			})
 			orms[0].startSyncSnapshot().then(r => r)
 		})
+
+		it('[Sync-multi] Case 21: Unwanted collection', async (done) => {
+			jest.useFakeTimers()
+			lodashMock()
+			const { orms, utils } = await genOrm(2,
+				['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+					'sync-queue-commit', 'sync-archive', 'sync-snapshot'])
+			const { orm, utils: util } = await ormGenerator(['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+				'sync-queue-commit', 'sync-archive', 'sync-snapshot'], {
+				setMaster: false,
+				name: 'syncAll'
+			});
+			orms.forEach(orm => {
+				orm.addUnwantedCol(['UnwantedCol'])
+			})
+			utils.forEach(util => {
+				util.mockModelAndCreateCommits(0)
+				util.mockModelAndCreateCommits(0, 'UnwantedCol')
+			})
+			await orms[0]('Model').create({ test: 1 })
+			await orms[0]('UnwantedCol').create({ test: 2 })
+			await orms[0]('Model').create({ test: 3 })
+			orms[1].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+			const commits = await orms[0]('Commit').find()
+			await utils[1].waitToSync(3)
+			const dataModel1 = await orms[1]('Model').find()
+			expect(dataModel1.length).toEqual(2)
+			const unwantedData1 = await orms[1]('UnwantedCol').find()
+			expect(unwantedData1.length).toEqual(0)
+			orm.socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+			await util.waitToSync(3)
+			const unwantedData = await orm('UnwantedCol').find()
+			expect(unwantedData.length).toEqual(1)
+			done()
+		})
 	})
 })
