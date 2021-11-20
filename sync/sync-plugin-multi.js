@@ -732,7 +732,7 @@ const syncPlugin = function (orm) {
       this.value = await orm('Commit', dbName).find({
         id: {$gt: clientHighestId}, isPending: { $exists: false },
         ...additionalCondition
-      }).limit(CACHE_THRESHOLD);
+      }).sort({ id: 1 }).limit(CACHE_THRESHOLD);
     }
     if (this.value.length < CACHE_THRESHOLD) {
       const archivedCommits = (await orm.emit('commit:getArchive', archiveCondition, CACHE_THRESHOLD - this.value.length)).value
@@ -743,7 +743,13 @@ const syncPlugin = function (orm) {
   orm.on('commit:handler:finish', 1, async commit => {
     if (commitsCache.length) {
       const highestCachedId = commitsCache.length ? _.last(commitsCache).id : 0
-      commitsCache.push(...(await orm('Commit').find({id: {$gt: highestCachedId}, isPending: { $exists: false }, collectionName: { $nin: orm.getUnwantedCol() }}).limit(CACHE_THRESHOLD)))
+      const additionalData = await orm('Commit').find({
+        id: {$gt: highestCachedId},
+        isPending: { $exists: false },
+        collectionName: { $nin: orm.getUnwantedCol() }
+      }).sort({ id: 1 }).limit(CACHE_THRESHOLD)
+      additionalData.reverse()
+      commitsCache.push(...additionalData)
     }
     while (commitsCache.length > CACHE_THRESHOLD)
       commitsCache.shift()

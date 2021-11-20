@@ -27,18 +27,21 @@ module.exports = function (orm) {
 
   async function startReplacingMaster() {
     await orm.emit('reset-session')
-    await orm('CommitData').updateOne({}, { highestCommitId: 0, highestArchiveId: 0, isReplacingMaster: true })
+    await orm('CommitData').updateOne({}, { highestCommitId: 0, highestArchiveId: 0, isReplacingMaster: true, $unset: { syncData: '' } })
     await orm('Commit').deleteMany()
     await orm('CommitArchive').deleteMany()
     await orm.startSyncSnapshot()
-    await orm.recreateArchvie()
+    orm.recreateArchvie && await orm.recreateArchvie()
     const whiteList = orm.getWhiteList()
     const snapshotCol = orm.getSnapshotCollection()
+    _.remove(whiteList, col => snapshotCol.includes(col))
 
     for (let col of whiteList) {
+      await orm(col).update({ _arc: { $exists: false } }, { needRecreate: true })
       while (true) {
-        const doc = await orm(col).findOne({ _arc: { $exists: false } })
+        const doc = await orm(col).findOne({ needRecreate: true })
         if (!doc) break
+        delete doc.needRecreate
         await orm(col).deleteOne({ _id: doc._id }).direct()
         await orm(col).create(doc)
       }
