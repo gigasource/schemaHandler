@@ -795,8 +795,15 @@ const syncPlugin = function (orm) {
     if (isMaster)
       return
     await removeAll()
-    const highestCommitId = isMaster ? (await orm('Commit').findOne({}).sort('-id') || {id: 0}).id : 0;
-    await orm('CommitData').updateOne({}, { highestCommitId }, { upsert: true })
+    const highestCommitId = 0;
+    highestCommitIdOfCollection = null
+    await orm('CommitData').updateOne({}, {
+      highestCommitId,
+      $unset: {
+        highestCommitIdOfCollection: ''
+      },
+      fakeId: 0,
+    }, { upsert: true })
     await orm.emit('transport:removeQueue')
     await orm.emit('commit:remove-all-recovery')
   })

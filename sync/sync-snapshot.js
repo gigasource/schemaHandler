@@ -127,7 +127,7 @@ module.exports = function (orm) {
 			const refDoc = await orm(collection).find({ ref: true, ...condition })
 			for (let doc of refDoc) {
 				cleanDoc(doc)
-				const chain = jsonFn.stringify(orm(collection).create(doc).chain)
+				const chain = jsonFn.stringify(orm(collection).insertOne(doc).chain)
 				await orm('Commit').updateOne({ ref: doc._id },
 					{ chain, $unset: { ref: ''} })
 				await orm(collection).updateOne({ _id: doc._id }, { $unset: { ref: '' } }).direct()
