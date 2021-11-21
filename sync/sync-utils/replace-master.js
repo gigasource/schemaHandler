@@ -26,12 +26,15 @@ module.exports = function (orm) {
   }
 
   async function startReplacingMaster() {
-    await orm.emit('isReplacingMaster')
+    console.log('Start replacing master', new Date())
+    orm.emit('isReplacingMaster')
     await orm.emit('reset-session')
     await orm('CommitData').updateOne({}, { highestCommitId: 0, highestArchiveId: 0, isReplacingMaster: true, $unset: { syncData: '' } })
     await orm('Commit').deleteMany()
     await orm('CommitArchive').deleteMany()
+    orm.emit('replacingMasterProgress', 'Start sync snapshot')
     await orm.startSyncSnapshot()
+    orm.emit('replacingMasterProgress', 'Start create archive')
     orm.recreateArchvie && await orm.recreateArchvie()
     const whiteList = orm.getWhiteList()
     const snapshotCol = orm.getSnapshotCollection()
@@ -39,16 +42,21 @@ module.exports = function (orm) {
 
     for (let col of whiteList) {
       await orm(col).updateMany({ _arc: { $exists: false } }, { needRecreate: true }).direct()
+      const totalDocs = await orm(col).count({ needRecreate: true })
+      let cnt = 0
       while (true) {
         const doc = await orm(col).findOne({ needRecreate: true })
         if (!doc) break
         delete doc.needRecreate
         await orm(col).deleteOne({ _id: doc._id }).direct()
         await orm(col).create(doc)
+        cnt += 1
+        orm.emit('replacingMasterProgress', `${col} ${cnt}/${totalDocs}`)
       }
     }
     await orm('CommitData').updateOne({}, { $unset: { isReplacingMaster: '' } })
     await removeFake()
-    await orm.emit('doneReplacingMaster')
+    orm.emit('doneReplacingMaster')
+    console.log('Done replacing master', new Date())
   }
 }

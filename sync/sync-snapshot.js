@@ -164,7 +164,7 @@ module.exports = function (orm) {
 					if (!doc) {
 						commit.chain = null
 					} else {
-						commit.chain = jsonFn.stringify(orm(commit.collectionName).create(doc).chain)
+						commit.chain = jsonFn.stringify(orm(commit.collectionName).insertOne(doc).chain)
 					}
 				}
 			}
