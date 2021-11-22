@@ -36,7 +36,7 @@ module.exports = function (orm) {
     await orm.startSyncSnapshot()
     orm.emit('replacingMasterProgress', 'Start create archive')
     orm.recreateArchvie && await orm.recreateArchvie()
-    const whiteList = orm.getWhiteList()
+    const whiteList = _.cloneDeep(orm.getWhiteList())
     const snapshotCol = orm.getSnapshotCollection()
     _.remove(whiteList, col => snapshotCol.includes(col))
 
