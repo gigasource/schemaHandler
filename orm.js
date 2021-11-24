@@ -180,6 +180,11 @@ function factory(orm) {
             if (['modelName'].includes(key)) {
               return targetLayer1[key];
             }
+            if (key === 'native') {
+              return function () {
+                return orm._getCollection(...targetLayer1['modelName'].split('@'));
+              }
+            }
             return function () {
               return new Proxy({
                 modelName: construct.modelName,
