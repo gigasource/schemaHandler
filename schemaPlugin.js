@@ -217,7 +217,7 @@ module.exports = function (orm) {
             command['updateMany'].update = parseCondition(schema, update, {arrayFilters});
           } else if (command.hasOwnProperty('deleteOne')) {
             const {filter} = command['deleteOne'];
-            command['deleteOne'].document = parseCondition(schema, filter);
+            command['deleteOne'].filter = parseCondition(schema, filter);
           } else if (command.hasOwnProperty('deleteMany')) {
             const {filter} = command['deleteMany'];
             command['deleteMany'].filter = parseCondition(schema, filter);
