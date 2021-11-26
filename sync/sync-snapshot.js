@@ -9,6 +9,13 @@ module.exports = function (orm) {
 	const unusedCollections = ['DummyCollection']
 	let SNAPSHOT_COMMIT_CACHE = 300
 
+	orm.getSnapshotCollection = getSnapshotCollection
+
+	const snapshotCollection = []
+	function getSnapshotCollection() {
+		return snapshotCollection
+	}
+
 	async function createCommitCache() {
 		await orm.emit('createCommit', { collectionName: 'DummyCollection', uuid: uuid.v4() })
 		const cachedCommits = await orm('Commit').find().sort({ id: -1 }).limit(SNAPSHOT_COMMIT_CACHE)
@@ -27,11 +34,15 @@ module.exports = function (orm) {
 	orm.on('commit:setSnapshotCache', value => SNAPSHOT_COMMIT_CACHE = value)
 
 	// only for master
-	orm.on('transport:require-sync:preProcess', async function (clientHighestId) {
+	orm.on('transport:require-sync:preProcess', async function (clientHighestId, syncAll = false) {
 		if (!this.value) this.value = []
 		const foundCommit = await orm('CommitCache').findOne({ id: clientHighestId })
 		if (foundCommit) {
-			this.value.push(...(await orm('CommitCache').find({id: {$gt: clientHighestId}}).sort({ id: 1 })))
+			const additionalCondition = syncAll ? {} : {collectionName: { $nin: orm.getUnwantedCol() }}
+			this.value.push(...(await orm('CommitCache').find({
+				id: {$gt: clientHighestId},
+				...additionalCondition
+			}).sort({ id: 1 })))
 		}
 	})
 
@@ -49,6 +60,7 @@ module.exports = function (orm) {
 	}
 
 	orm._setSyncCollection = function (collection) {
+		snapshotCollection.push(collection)
 		// for client to check whether run commit or not
 		orm.on(`commit:handler:shouldNotExecCommand:${collection}`, async function (commit) {
 			if (orm.isMaster() || !commit.data.snapshot) {
@@ -115,7 +127,7 @@ module.exports = function (orm) {
 			const refDoc = await orm(collection).find({ ref: true, ...condition })
 			for (let doc of refDoc) {
 				cleanDoc(doc)
-				const chain = jsonFn.stringify(orm(collection).create(doc).chain)
+				const chain = jsonFn.stringify(orm(collection).insertOne(doc).chain)
 				await orm('Commit').updateOne({ ref: doc._id },
 					{ chain, $unset: { ref: ''} })
 				await orm(collection).updateOne({ _id: doc._id }, { $unset: { ref: '' } }).direct()
@@ -152,7 +164,7 @@ module.exports = function (orm) {
 					if (!doc) {
 						commit.chain = null
 					} else {
-						commit.chain = jsonFn.stringify(orm(commit.collectionName).create(doc).chain)
+						commit.chain = jsonFn.stringify(orm(commit.collectionName).insertOne(doc).chain)
 					}
 				}
 			}
