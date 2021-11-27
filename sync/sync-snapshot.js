@@ -159,7 +159,7 @@ module.exports = function (orm) {
 		orm.on('transport:require-sync:postProcess', async function (commits) {
 			for (let commit of commits) {
 				if (commit.ref) {
-					const doc = await orm(commit.collectionName).findOne({ _id: commit.ref })
+					const doc = await orm(commit.collectionName).findOne({ _id: commit.ref }).noEffect()
 					doc && cleanDoc(doc)
 					if (!doc) {
 						commit.chain = null

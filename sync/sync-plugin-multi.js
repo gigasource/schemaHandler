@@ -221,19 +221,24 @@ const syncPlugin = function (orm) {
       return ops.fn === 'skip'
     })
     // chain includes skip
+    let _r = null // result for redundant docs
     if (_query.chain.length < query.chain.length) {
       let cursor = orm(query.name)
       const numberOfFakeDocs = await orm(_query.name).count() // expect this number to be small
       for (let i = 0; i < query.chain.length; i++) {
-        if (query.chain[i].fn !== 'skip') {
-          cursor = cursor[query.chain[i].fn](...query.chain[i].args)
-        } else {
+        if (query.chain[i].fn === 'skip') {
+          _r = parseInt(query.chain[i].args[0]) - (Math.max(0, parseInt(query.chain[i].args[0]) - numberOfFakeDocs))
           cursor = cursor[query.chain[i].fn](Math.max(0, parseInt(query.chain[i].args[0]) - numberOfFakeDocs))
+        } else if (query.chain[i].fn === 'limit') {
+          cursor = cursor[query.chain[i].fn](Math.max(0, parseInt(query.chain[i].args[0]) + numberOfFakeDocs))
+        } else {
+          cursor = cursor[query.chain[i].fn](...query.chain[i].args)
         }
       }
       cursor = cursor.direct()
       result.value = await cursor
     }
+    return _r
   }
 
   async function handleFindQuery(query, result) {
@@ -244,7 +249,7 @@ const syncPlugin = function (orm) {
       }
       _query.name = 'Recovery' + _query.name
       _query.uuid = uuid()
-      await handleSkipQuery(_query, query, result)
+      const nRedundant = await handleSkipQuery(_query, query, result)
       delete _query.mockCollection
       let _result = await orm.execChain(_query)
       const ids = Array.isArray(result.value) ? result.value.map(doc => doc._id) : [result.value ? result.value._id : null]
@@ -277,7 +282,11 @@ const syncPlugin = function (orm) {
           const mingoQuery = new Query({})
           let cursor = mingoQuery.find(result.value)
           for (let i = 1; i < query.chain.length; i++) {
-            cursor[query.chain[i].fn](...query.chain[i].args)
+            if (query.chain[i].fn === 'skip' && nRedundant !== null) {
+              cursor[query.chain[i].fn](nRedundant)
+            } else {
+              cursor[query.chain[i].fn](...query.chain[i].args)
+            }
           }
           result.value = cursor.all()
         }

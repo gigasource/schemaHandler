@@ -674,6 +674,30 @@ describe('main sync test', function () {
 			expect(doc1._fakeDate).not.toBe(undefined)
 			done()
 		})
+
+		it('Case 18: find with skip with no fake', async function (done) {
+			jest.useFakeTimers()
+			const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+				setMaster: false,
+				name: 'B'
+			});
+			await utils.mockModelAndCreateCommits(0)
+			await orm('Model').create({ test: 3 }).direct()
+			await orm('Model').create({ test: 4 }).direct()
+			await orm('Model').create({ test: 6 }).direct()
+			const docs = await orm('Model').find().sort({ test: 1 }).skip(1).limit(1)
+			expect(docs.length).toEqual(1)
+			expect(docs[0].test).toEqual(4)
+			const docs1 = await orm('Model').find().sort({ test: 1 }).skip(1)
+			expect(docs1.length).toEqual(2)
+			expect(docs1[0].test).toEqual(4)
+			expect(docs1[1].test).toEqual(6)
+			await orm('Model').create({ test: 5 })
+			const docs2 = await orm('Model').find().sort({ test: 1 }).skip(2).limit(1)
+			expect(docs2.length).toEqual(1)
+			expect(docs2[0].test).toEqual(5)
+			done()
+		})
 	})
 
 	describe("[Module] Test bulk write", function () {

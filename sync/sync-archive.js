@@ -16,7 +16,7 @@ const syncArchive = function (orm) {
     }
     const archivedCommits = await orm('CommitArchive').find(condition).sort({ id: 1 }).limit(lim)
     const result = (await Promise.all(archivedCommits.map(async commit => {
-      const foundDoc = await orm(commit.collectionName).findOne({ _id: commit.data.docId })
+      const foundDoc = await orm(commit.collectionName).findOne({ _id: commit.data.docId }).noEffect()
       if (!foundDoc) {
         console.log('Doc has been deleted')
         await orm('CommitArchive').deleteOne({ _id: commit._id })
