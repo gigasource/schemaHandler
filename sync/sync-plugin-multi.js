@@ -143,9 +143,9 @@ const syncPlugin = function (orm) {
             }
           }
         } else if (fn === 'deleteOne') {
-          value = {deleteOne: {document: args[0]}}
+          value = {deleteOne: {filter: args[0]}}
         } else if (fn === 'deleteMany') {
-          value = {deleteMany: {document: args[0]}}
+          value = {deleteMany: {filter: args[0]}}
         } else if (fn === 'replaceOne') {
           value = {
             replaceOne: {
