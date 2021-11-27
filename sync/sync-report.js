@@ -137,7 +137,7 @@ const syncReport = function (orm) {
 		await orm('CommitReport').create({
 			type: COMMIT_TYPE.VALIDATION_FAILED,
 			commitId: commit.id,
-			expectedSum: expectedSum ? expectedSum : commit._cnt,
+			expectedSum: expectedSum ? expectedSum : commit.__c,
 			realSum: sum
 		})
 	}).off

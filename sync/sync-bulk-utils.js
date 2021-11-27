@@ -113,20 +113,20 @@ module.exports = function (orm) {
           const query = queries[id]
           if (query.updateOne || query.updateMany || query.deleteOne || query.deleteMany) {
             const key = Object.keys(query)[0]
-            const sumObj = (await orm(commit.collectionName).aggregate([{ $match: query[key].filter }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]))
+            const sumObj = (await orm(commit.collectionName).aggregate([{ $match: query[key].filter }, { $group: { _id: null, sum: { '$sum': '$__c' } } }]))
             commit.data.var.push(sumObj[0].sum)
           }
           if (query.updateOne || query.updateMany) {
             const key = Object.keys(query)[0]
-            query[key].update.$inc = { _cnt: 1 }
+            query[key].update.$inc = { __c: 1 }
           }
           if (query.insertOne || query.insertMany) {
             commit.data.var.push(null)
           }
           if (query.replaceOne) {
             const foundDoc = await orm(commit.collectionName).findOne(query.replaceOne.filter)
-            commit.data.var.push(foundDoc && foundDoc._cnt ? foundDoc._cnt : 0)
-            query.replaceOne.replacement._cnt = (foundDoc && foundDoc._cnt ? foundDoc._cnt : 0) + id + 1
+            commit.data.var.push(foundDoc && foundDoc.__c ? foundDoc.__c : 0)
+            query.replaceOne.replacement.__c = (foundDoc && foundDoc.__c ? foundDoc.__c : 0) + id + 1
           }
         }
         parsedChain[0].args = [queries]
@@ -136,16 +136,16 @@ module.exports = function (orm) {
           const query = queries[id]
           if (query.updateOne || query.updateMany || query.deleteOne || query.deleteMany) {
             const key = Object.keys(query)[0]
-            const sumObj = await orm(commit.collectionName).aggregate([{ $match: query[key].filter }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]).direct()
+            const sumObj = await orm(commit.collectionName).aggregate([{ $match: query[key].filter }, { $group: { _id: null, sum: { '$sum': '$__c' } } }]).direct()
             if (commit.data.var[id] && sumObj[0].sum !== commit.data.var[id]) {
               await orm.emit('commit:report:validationFailed', commit, sumObj, commit.data.var[id])
             }
           }
           if (query.replaceOne) {
             const foundDoc = await orm(commit.collectionName).findOne(query.replaceOne.filter).direct()
-            if (foundDoc && !foundDoc._cnt) foundDoc._cnt = 0
-            if (commit.data.var[id] !== (foundDoc ? foundDoc._cnt : 0)) {
-              await orm.emit('commit:report:validationFailed', commit, (foundDoc ? foundDoc._cnt : 0), commit.data.var[id])
+            if (foundDoc && !foundDoc.__c) foundDoc.__c = 0
+            if (commit.data.var[id] !== (foundDoc ? foundDoc.__c : 0)) {
+              await orm.emit('commit:report:validationFailed', commit, (foundDoc ? foundDoc.__c : 0), commit.data.var[id])
             }
           }
         }

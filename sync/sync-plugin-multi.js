@@ -171,7 +171,7 @@ const syncPlugin = function (orm) {
       this.stop();
     } else if (query.chain.find(c => c.fn === 'commit')) {
       if (query.chain[0].fn.includes('update') || query.chain[0].fn.includes('Update')) {
-        query.chain[0].args[1].$inc = { _cnt: 1 }
+        query.chain[0].args[1].$inc = { __c: 1 }
       }
       if (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('remove')) {
         if (!query.chain[0].args || query.chain[0].args.length === 0)
@@ -199,7 +199,7 @@ const syncPlugin = function (orm) {
         })
         if (mutateCmd) {
           if (query.chain[0].fn.includes('update') || query.chain[0].fn.includes('Update')) {
-            query.chain[0].args[1].$inc = { _cnt: 1 }
+            query.chain[0].args[1].$inc = { __c: 1 }
           }
           if (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('remove')) {
             if (!query.chain[0].args || query.chain[0].args.length === 0)
@@ -588,7 +588,7 @@ const syncPlugin = function (orm) {
 
   orm.onQueue('transport:requireSync:callback', async function (commits) {
     if (!commits || !commits.length) return
-    const archivedCommits = _.remove(commits, commit => commit.data && !!commit.data._arc)
+    const archivedCommits = _.remove(commits, commit => commit.data && !!commit.data.__arc)
     if (commits.length > COMMIT_BULK_WRITE_THRESHOLD) {
       await validateCommits(commits)
       if (!commits.length)
@@ -652,18 +652,18 @@ const syncPlugin = function (orm) {
       } else {
         if (orm.isMaster()) {
           const condition = jsonFn.parse(commit.condition)
-          const sumObj = (await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]))
+          const sumObj = (await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$__c' } } }]))
           if (sumObj && sumObj.length)
-            commit._cnt = sumObj[0].sum
+            commit.__c = sumObj[0].sum
         } else {
           const condition = jsonFn.parse(commit.condition)
-          const sumObj = await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$_cnt' } } }]).direct()
-          if ((!sumObj || !sumObj.length) && commit._cnt !== undefined) {
+          const sumObj = await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$__c' } } }]).direct()
+          if ((!sumObj || !sumObj.length) && commit.__c !== undefined) {
             orm.emit('commit:report:validationFailed', commit, null)
             return VALIDATE_STATUS.BEHIND_MASTER
-          } else if (commit._cnt !== sumObj[0].sum) {
+          } else if (commit.__c !== sumObj[0].sum) {
             orm.emit('commit:report:validationFailed', commit, sumObj[0].sum)
-            return commit._cnt < sumObj[0].sum ? VALIDATE_STATUS.AHEAD_MASTER : VALIDATE_STATUS.BEHIND_MASTER
+            return commit.__c < sumObj[0].sum ? VALIDATE_STATUS.AHEAD_MASTER : VALIDATE_STATUS.BEHIND_MASTER
           }
         }
       }

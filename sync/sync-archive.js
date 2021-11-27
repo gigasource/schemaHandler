@@ -22,14 +22,14 @@ const syncArchive = function (orm) {
         await orm('CommitArchive').deleteOne({ _id: commit._id })
         return null
       }
-      if (!foundDoc._cnt) foundDoc._cnt = 0
-      if (foundDoc._cnt !== commit._cnt) {
+      if (!foundDoc.__c) foundDoc.__c = 0
+      if (foundDoc.__c !== commit.__c) {
         delete commit.id
-        commit._cnt = foundDoc._cnt
+        commit.__c = foundDoc.__c
         await orm.emit('createArchive', commit, true)
         return null
       }
-      delete foundDoc._arc
+      delete foundDoc.__arc
       delete commit.ref
       commit.chain = jsonFn.stringify(orm(commit.collectionName).updateOne({ _id: foundDoc._id }, foundDoc, { upsert: true }).chain)
       return commit
@@ -154,13 +154,13 @@ const syncArchive = function (orm) {
     if (!archiveCondition[collectionName]) {
       orm.emit('setArchiveCondition', collectionName, {}, 0, dbName)
     }
-    await orm(collectionName).updateMany(condition, { _arc: true }).direct()
+    await orm(collectionName).updateMany(condition, { __arc: true }).direct()
     // remove snapshot of docs
     // todo: test case with ref
     while (true) {
-      const doc = await orm(collectionName).findOne({ _arc: true, $or: [{snapshot: true}, {ref: true}] })
+      const doc = await orm(collectionName).findOne({ __arc: true, $or: [{__ss: true}, {__r: true}] })
       if (!doc) break
-      await orm(collectionName).updateOne({ _id: doc._id }, { $unset: { snapshot: '', ref: '' } }).direct()
+      await orm(collectionName).updateOne({ _id: doc._id }, { $unset: { __ss: '', __r: '' } }).direct()
       await orm('Commit').deleteMany({ 'data.docId': doc._id, 'data.snapshot': true })
     }
     const foundDocs = await orm(collectionName).find(condition)
@@ -172,10 +172,10 @@ const syncArchive = function (orm) {
       await orm.emit('createArchive', {
         collectionName: collectionName,
         data: {
-          _arc: true,
+          __arc: true,
           docId: doc._id,
         },
-        _cnt: doc._cnt ? doc._cnt : 0,
+        __c: doc.__c ? doc.__c : 0,
         ref: doc._id,
         ...newCondition
       })
@@ -189,10 +189,10 @@ const syncArchive = function (orm) {
   async function recreateArchive(collections) {
     await orm('CommitArchive').deleteMany({})
     for (let collection of collections) {
-      await orm(collection).update({ _arc: true }, { _m: true })
+      await orm(collection).update({ __arc: true }, { _m: true })
       const conditionFields = conditionFieldsList[collection] ? conditionFieldsList[collection] : []
       while (true) {
-        const doc = await orm(collection).findOne({ _arc: true, _m: true })
+        const doc = await orm(collection).findOne({ __arc: true, _m: true })
         const newCondition = {}
         conditionFields.forEach(field => {
           newCondition[`c_${field}`] = doc[field]
@@ -201,10 +201,10 @@ const syncArchive = function (orm) {
         await orm.emit('createArchive', {
           collectionName: collection,
           data: {
-            _arc: true,
+            __arc: true,
             docId: doc._id
           },
-          _cnt: doc._cnt ? doc._cnt : 0,
+          __c: doc.__c ? doc.__c : 0,
           ref: doc._id,
           ...newCondition
         })

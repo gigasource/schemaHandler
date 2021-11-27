@@ -25,10 +25,10 @@ module.exports = function (orm) {
 	}
 
 	function cleanDoc(doc) {
-		if (doc.snapshot)
-			delete doc.snapshot
-		if (doc.ref)
-			delete doc.ref
+		if (doc.__ss)
+			delete doc.__ss
+		if (doc.__r)
+			delete doc.__r
 	}
 
 	orm.on('commit:setSnapshotCache', value => SNAPSHOT_COMMIT_CACHE = value)
@@ -75,12 +75,12 @@ module.exports = function (orm) {
 			if (!doc) {
 				this.setValue(false)
 			} else {
-				if (!doc._cnt) doc._cnt = 0
-				if (commit._cnt === undefined) { // handle old snapshot commit with no _cnt
+				if (!doc.__c) doc.__c = 0
+				if (commit.__c === undefined) { // handle old snapshot commit with no _cnt
 					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
 					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
 					this.setValue(false)
-				} else if (doc._cnt !== commit._cnt) {
+				} else if (doc.__c !== commit.__c) {
 					// need resync
 					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
 					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
@@ -124,13 +124,13 @@ module.exports = function (orm) {
 			if (!target || commit.data.snapshot || !commit.condition)
 				return
 			const condition = commit.condition ? jsonFn.parse(commit.condition) : {}
-			const refDoc = await orm(collection).find({ ref: true, ...condition })
+			const refDoc = await orm(collection).find({ __r: true, ...condition })
 			for (let doc of refDoc) {
 				cleanDoc(doc)
 				const chain = jsonFn.stringify(orm(collection).insertOne(doc).chain)
 				await orm('Commit').updateOne({ ref: doc._id },
 					{ chain, $unset: { ref: ''} })
-				await orm(collection).updateOne({ _id: doc._id }, { $unset: { ref: '' } }).direct()
+				await orm(collection).updateOne({ _id: doc._id }, { $unset: { __r: '' } }).direct()
 			}
 		})
 
@@ -151,7 +151,7 @@ module.exports = function (orm) {
 				)
 				await orm(collection).updateOne(
 					{ _id: commit.data.docId },
-					{ ref: true }
+					{ __r: true }
 				).direct()
 			}
 		})
@@ -184,14 +184,14 @@ module.exports = function (orm) {
 			if (!orm.createQuery.includes(orm.shorthand[commit._c])) {
 				const condition = jsonFn.parse(commit.condition)
 				condition._arc = { $exists: false }
-				await orm(collection).updateMany(condition, { snapshot: true }).direct()
+				await orm(collection).updateMany(condition, { __ss: true }).direct()
 			} else {
 				if (result && Array.isArray(result)) {
 					console.log('[Snapshot] case create many')
 					for (let doc of result)
-						await orm(collection).updateOne({ _id: doc._id }, { snapshot: true }).direct()
+						await orm(collection).updateOne({ _id: doc._id }, { __ss: true }).direct()
 				} else if (result) {
-					await orm(collection).updateOne({ _id: result._id }, { snapshot: true }).direct()
+					await orm(collection).updateOne({ _id: result._id }, { __ss: true }).direct()
 				}
 			}
 		})
@@ -201,12 +201,12 @@ module.exports = function (orm) {
 			const { syncData } = await orm('CommitData').findOne()
 			await orm('Commit').deleteMany({ collectionName: collection, 'data.snapshot': {$exists: false } })
 			if (syncData.firstTimeSync)
-				await orm(collection).updateMany({ _arc: { $exists: false }}, { snapshot: true }).direct()
+				await orm(collection).updateMany({ __arc: { $exists: false }}, { __ss: true }).direct()
 			while (true) {
-				const doc = await orm(collection).findOne({ snapshot: true })
+				const doc = await orm(collection).findOne({ __ss: true })
 				if (!doc)
 					break
-				delete doc.snapshot
+				delete doc.__ss
 				await orm('Commit').deleteMany({ 'data.docId': doc._id, 'data.snapshot': true })
 				await orm.emit('createCommit', {
 					_id: new ObjectID(),
@@ -216,12 +216,12 @@ module.exports = function (orm) {
 						snapshot: true,
 						docId: doc._id,
 					},
-					_cnt: doc._cnt ? doc._cnt : 0,
+					__c: doc.__c ? doc.__c : 0,
 					ref: doc._id,
 					fromMaster: true,
 					uuid: uuid.v4()
 				})
-				await orm(collection).updateOne({ _id: doc._id }, { $unset: {snapshot: ''} }).direct()
+				await orm(collection).updateOne({ _id: doc._id }, { $unset: {__ss: ''} }).direct()
 			}
 		}
 

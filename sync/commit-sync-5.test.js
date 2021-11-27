@@ -891,7 +891,7 @@ describe('main sync test', function () {
 			await utils[1].waitToSync(2)
 			const findData1 = await orms[1]('Model').find()
 			const findData0 = await orms[0]('Model').find()
-			delete findData0[0].snapshot
+			delete findData0[0].__ss
 			expect(findData1).toEqual(findData0)
 			orms[1].socket.isFakeDisconnect = true
 			for (let i = 0; i < 4; i++) {
@@ -907,7 +907,7 @@ describe('main sync test', function () {
 				findDataOrm1 = await orms[1]('Model').find()
 				findDataOrm0 = await orms[0]('Model').find()
 				for (let doc of findDataOrm0) {
-					delete doc.ref
+					delete doc.__r
 				}
 				expect(findDataOrm0).toEqual(findDataOrm1)
 				done()
@@ -949,7 +949,7 @@ describe('main sync test', function () {
 				findDataOrm1 = await orms[1]('Model').find()
 				findDataOrm0 = await orms[0]('Model').find()
 				for (let doc of findDataOrm0) {
-					delete doc.ref
+					delete doc.__r
 				}
 				expect(findDataOrm0).toEqual(findDataOrm1)
 				done()
@@ -1125,8 +1125,8 @@ describe('main sync test', function () {
 			expect(data.length).toEqual(2)
 			expect(data[0].replaced).toBe(true)
 			expect(data[1].replaced).toBe(true)
-			expect(data[0]._cnt).toBe(2)
-			expect(data[1]._cnt).toBe(4)
+			expect(data[0].__c).toBe(2)
+			expect(data[1].__c).toBe(4)
 			const validationFailed = await orms[1]('CommitReport').find({ type: 'validation-failed' })
 			expect(validationFailed.length).toEqual(0)
 			done()
@@ -1147,7 +1147,7 @@ describe('main sync test', function () {
 			const doc = await orms[1]('Model').create({ test: true })
 			await utils[1].waitToSync(1)
 			const doc1Id = '61744744310ae54008f7f36b'
-			await orms[1]('Model').updateOne({ _id: doc._id }, { _cnt: 3 }).direct()
+			await orms[1]('Model').updateOne({ _id: doc._id }, { __c: 3 }).direct()
 			await orms[0]('Model').bulkWrite([
 				{
 					updateOne: {
@@ -1199,8 +1199,8 @@ describe('main sync test', function () {
 			expect(data.length).toEqual(2)
 			expect(data[0].replaced).toBe(true)
 			expect(data[1].replaced).toBe(true)
-			expect(data[0]._cnt).toBe(2)
-			expect(data[1]._cnt).toBe(4)
+			expect(data[0].__c).toBe(2)
+			expect(data[1].__c).toBe(4)
 			const a = await orms[1]('CommitReport').find()
 			const validationFailed = await orms[1]('CommitReport').find({ type: 'validation-failed' })
 			expect(validationFailed.length).toEqual(1)
@@ -1317,7 +1317,7 @@ describe('main sync test', function () {
 				const modelsA = await orms[0]('Model').find()
 				const modelsB = await orms[1]('Model').find()
 				for (let i = 0; i < modelsA.length; i++) {
-					delete modelsA[i].ref
+					delete modelsA[i].__r
 					expect(modelsB[i]).toEqual(modelsA[i])
 				}
 				const reports = await orms[1]('CommitReport').count()
@@ -1566,7 +1566,7 @@ describe('main sync test', function () {
 				expect(commitData0.highestCommitId).toEqual(16)
 				const modelsA = await orms[0]('Model').find()
 				for (let model of modelsA) {
-					expect(model.ref).toBe(true)
+					expect(model.__r).toBe(true)
 				}
 				await utils[1].waitToSync(16)
 				await orms[0]('Model').updateOne({ table: 0 }, { name: 'Done' })
@@ -1587,8 +1587,8 @@ describe('main sync test', function () {
 				const modelsC = await orms[2]('Model').find()
 				const modelsA2 = await orms[0]('Model').find()
 				for (let i = 0; i < modelsC.length; i++) {
-					delete modelsA2[i].ref
-					delete modelsA2[i].snapshot
+					delete modelsA2[i].__r
+					delete modelsA2[i].__ss
 					expect(modelsC[i]).toEqual(modelsA2[i])
 				}
 				done()
@@ -1658,7 +1658,7 @@ describe('main sync test', function () {
 				await utils[1].waitToSync(data.highestCommitId)
 				findData0 = await orms[0]('Model').findOne()
 				findData1 = await orms[1]('Model').findOne()
-				delete findData0.ref
+				delete findData0.__r
 				expect(findData0).toEqual(findData1)
 				done()
 			})
@@ -1724,7 +1724,7 @@ describe('main sync test', function () {
 			await orms[0].doArchive('Model', condition)
 			findData0 = await orms[0]('Model').find(condition)
 			for (let doc of findData0) {
-				expect(doc._arc).toBe(true)
+				expect(doc.__arc).toBe(true)
 			}
 			const archivedCommits = await orms[0]('CommitArchive').find()
 			expect(archivedCommits.length).toEqual(4)
