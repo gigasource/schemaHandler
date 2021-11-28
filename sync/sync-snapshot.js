@@ -124,7 +124,7 @@ module.exports = function (orm) {
 			if (!target || commit.data.snapshot || !commit.condition)
 				return
 			const condition = commit.condition ? jsonFn.parse(commit.condition) : {}
-			const refDoc = await orm(collection).find({ __r: true, ...condition })
+			const refDoc = await orm(collection).find({ __r: true, ...condition }).noEffect()
 			for (let doc of refDoc) {
 				cleanDoc(doc)
 				const chain = jsonFn.stringify(orm(collection).insertOne(doc).chain)
