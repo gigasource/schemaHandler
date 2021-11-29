@@ -2,6 +2,20 @@ const AwaitLock = require('await-lock').default;
 const _ = require('lodash')
 
 module.exports = function (orm) {
+  let _isBlock = false
+  orm.blockTransporter = function () {
+    _isBlock = true
+  }
+  orm.unBlockTransporter = function () {
+    _isBlock = false
+    orm.emit('master:transport:sync')
+  }
+  orm.on('master:transport:sync', -1, () => {
+    if (_isBlock) {
+      this.stop()
+      return
+    }
+  })
 
   orm.on('initSyncForClient', function (clientSocket, dbName) {
     orm.emit('transporter:destroy:default')
