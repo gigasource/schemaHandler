@@ -10,7 +10,7 @@ module.exports = function (orm) {
     _isBlock = false
     orm.emit('master:transport:sync')
   }
-  orm.on('master:transport:sync', -1, () => {
+  orm.on('master:transport:sync', -1, function () {
     if (_isBlock) {
       this.stop()
       return
