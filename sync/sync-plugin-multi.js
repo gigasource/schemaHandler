@@ -179,7 +179,7 @@ const syncPlugin = function (orm) {
       }
     } else {
       if (whitelist.includes(query.name)) {
-        const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete', 'bulkWrite']
+        const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete', 'bulkWrite', 'replace', 'Replace']
         const findCmds = ['find', 'aggregate']
         let mutateCmd = false;
         let findCmd = false;
@@ -355,7 +355,6 @@ const syncPlugin = function (orm) {
         ...query.name.split('@')[1] && {
           dbName: query.name.split('@')[1]
         },
-        uuid: uuid(),
         tags: args.filter(arg => typeof arg === "string"),
         data: _.assign({}, ...args.filter(arg => typeof arg === "object"))
       };
@@ -670,7 +669,7 @@ const syncPlugin = function (orm) {
           if ((!sumObj || !sumObj.length) && commit.__c !== undefined) {
             orm.emit('commit:report:validationFailed', commit, null)
             return VALIDATE_STATUS.BEHIND_MASTER
-          } else if (commit.__c !== sumObj[0].sum) {
+          } else if (sumObj.length && commit.__c !== sumObj[0].sum) {
             orm.emit('commit:report:validationFailed', commit, sumObj[0].sum)
             return commit.__c < sumObj[0].sum ? VALIDATE_STATUS.AHEAD_MASTER : VALIDATE_STATUS.BEHIND_MASTER
           }

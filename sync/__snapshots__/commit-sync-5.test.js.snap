@@ -27,13 +27,10 @@ Array [
     "data": Object {
       "docId": "ObjectID",
       "snapshot": true,
-      "syncUUID": "syncUUID",
     },
     "execDate": "2021-01-27T17:00:00.000Z",
-    "fromMaster": true,
     "id": 4,
     "ref": "ObjectID",
-    "uuid": "uuid-v1",
   },
   Object {
     "__c": 0,
@@ -42,13 +39,10 @@ Array [
     "data": Object {
       "docId": "ObjectID",
       "snapshot": true,
-      "syncUUID": "syncUUID",
     },
     "execDate": "2021-01-27T17:00:00.000Z",
-    "fromMaster": true,
     "id": 5,
     "ref": "ObjectID",
-    "uuid": "uuid-v1",
   },
   Object {
     "__c": 0,
@@ -57,13 +51,10 @@ Array [
     "data": Object {
       "docId": "ObjectID",
       "snapshot": true,
-      "syncUUID": "syncUUID",
     },
     "execDate": "2021-01-27T17:00:00.000Z",
-    "fromMaster": true,
     "id": 6,
     "ref": "ObjectID",
-    "uuid": "uuid-v1",
   },
   Object {
     "__c": 0,
@@ -72,13 +63,10 @@ Array [
     "data": Object {
       "docId": "ObjectID",
       "snapshot": true,
-      "syncUUID": "syncUUID",
     },
     "execDate": "2021-01-27T17:00:00.000Z",
-    "fromMaster": true,
     "id": 7,
     "ref": "ObjectID",
-    "uuid": "uuid-v1",
   },
 ]
 `;
@@ -112,13 +100,10 @@ Array [
     "data": Object {
       "docId": "ObjectID",
       "snapshot": true,
-      "syncUUID": "syncUUID",
     },
     "execDate": "2021-01-27T17:00:00.000Z",
-    "fromMaster": true,
     "id": 4,
     "ref": "ObjectID",
-    "uuid": "uuid-v1",
   },
 ]
 `;
@@ -138,7 +123,6 @@ Array [
     "fromMaster": true,
     "id": 1,
     "tags": Array [],
-    "uuid": "uuid-v1",
   },
   Object {
     "__c": 0,
@@ -152,7 +136,6 @@ Array [
     "fromMaster": true,
     "id": 2,
     "tags": Array [],
-    "uuid": "uuid-v1",
   },
   Object {
     "_id": "ObjectID",

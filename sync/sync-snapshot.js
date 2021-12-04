@@ -212,14 +212,11 @@ module.exports = function (orm) {
 					_id: new ObjectID(),
 					collectionName: collection,
 					data: {
-						syncUUID: syncData.id,
 						snapshot: true,
 						docId: doc._id,
 					},
 					__c: doc.__c ? doc.__c : 0,
-					ref: doc._id,
-					fromMaster: true,
-					uuid: uuid.v4()
+					ref: doc._id
 				})
 				await orm(collection).updateOne({ _id: doc._id }, { $unset: {__ss: ''} }).direct()
 			}
