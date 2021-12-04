@@ -355,7 +355,6 @@ const syncPlugin = function (orm) {
         ...query.name.split('@')[1] && {
           dbName: query.name.split('@')[1]
         },
-        uuid: uuid(),
         tags: args.filter(arg => typeof arg === "string"),
         data: _.assign({}, ...args.filter(arg => typeof arg === "object"))
       };
