@@ -396,7 +396,7 @@ module.exports = function (orm) {
   orm.on('proxyResultPostProcess', async function ({target, result}) {
     let cmd = target.cmd;
     for (const _result of (target.returnSingleDocument ? [result] : result)) {
-      if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
+      if (cmd.includes('update') || cmd.includes('Update') || cmd.includes('create') || cmd.includes('insert')) {
         await orm.emit(`update:${target.collectionName}`, _result, target);
         if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}`, _result, target);
         const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
@@ -405,7 +405,7 @@ module.exports = function (orm) {
       } else if (cmd.includes('find')) {
         await orm.emit(`find:${target.collectionName}`, _result, target);
         if (orm.mode === 'multi') await orm.emit(`find:${target.collectionName}@${target.dbName}`, _result, target);
-      } else {
+      } else if (cmd.includes('delete')) {
         await orm.emit(`delete:${target.collectionName}`, _result, target);
         if (orm.mode === 'multi') await orm.emit(`delete:${target.collectionName}@${target.dbName}`, _result, target);
       }
