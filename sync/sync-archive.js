@@ -158,12 +158,12 @@ const syncArchive = function (orm) {
     // remove snapshot of docs
     // todo: test case with ref
     while (true) {
-      const doc = await orm(collectionName).findOne({ __arc: true, $or: [{__ss: true}, {__r: true}] })
+      const doc = await orm(collectionName).findOne({ __arc: true, $or: [{__ss: true}, {__r: true}] }).noEffect()
       if (!doc) break
       await orm(collectionName).updateOne({ _id: doc._id }, { $unset: { __ss: '', __r: '' } }).direct()
       await orm('Commit').deleteMany({ 'data.docId': doc._id, 'data.snapshot': true })
     }
-    const foundDocs = await orm(collectionName).find(condition)
+    const foundDocs = await orm(collectionName).find(condition).noEffect()
     for (const doc of foundDocs) {
       const newCondition = {}
       conditionFields.forEach(field => {
@@ -192,7 +192,7 @@ const syncArchive = function (orm) {
       await orm(collection).update({ __arc: true }, { _m: true })
       const conditionFields = conditionFieldsList[collection] ? conditionFieldsList[collection] : []
       while (true) {
-        const doc = await orm(collection).findOne({ __arc: true, _m: true })
+        const doc = await orm(collection).findOne({ __arc: true, _m: true }).noEffect()
         const newCondition = {}
         conditionFields.forEach(field => {
           newCondition[`c_${field}`] = doc[field]

@@ -114,7 +114,7 @@ module.exports = function (orm) {
           if (query.updateOne || query.updateMany || query.deleteOne || query.deleteMany) {
             const key = Object.keys(query)[0]
             const sumObj = (await orm(commit.collectionName).aggregate([{ $match: query[key].filter }, { $group: { _id: null, sum: { '$sum': '$__c' } } }]))
-            commit.data.var.push(sumObj[0].sum)
+            commit.data.var.push(sumObj.length ? sumObj[0].sum : null)
           }
           if (query.updateOne || query.updateMany) {
             const key = Object.keys(query)[0]
@@ -124,7 +124,7 @@ module.exports = function (orm) {
             commit.data.var.push(null)
           }
           if (query.replaceOne) {
-            const foundDoc = await orm(commit.collectionName).findOne(query.replaceOne.filter)
+            const foundDoc = await orm(commit.collectionName).findOne(query.replaceOne.filter).noEffect()
             commit.data.var.push(foundDoc && foundDoc.__c ? foundDoc.__c : 0)
             query.replaceOne.replacement.__c = (foundDoc && foundDoc.__c ? foundDoc.__c : 0) + id + 1
           }
@@ -142,7 +142,7 @@ module.exports = function (orm) {
             }
           }
           if (query.replaceOne) {
-            const foundDoc = await orm(commit.collectionName).findOne(query.replaceOne.filter).direct()
+            const foundDoc = await orm(commit.collectionName).findOne(query.replaceOne.filter).direct().noEffect()
             if (foundDoc && !foundDoc.__c) foundDoc.__c = 0
             if (commit.data.var[id] !== (foundDoc ? foundDoc.__c : 0)) {
               await orm.emit('commit:report:validationFailed', commit, (foundDoc ? foundDoc.__c : 0), commit.data.var[id])

@@ -71,7 +71,7 @@ module.exports = function (orm) {
 				commit.chain = JSON.stringify(chain)
 				return this.mergeValueAnd(false)
 			}
-			const doc = await orm(collection).findOne({ _id: commit.data.docId }).direct()
+			const doc = await orm(collection).findOne({ _id: commit.data.docId }).direct().noEffect()
 			if (!doc) {
 				this.setValue(false)
 			} else {
@@ -103,7 +103,7 @@ module.exports = function (orm) {
 			const parsedCondition = jsonFn.parse(commit.condition)
 			const deletedDoc = []
 			if (target.cmd.includes('One')) {
-				const foundDoc = await orm(collection).findOne(parsedCondition)
+				const foundDoc = await orm(collection).findOne(parsedCondition).noEffect()
 				if (foundDoc) {
 					deletedDoc.push(foundDoc)
 					if (!parsedCondition._id) {
@@ -114,7 +114,7 @@ module.exports = function (orm) {
 					}
 				}
 			} else {
-				deletedDoc.push(...await orm(collection).find(parsedCondition))
+				deletedDoc.push(...await orm(collection).find(parsedCondition).noEffect())
 			}
 			commit.data.snapshot = true
 			commit.data.deletedDoc = deletedDoc.map(doc => doc._id)
@@ -203,7 +203,7 @@ module.exports = function (orm) {
 			if (syncData.firstTimeSync)
 				await orm(collection).updateMany({ __arc: { $exists: false }}, { __ss: true }).direct()
 			while (true) {
-				const doc = await orm(collection).findOne({ __ss: true })
+				const doc = await orm(collection).findOne({ __ss: true }).noEffect()
 				if (!doc)
 					break
 				delete doc.__ss
