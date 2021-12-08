@@ -7,6 +7,7 @@ const {ObjectID} = require('bson')
 const bulkUtils = require('./sync-bulk-utils')
 const { Query } = require('mingo')
 const replaceMasterUtils = require('./sync-utils/replace-master')
+const {handleExtraProps} = require('./sync-handle-extra-props');
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -114,6 +115,8 @@ const syncPlugin = function (orm) {
     if (unsavedList.includes(commit.collectionName))
       await orm('Commit').deleteOne({ _id: commit._id })
   })
+
+  handleExtraProps(orm);
 
   orm.on('pre:execChain', -2, function (query) {
     const last = _.last(query.chain);
