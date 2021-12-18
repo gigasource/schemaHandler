@@ -413,7 +413,7 @@ const syncPlugin = function (orm) {
       const exec = async () => await orm.execChain(_query)
       const currentDate = new Date()
       if (target.condition) {
-        const docs = await orm(commit.collectionName).find(target.condition).direct()
+        const docs = await orm(commit.collectionName).find(target.condition).direct().noEffect()
         for (let doc of docs) {
           const _doc = await orm(fakeCollectionName).findOne({ _id: doc._id })
           if (!_doc) {

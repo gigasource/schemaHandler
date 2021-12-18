@@ -17,7 +17,7 @@ function handleExtraProps (orm) {
       if (findCmd) break;
     }
     if (findCmd) {
-      orm.once(`proxyMutateResult:${query.uuid}`, async function (_query, result) {
+      orm.once(`proxyMutateResult:${query.uuid}`, 1, async function (_query, result) {
         if (!result.value) return;
         if (!Array.isArray(result.value)) {
           for (const k of Object.keys(result.value).filter(k => k.startsWith('__'))) {
