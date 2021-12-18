@@ -1,7 +1,7 @@
 const EventEmitter = require('./hooks/hooks');
 const NodeCache = require('node-cache');
 const Kareem = require('kareem');
-const MongoClient = require('mongodb').MongoClient;
+//const MongoClient = require('mongodb').MongoClient;
 const _ = require('lodash');
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const ObjectID = require('bson').ObjectID;
@@ -551,6 +551,7 @@ function connect(connectionInfo) {
   if (dbName) {
     orm.dbName = dbName;
   }
+  const MongoClient = require('mongodb').MongoClient;
   MongoClient.connect(...firstArgs, async (err, client) => {
     if (!err) {
       orm.connecting = false;
