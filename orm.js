@@ -405,7 +405,7 @@ async function resultPostProcess(result, target) {
     } else if (_.get(result, 'result.message.documents')) {
       _result = _.get(result, 'result.message.documents');
     } else if (target.cmd === 'aggregate') {
-      _result = await _result.toArray()
+      //_result = await _result.toArray()
     } else if (result && result.constructor && result.constructor.name === 'BulkWriteResult') {
       return result.result
     }
