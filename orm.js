@@ -322,7 +322,14 @@ function createCollectionQuery(query) {
 
             orm.emit('proxyPostQueryHandler', {target, proxy});
 
-            const result = await target.cursor;
+            //const result = await target.cursor;
+            const result = await new Promise((resolve, reject) => {
+              if (typeof target.cursor.then === 'function') {
+                return target.cursor.then(resolve, reject)
+              } else if (typeof target.cursor.toArray === 'function') {
+                return target.cursor.toArray().then(resolve, reject)
+              }
+            })
             if (query.mockCollection) {
               const exec = async function () {
                 let _nativeCollection = orm._getCollection(...collectionName.split('@'));
