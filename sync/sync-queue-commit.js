@@ -37,11 +37,9 @@ module.exports = function (orm) {
 
 	orm.onQueue('transport:finish:send', async function (_queueCommit) {
 		const removedCommitUUID = _queueCommit.map((commit) => {
-			if (!commit.uuid)
-				console.error('Commit uuid is null')
-			return commit.uuid
+			return commit._id
 		})
-		await orm(QUEUE_COMMIT_MODEL).deleteMany({ 'commit.uuid': { $in: removedCommitUUID } })
+		await orm(QUEUE_COMMIT_MODEL).deleteMany({ 'commit._id': { $in: removedCommitUUID } })
 	})
 
 	async function tryResend() {

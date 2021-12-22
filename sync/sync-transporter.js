@@ -1,8 +1,21 @@
 const AwaitLock = require('await-lock').default;
 const _ = require('lodash')
-const { v1 } = require('uuid')
 
 module.exports = function (orm) {
+  let _isBlock = false
+  orm.blockTransporter = function () {
+    _isBlock = true
+  }
+  orm.unBlockTransporter = function () {
+    _isBlock = false
+    orm.emit('master:transport:sync')
+  }
+  orm.on('master:transport:sync', -1, function () {
+    if (_isBlock) {
+      this.stop()
+      return
+    }
+  })
 
   orm.on('initSyncForClient', function (clientSocket, dbName) {
     orm.emit('transporter:destroy:default')
@@ -46,7 +59,8 @@ module.exports = function (orm) {
     const off2 = orm.onQueue('transport:require-sync', async function () {
       console.log('[Require sync]')
       const {value: highestId} = await orm.emit('getHighestCommitId', dbName)
-      const args = [highestId];
+      const {value: archiveCondition} = await orm.emit('getArchiveCondition', dbName)
+      const args = [highestId, archiveCondition];
       orm.emit('commit:sync:args', args);
       this.value = await new Promise((resolve) => {
         const wait = setTimeout(() => {
@@ -117,17 +131,13 @@ module.exports = function (orm) {
     }
   })
   /*------Non server only-------*/
-  orm.on('reset-session', async function () {
-    await orm('CommitData').updateOne({}, { sessionId: v1() }, { upsert: true })
-  })
-
   async function doSessionCheck(socket) {
     const commitData = await orm('CommitData').findOne()
     socket.emit('session-check', commitData ? commitData.sessionId : undefined)
   }
   /*----------------------------*/
 
-  orm.onQueue('initSyncForMaster', function (socket, dbName) {
+  orm.onQueue('initSyncForMaster', function (socket, syncAll = false, dbName) {
     const debounceTransportSync = _.debounce(async (id) => {
       const commitData = await orm('CommitData').findOne()
       socket.emit('transport:sync', Math.max(id, commitData ? commitData.highestCommitId : 0))
@@ -160,17 +170,18 @@ module.exports = function (orm) {
       orm.emit('commitRequest', commits);
     });
 
-    socket.on('transport:require-sync', async function ([clientHighestId = 0], cb) {
-      let commits = (await orm.emit('transport:require-sync:preProcess', clientHighestId, cb)).value
+    socket.on('transport:require-sync', async function ([clientHighestId = 0, clientArchiveCondition], cb) {
+      let commits = (await orm.emit('transport:require-sync:preProcess', clientHighestId, syncAll)).value
       if (!commits || !Array.isArray(commits))
         commits = []
       clientHighestId = Math.max(clientHighestId, commits.length ? _.last(commits).id : 0)
-      const commitsNeedToSync = (await orm.emit('commit:sync:master', clientHighestId, dbName)).value
+      const commitsNeedToSync = (await orm.emit('commit:sync:master', clientHighestId, clientArchiveCondition, syncAll, dbName)).value
       commitsNeedToSync && commitsNeedToSync.length && commits.push(...commitsNeedToSync)
       // const {value: commits} = await orm.emit('commit:sync:master', clientHighestId, dbName);
       const commitData = await orm('CommitData', dbName).findOne({})
       const highestCommitId = (commitData && commitData.highestCommitId) ? commitData.highestCommitId : 0
       const needSync = commits.length > 0
+      await orm.emit('transport:require-sync:postProcess', commits)
       cb(commits, needSync, highestCommitId);
     });
 

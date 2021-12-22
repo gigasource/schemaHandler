@@ -1,5 +1,4 @@
 const AwaitLock = require('await-lock').default
-const md5 = require('md5')
 const jsonFn = require('json-fn')
 const dayjs = require('dayjs')
 
@@ -17,7 +16,7 @@ const COMMIT_TYPE = {
 	COMMIT_DATA: 'commit-data',
 	ERROR_ID: 'error-id',
 	EXEC_ERROR: 'exec-error',
-	MD5_CHECK_FAILED: 'md5-check-failed'
+	VALIDATION_FAILED: 'validation-failed'
 }
 
 const syncReport = function (orm) {
@@ -132,31 +131,15 @@ const syncReport = function (orm) {
 	}).off
 
 	/**
-	 * md5 report
+	 * validation failed report
 	 */
-	const off6 = orm.on('commit:report:md5Check', async function (commit, result) {
-		let resultMd5 = result ? md5(result) : null
-		if (commit.md5) {
-			if (result && result.n && commit.condition) {
-				const docs = await orm(commit.collectionName).find(jsonFn.parse(commit.condition)).sort({ _id: 1 })
-				resultMd5 = md5(docs)
-			}
-			if (commit.md5 !== resultMd5) {
-				await orm('CommitReport').create({
-					type: COMMIT_TYPE.MD5_CHECK_FAILED,
-					commitId: commit.id,
-					chainMd5: md5(commit.chain),
-					date: new Date()
-				})
-			}
-		} else if (orm.isMaster()) {
-			if (result && result.n && commit.condition) {
-				const docs = await orm(commit.collectionName).find(jsonFn.parse(commit.condition)).sort({ _id: 1 })
-				resultMd5 = md5(docs)
-			}
-			await orm('Commit', commit.dbName).updateOne({_id: commit._id},
-				{ md5: resultMd5 })
-		}
+	const off6 = orm.on('commit:report:validationFailed', async function (commit, sum, expectedSum) {
+		await orm('CommitReport').create({
+			type: COMMIT_TYPE.VALIDATION_FAILED,
+			commitId: commit.id,
+			expectedSum: expectedSum ? expectedSum : commit.__c,
+			realSum: sum
+		})
 	}).off
 
 	const off7 = orm.on('commit:report:getReport', async function (dateTo) {
@@ -189,8 +172,8 @@ const syncReport = function (orm) {
 				}
 			}
 		}).sort({ date: -1 }).limit(100)
-		const md5CheckFailed = await orm('CommitReport').find({
-			type: COMMIT_TYPE.MD5_CHECK_FAILED,
+		const validationFailed = await orm('CommitReport').find({
+			type: COMMIT_TYPE.VALIDATION_FAILED,
 			...dateTo && {
 				date: {
 					$lte: dateTo
@@ -204,7 +187,7 @@ const syncReport = function (orm) {
 			commitData,
 			wrongCommit,
 			execError,
-			md5CheckFailed
+			validationFailed
 		}
 	}).off
 }

@@ -1,7 +1,7 @@
 const EventEmitter = require('./hooks/hooks');
 const NodeCache = require('node-cache');
 const Kareem = require('kareem');
-const MongoClient = require('mongodb').MongoClient;
+//const MongoClient = require('mongodb').MongoClient;
 const _ = require('lodash');
 const cache = new NodeCache({useClones: false/*, checkperiod: 2*/});
 const ObjectID = require('bson').ObjectID;
@@ -322,7 +322,14 @@ function createCollectionQuery(query) {
 
             orm.emit('proxyPostQueryHandler', {target, proxy});
 
-            const result = await target.cursor;
+            //const result = await target.cursor;
+            const result = await new Promise((resolve, reject) => {
+              if (typeof target.cursor.then === 'function') {
+                return target.cursor.then(resolve, reject)
+              } else if (typeof target.cursor.toArray === 'function') {
+                return target.cursor.toArray().then(resolve, reject)
+              }
+            })
             if (query.mockCollection) {
               const exec = async function () {
                 let _nativeCollection = orm._getCollection(...collectionName.split('@'));
@@ -398,7 +405,7 @@ async function resultPostProcess(result, target) {
     } else if (_.get(result, 'result.message.documents')) {
       _result = _.get(result, 'result.message.documents');
     } else if (target.cmd === 'aggregate') {
-      _result = await _result.toArray()
+      //_result = await _result.toArray()
     } else if (result && result.constructor && result.constructor.name === 'BulkWriteResult') {
       return result.result
     }
@@ -551,6 +558,7 @@ function connect(connectionInfo) {
   if (dbName) {
     orm.dbName = dbName;
   }
+  const MongoClient = require('mongodb').MongoClient;
   MongoClient.connect(...firstArgs, async (err, client) => {
     if (!err) {
       orm.connecting = false;

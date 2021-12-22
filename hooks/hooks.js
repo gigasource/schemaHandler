@@ -29,7 +29,8 @@ class Hooks extends EE {
     this._defaultEe.on(...arguments);
   }
 
-  once(event, listener) {
+  once(event, layer,  listener) {
+    if (arguments.length === 2) [layer, listener] = [0, layer];
     const _this = this;
 
     function _listener() {
@@ -37,7 +38,7 @@ class Hooks extends EE {
       return listener.bind(this)(...arguments);
     }
 
-    return this.on(event, _listener);
+    return this.on(event, layer, _listener);
   }
 
   getQueue(channel) {

@@ -1,8 +1,10 @@
 const _ = require('lodash')
+const jsonfn = require('json-fn')
 
 module.exports = function (orm) {
   orm.doCreateBulk = doCreateBulk
   orm.handleFakeBulkWrite = handleFakeBulkWrite
+  orm.validateBulkQueries = validateBulkQueries
 
   async function handleFakeBulkWrite(col, fakeId) {
     const currentDate = new Date()
@@ -101,6 +103,58 @@ module.exports = function (orm) {
     }
   }
 
+  async function validateBulkQueries(commit, isMaster = false) {
+    try {
+      const parsedChain = jsonfn.parse(commit.chain)
+      const queries = parsedChain[0].args[0]
+      if (isMaster) {
+        commit.data.var = []
+        for (let id = 0; id < queries.length; id++) {
+          const query = queries[id]
+          if (query.updateOne || query.updateMany || query.deleteOne || query.deleteMany) {
+            const key = Object.keys(query)[0]
+            const sumObj = (await orm(commit.collectionName).aggregate([{ $match: query[key].filter }, { $group: { _id: null, sum: { '$sum': '$__c' } } }]))
+            commit.data.var.push(sumObj.length ? sumObj[0].sum : null)
+          }
+          if (query.updateOne || query.updateMany) {
+            const key = Object.keys(query)[0]
+            query[key].update.$inc = { __c: 1 }
+          }
+          if (query.insertOne || query.insertMany) {
+            commit.data.var.push(null)
+          }
+          if (query.replaceOne) {
+            const foundDoc = await orm(commit.collectionName).findOne(query.replaceOne.filter).noEffect()
+            commit.data.var.push(foundDoc && foundDoc.__c ? foundDoc.__c : 0)
+            query.replaceOne.replacement.__c = (foundDoc && foundDoc.__c ? foundDoc.__c : 0) + id + 1
+          }
+        }
+        parsedChain[0].args = [queries]
+        commit.chain = jsonfn.stringify(parsedChain)
+      } else {
+        for (let id = 0; id < queries.length; id++) {
+          const query = queries[id]
+          if (query.updateOne || query.updateMany || query.deleteOne || query.deleteMany) {
+            const key = Object.keys(query)[0]
+            const sumObj = await orm(commit.collectionName).aggregate([{ $match: query[key].filter }, { $group: { _id: null, sum: { '$sum': '$__c' } } }]).direct()
+            if (commit.data.var[id] && sumObj[0].sum !== commit.data.var[id]) {
+              await orm.emit('commit:report:validationFailed', commit, sumObj, commit.data.var[id])
+            }
+          }
+          if (query.replaceOne) {
+            const foundDoc = await orm(commit.collectionName).findOne(query.replaceOne.filter).direct().noEffect()
+            if (foundDoc && !foundDoc.__c) foundDoc.__c = 0
+            if (commit.data.var[id] !== (foundDoc ? foundDoc.__c : 0)) {
+              await orm.emit('commit:report:validationFailed', commit, (foundDoc ? foundDoc.__c : 0), commit.data.var[id])
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error while validating bulk', err)
+    }
+  }
+
   async function doBulkQuery(col, bulkOp) {
     await orm.removeFakeOfCollection(col, {})
     while (true) {
@@ -127,6 +181,8 @@ module.exports = function (orm) {
 
   async function doCreateBulk(commits) {
     const bulkOp = {}
+    if (!commits.length)
+      return
     for (const commit of commits) {
       const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName)
       if (commit.id <= highestId) continue

@@ -149,8 +149,8 @@ function parseCondition(paths, obj, {arrayFilters, prefixPath, identifier} = {})
       return this.block();
     }
     if (this.node instanceof Buffer) {
-      this.update(this.node_, true);
-      return this.block();
+      this.update(this.node_, true)
+      return this.block()
     }
     if (!parent) return;
 
