@@ -1,10 +1,11 @@
 {
   "name": "schemahandler",
-  "version": "1.3.1",
+  "version": "1.4.1",
   "description": "",
   "main": "orm.js",
   "scripts": {
-    "test": "mocha"
+
+    "test": "jest --colors --silent sync/commit-sync-5.test.js"
   },
   "repository": {
     "type": "git",
@@ -55,10 +56,12 @@
     "socket.io-client": "^2.2.0",
     "socket.io-mock": "^1.3.1",
     "vue": "^3.0.2",
-    "json-fn": "github:gigasource/jsonfn#1.1.1"
+    "json-fn": "github:gigasource/jsonfn#1.1.1",
+    "@opentelemetry/api": "^1.0.2"
   },
   "peerDependencies": {
-    "mongodb": "github:gigasource/node-mongodb-native#v3.5.8-1"
+    "mongodb": "github:gigasource/node-mongodb-native#v3.5.8-1",
+    "@opentelemetry/api": "^1.0.2"
   },
   "babel": {
     "plugins": [

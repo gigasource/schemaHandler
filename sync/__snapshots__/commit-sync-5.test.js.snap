@@ -1,25 +1,109 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`main sync test [Integration] Test all plugins [Sync archive] Case 16: Sync archive before snapshot 1`] = `
+Object {
+  "Model": Object {
+    "condition": "{}",
+    "highestArchiveId": 4,
+  },
+}
+`;
+
+exports[`main sync test [Integration] Test all plugins [Sync archive] Case 16: Sync archive before snapshot 2`] = `
+Object {
+  "Model": Object {
+    "condition": "{}",
+    "highestArchiveId": 4,
+  },
+}
+`;
+
+exports[`main sync test [Integration] Test all plugins [Sync snapshot] Case 17: Create many 1`] = `
+Array [
+  Object {
+    "__c": 0,
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "id": 4,
+    "ref": "ObjectID",
+  },
+  Object {
+    "__c": 0,
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "id": 5,
+    "ref": "ObjectID",
+  },
+  Object {
+    "__c": 0,
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "id": 6,
+    "ref": "ObjectID",
+  },
+  Object {
+    "__c": 0,
+    "_id": "ObjectID",
+    "collectionName": "Model",
+    "data": Object {
+      "docId": "ObjectID",
+      "snapshot": true,
+    },
+    "execDate": "2021-01-27T17:00:00.000Z",
+    "id": 7,
+    "ref": "ObjectID",
+  },
+]
+`;
+
+exports[`main sync test [Integration] Test all plugins [Sync validation] Case 13: Validate new commit failed and snapshot fix wrong commit 1`] = `
+Array [
+  Object {
+    "_id": "ObjectID",
+    "commitId": 3,
+    "expectedSum": 1,
+    "realSum": 0,
+    "type": "validation-failed",
+  },
+]
+`;
+
+exports[`main sync test [Integration] Test all plugins [Sync validation] Case 13: Validate new commit failed and snapshot fix wrong commit 2`] = `
+Object {
+  "__c": 1,
+  "_id": "ObjectID",
+  "table": 5,
+}
+`;
+
 exports[`main sync test [Integration] Test all plugins [Sync-snapshot] Case 2: Client with highest commit id sync with master 1`] = `
 Array [
   Object {
-    "_c": "c",
+    "__c": 1,
     "_id": "ObjectID",
-    "approved": false,
-    "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"_id\\":\\"ObjectID\\",\\"table\\":10,\\"name\\":\\"Testing\\"}]}]",
     "collectionName": "Model",
-    "condition": "null",
     "data": Object {
-      "currentHighestUUID": "UUID",
       "docId": "ObjectID",
       "snapshot": true,
-      "syncUUID": "syncUUID",
     },
     "execDate": "2021-01-27T17:00:00.000Z",
-    "fromMaster": true,
     "id": 4,
-    "tags": Array [],
-    "uuid": "uuid-v1",
+    "ref": "ObjectID",
   },
 ]
 `;
@@ -29,7 +113,6 @@ Array [
   Object {
     "_c": "c",
     "_id": "ObjectID",
-    "approved": false,
     "chain": "[{\\"fn\\":\\"insertOne\\",\\"args\\":[{\\"table\\":10,\\"_id\\":\\"ObjectID\\"}]}]",
     "collectionName": "Model",
     "condition": "null",
@@ -40,13 +123,12 @@ Array [
     "fromMaster": true,
     "id": 1,
     "tags": Array [],
-    "uuid": "uuid-v1",
   },
   Object {
+    "__c": 0,
     "_c": "uo",
     "_id": "ObjectID",
-    "approved": false,
-    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Testing\\"}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
+    "chain": "[{\\"fn\\":\\"findOneAndUpdate\\",\\"args\\":[{\\"table\\":10},{\\"name\\":\\"Testing\\",\\"$inc\\":{\\"__c\\":1}}]},{\\"fn\\":\\"setOptions\\",\\"args\\":[{\\"new\\":true}]}]",
     "collectionName": "Model",
     "condition": "{\\"table\\":10}",
     "data": Object {},
@@ -54,7 +136,6 @@ Array [
     "fromMaster": true,
     "id": 2,
     "tags": Array [],
-    "uuid": "uuid-v1",
   },
   Object {
     "_id": "ObjectID",
@@ -99,6 +180,7 @@ Array [
 
 exports[`main sync test [Module] Fake doc Case 2: Find one and update 1`] = `
 Object {
+  "__c": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -111,6 +193,7 @@ exports[`main sync test [Module] Fake doc Case 2: Find one and update 2`] = `Arr
 exports[`main sync test [Module] Fake doc Case 2: Find one and update 3`] = `
 Array [
   Object {
+    "__c": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -121,6 +204,7 @@ Array [
 
 exports[`main sync test [Module] Fake doc Case 2-a: Find one and update 1`] = `
 Object {
+  "__c": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -140,6 +224,7 @@ Array [
 exports[`main sync test [Module] Fake doc Case 2-a: Find one and update 3`] = `
 Array [
   Object {
+    "__c": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -151,6 +236,7 @@ Array [
 exports[`main sync test [Module] Fake doc Case 3: Update then find 1`] = `
 Array [
   Object {
+    "__c": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -164,6 +250,7 @@ exports[`main sync test [Module] Fake doc Case 3: Update then find 2`] = `Array 
 exports[`main sync test [Module] Fake doc Case 3: Update then find 3`] = `
 Array [
   Object {
+    "__c": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -217,6 +304,7 @@ exports[`main sync test [Module] Fake doc Case 5: Handle remove fake 3`] = `Arra
 
 exports[`main sync test [Module] Fake doc Case 6: With master and 2 clients 1`] = `
 Object {
+  "__c": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -240,6 +328,7 @@ Object {
 
 exports[`main sync test [Module] Fake doc Case 6: With master and 2 clients 4`] = `
 Object {
+  "__c": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -252,6 +341,7 @@ Object {
 
 exports[`main sync test [Module] Fake doc Case 6: With master and 2 clients 5`] = `
 Object {
+  "__c": 2,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -266,6 +356,7 @@ Object {
 
 exports[`main sync test [Module] Fake doc Case 6: With master and 2 clients 6`] = `
 Object {
+  "__c": 2,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -283,6 +374,7 @@ exports[`main sync test [Module] Fake doc Case 7: Case delete and then master up
 
 exports[`main sync test [Module] Fake doc Case 7: Case delete and then master update 2`] = `
 Object {
+  "__c": 1,
   "_id": "ObjectID",
   "test": 2,
 }
@@ -293,6 +385,7 @@ exports[`main sync test [Module] Fake doc Case 7: Case delete and then master up
 exports[`main sync test [Module] Fake doc Case 8: Create and do a query update 1`] = `
 Array [
   Object {
+    "__c": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -306,6 +399,7 @@ exports[`main sync test [Module] Fake doc Case 8: Create and do a query update 2
 exports[`main sync test [Module] Fake doc Case 8: Create and do a query update 3`] = `
 Array [
   Object {
+    "__c": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -316,6 +410,7 @@ Array [
 
 exports[`main sync test [Module] Fake doc Case 9: Reapply query after remove fake 1`] = `
 Object {
+  "__c": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -330,6 +425,7 @@ Object {
 
 exports[`main sync test [Module] Fake doc Case 9: Reapply query after remove fake 2`] = `
 Object {
+  "__c": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -344,6 +440,7 @@ Object {
 
 exports[`main sync test [Module] Fake doc Case 9: Reapply query after remove fake 3`] = `
 Object {
+  "__c": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -358,6 +455,7 @@ Object {
 
 exports[`main sync test [Module] Fake doc Case 9: Reapply query after remove fake 4`] = `
 Object {
+  "__c": 3,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 2,
   "_id": "ObjectID",
@@ -376,6 +474,7 @@ Object {
 exports[`main sync test [Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 1`] = `
 Array [
   Object {
+    "__c": 1,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 1,
     "_id": "ObjectID",
@@ -397,6 +496,7 @@ Array [
 
 exports[`main sync test [Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 2`] = `
 Object {
+  "__c": 1,
   "_id": "ObjectID",
   "arr": Array [
     Object {
@@ -412,6 +512,7 @@ Object {
 exports[`main sync test [Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 3`] = `
 Array [
   Object {
+    "__c": 1,
     "_id": "ObjectID",
     "arr": Array [
       Object {
@@ -434,6 +535,7 @@ Array [
 exports[`main sync test [Module] Fake doc Case 10: Reapply query and remove only 1 fake doc 4`] = `
 Array [
   Object {
+    "__c": 3,
     "_fakeDate": "2021-01-27T17:00:00.000Z",
     "_fakeId": 3,
     "_id": "ObjectID",
@@ -477,6 +579,7 @@ Object {
 
 exports[`main sync test [Module] Fake doc Case 11: findOneAndUpdate fake 2`] = `
 Object {
+  "__c": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -488,6 +591,7 @@ Object {
 
 exports[`main sync test [Module] Fake doc Case 11: findOneAndUpdate fake 3`] = `
 Object {
+  "__c": 1,
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 1,
   "_id": "ObjectID",
@@ -564,26 +668,6 @@ Array [
 `;
 
 exports[`main sync test [Module] Fake doc Case 15: Find deleted query in fake find 2`] = `
-Object {
-  "_fakeDate": "2021-01-27T17:00:00.000Z",
-  "_fakeId": 2,
-  "_id": "ObjectID",
-  "test": 3,
-}
-`;
-
-exports[`main sync test [Module] Fake doc Case 15: Find deleted query in fake find 3`] = `
-Array [
-  Object {
-    "_fakeDate": "2021-01-27T17:00:00.000Z",
-    "_fakeId": 2,
-    "_id": "ObjectID",
-    "test": 3,
-  },
-]
-`;
-
-exports[`main sync test [Module] Fake doc Case 15: Find deleted query in fake find 4`] = `
 Object {
   "_fakeDate": "2021-01-27T17:00:00.000Z",
   "_fakeId": 2,
@@ -669,8 +753,6 @@ Array [
 ]
 `;
 
-exports[`main sync test [Module] Test bulk write Case 3: Bulk write with master 1`] = `Array []`;
-
 exports[`main sync test [Module] Test bulk write Case 8: Update bulkwrite 1`] = `
 Array [
   Object {
@@ -703,6 +785,7 @@ Array [
 exports[`main sync test [Module] Test bulk write Case 9: Bulkwrite with fake 3`] = `
 Array [
   Object {
+    "__c": 1,
     "_id": "ObjectID",
     "a": 1,
     "test": 1,
@@ -713,6 +796,7 @@ Array [
 exports[`main sync test [Module] Test bulk write Case 9: Bulkwrite with fake 4`] = `
 Array [
   Object {
+    "__c": 1,
     "_id": "ObjectID",
     "a": 1,
     "test": 1,
@@ -720,12 +804,20 @@ Array [
 ]
 `;
 
-exports[`main sync test [Module] Test bulk write Case 9: Bulkwrite with fake 5`] = `
+exports[`main sync test [Module] Test bulk write Case 10: Sync bulkWrite 1`] = `
 Array [
-  Object {
-    "_id": "ObjectID",
-    "a": 1,
-    "test": 1,
-  },
+  0,
+  0,
+  null,
+  0,
+]
+`;
+
+exports[`main sync test [Module] Test bulk write Case 11: Sync bulkWrite validate failed 1`] = `
+Array [
+  0,
+  0,
+  null,
+  0,
 ]
 `;

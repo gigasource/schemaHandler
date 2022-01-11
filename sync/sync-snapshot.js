@@ -1,5 +1,6 @@
 const AwaitLock = require('await-lock').default;
 const uuid = require('uuid')
+const {ObjectID} = require('bson')
 const jsonFn = require('json-fn')
 
 module.exports = function (orm) {
@@ -7,7 +8,13 @@ module.exports = function (orm) {
 	const handlers = []
 	const unusedCollections = ['DummyCollection']
 	let SNAPSHOT_COMMIT_CACHE = 300
-	let currentHighestUUID = 0
+
+	orm.getSnapshotCollection = getSnapshotCollection
+
+	const snapshotCollection = []
+	function getSnapshotCollection() {
+		return snapshotCollection
+	}
 
 	async function createCommitCache() {
 		await orm.emit('createCommit', { collectionName: 'DummyCollection', uuid: uuid.v4() })
@@ -17,14 +24,25 @@ module.exports = function (orm) {
 		await orm('CommitCache').create(cachedCommits)
 	}
 
+	function cleanDoc(doc) {
+		if (doc.__ss)
+			delete doc.__ss
+		if (doc.__r)
+			delete doc.__r
+	}
+
 	orm.on('commit:setSnapshotCache', value => SNAPSHOT_COMMIT_CACHE = value)
 
 	// only for master
-	orm.on('transport:require-sync:preProcess', async function (clientHighestId) {
+	orm.on('transport:require-sync:preProcess', async function (clientHighestId, syncAll = false) {
 		if (!this.value) this.value = []
 		const foundCommit = await orm('CommitCache').findOne({ id: clientHighestId })
 		if (foundCommit) {
-			this.value.push(...(await orm('CommitCache').find({id: {$gt: clientHighestId}}).sort({ id: 1 })))
+			const additionalCondition = syncAll ? {} : {collectionName: { $nin: orm.getUnwantedCol() }}
+			this.value.push(...(await orm('CommitCache').find({
+				id: {$gt: clientHighestId},
+				...additionalCondition
+			}).sort({ id: 1 })))
 		}
 	})
 
@@ -42,6 +60,7 @@ module.exports = function (orm) {
 	}
 
 	orm._setSyncCollection = function (collection) {
+		snapshotCollection.push(collection)
 		// for client to check whether run commit or not
 		orm.on(`commit:handler:shouldNotExecCommand:${collection}`, async function (commit) {
 			if (orm.isMaster() || !commit.data.snapshot) {
@@ -52,33 +71,24 @@ module.exports = function (orm) {
 				commit.chain = JSON.stringify(chain)
 				return this.mergeValueAnd(false)
 			}
-			const commitData = await orm('CommitData').findOne()
-			const syncData = commitData ? commitData.syncData : null
-			if (syncData && syncData.id === commit.data.syncUUID) {
-				if (syncData.needReSync) {
-					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
-					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
-				}
-				return this.mergeValueAnd(!syncData.needReSync)
+			const doc = await orm(collection).findOne({ _id: commit.data.docId }).direct().noEffect()
+			if (!doc) {
+				this.setValue(false)
 			} else {
-				const currentHighestUUID = commit.data.currentHighestUUID
-
-				// because command create has been ran, so the second highest id commit
-				// will be the one with uuid we are looking for
-				const highestCommits = await orm('Commit').find({}).sort({ id: - 1}).limit(2)
-				const _syncData = {
-					id: commit.data.syncUUID,
-					needReSync: true
-				}
-				if (highestCommits.length > 1 && highestCommits[1].uuid === currentHighestUUID) {
-					_syncData.needReSync = false
-				}
-				await orm('CommitData').updateOne({}, { syncData: _syncData }, { upsert: true })
-				if (_syncData.needReSync) {
+				if (!doc.__c) doc.__c = 0
+				if (commit.__c === undefined) { // handle old snapshot commit with no _cnt
 					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
 					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
+					this.setValue(false)
+				} else if (doc.__c !== commit.__c) {
+					// need resync
+					await orm(collection).deleteOne({_id: commit.data.docId}).direct()
+					await orm('Recovery' + collection).deleteOne({_id: commit.data.docId})
+					this.setValue(false)
+				} else {
+					this.setValue(true)
 				}
-				return this.mergeValueAnd(!_syncData.needReSync)
+				this.stop()
 			}
 		})
 
@@ -93,7 +103,7 @@ module.exports = function (orm) {
 			const parsedCondition = jsonFn.parse(commit.condition)
 			const deletedDoc = []
 			if (target.cmd.includes('One')) {
-				const foundDoc = await orm(collection).findOne(parsedCondition)
+				const foundDoc = await orm(collection).findOne(parsedCondition).noEffect()
 				if (foundDoc) {
 					deletedDoc.push(foundDoc)
 					if (!parsedCondition._id) {
@@ -104,10 +114,81 @@ module.exports = function (orm) {
 					}
 				}
 			} else {
-				deletedDoc.push(...await orm(collection).find(parsedCondition))
+				deletedDoc.push(...await orm(collection).find(parsedCondition).noEffect())
 			}
 			commit.data.snapshot = true
 			commit.data.deletedDoc = deletedDoc.map(doc => doc._id)
+		})
+
+		orm.on(`process:commit:${collection}`, 1, async function (commit, target) {
+			if (!target || commit.data.snapshot || !commit.condition)
+				return
+			const condition = commit.condition ? jsonFn.parse(commit.condition) : {}
+			const refDoc = await orm(collection).find({ __r: true, ...condition }).noEffect()
+			for (let doc of refDoc) {
+				cleanDoc(doc)
+				const chain = jsonFn.stringify(orm(collection).insertOne(doc).chain)
+				await orm('Commit').updateOne({ ref: doc._id },
+					{ chain, $unset: { ref: ''} })
+				await orm(collection).updateOne({ _id: doc._id }, { $unset: { __r: '' } }).direct()
+			}
+		})
+
+		/**
+		 * Master will remove chain data
+		 */
+		orm.on(`commit:handler:finish:${collection}`, -2, async function (result, commit) {
+			if (!orm.isMaster() || !commit.data.snapshot || commit.data.deletedDoc) return
+			if (commit.data.docId) {
+				await orm('Commit').updateOne(
+					{ _id: commit._id },
+					{
+						ref: commit.data.docId,
+						$unset: {
+							chain: ''
+						}
+					}
+				)
+				await orm(collection).updateOne(
+					{ _id: commit.data.docId },
+					{ __r: true }
+				).direct()
+			}
+		})
+
+		orm.on('transport:require-sync:postProcess', async function (commits) {
+			if (!this.value) {
+				this.value = {}
+			}
+			const docsSnapshot = {}
+			let colsId = {}
+			commits.map(commit => {
+				if (commit.ref) {
+					if (!colsId[commit.collectionName]) colsId[commit.collectionName] = []
+					colsId[commit.collectionName].push(commit.ref)
+				}
+			})
+			const cols = Object.keys(colsId)
+			for (let col of cols) {
+				docsSnapshot[col] = await orm(col).find({ _id: { $in: colsId[col] } }).noEffect()
+			}
+			const mapDocs = {}
+			Object.keys(docsSnapshot).forEach(col => {
+				docsSnapshot[col].forEach(doc => {
+					mapDocs[doc._id.toString()] = doc
+				})
+			})
+			for (let commit of commits) {
+				if (commit.ref) {
+					const doc = mapDocs[commit.ref.toString()]
+					if (!doc) {
+						commit.chain = null
+					} else {
+						cleanDoc(doc)
+						commit.chain = jsonFn.stringify(orm(commit.collectionName).insertOne(doc).chain)
+					}
+				}
+			}
 		})
 
 		// add lastTimeModified field
@@ -121,15 +202,17 @@ module.exports = function (orm) {
 				return
 			}
 			if (!orm.isMaster()) return
-			if (!orm.createQuery.includes(orm.shorthand[commit._c]))
-				await orm(collection).updateMany(jsonFn.parse(commit.condition), { snapshot: true }).direct()
-			else {
+			if (!orm.createQuery.includes(orm.shorthand[commit._c])) {
+				const condition = jsonFn.parse(commit.condition)
+				condition._arc = { $exists: false }
+				await orm(collection).updateMany(condition, { __ss: true }).direct()
+			} else {
 				if (result && Array.isArray(result)) {
 					console.log('[Snapshot] case create many')
 					for (let doc of result)
-						await orm(collection).updateOne({ _id: doc._id }, { snapshot: true }).direct()
+						await orm(collection).updateOne({ _id: doc._id }, { __ss: true }).direct()
 				} else if (result) {
-					await orm(collection).updateOne({ _id: result._id }, { snapshot: true }).direct()
+					await orm(collection).updateOne({ _id: result._id }, { __ss: true }).direct()
 				}
 			}
 		})
@@ -139,15 +222,24 @@ module.exports = function (orm) {
 			const { syncData } = await orm('CommitData').findOne()
 			await orm('Commit').deleteMany({ collectionName: collection, 'data.snapshot': {$exists: false } })
 			if (syncData.firstTimeSync)
-				await orm(collection).updateMany({}, { snapshot: true }).direct()
+				await orm(collection).updateMany({ __arc: { $exists: false }}, { __ss: true }).direct()
 			while (true) {
-				const doc = await orm(collection).findOne({ snapshot: true })
+				const doc = await orm(collection).findOne({ __ss: true }).noEffect()
 				if (!doc)
 					break
-				delete doc.snapshot
+				delete doc.__ss
 				await orm('Commit').deleteMany({ 'data.docId': doc._id, 'data.snapshot': true })
-				await orm(collection).deleteOne({ _id: doc._id }).direct()
-				await orm(collection).create(doc).commit({ currentHighestUUID, syncUUID: syncData.id, snapshot: true })
+				await orm.emit('createCommit', {
+					_id: new ObjectID(),
+					collectionName: collection,
+					data: {
+						snapshot: true,
+						docId: doc._id,
+					},
+					__c: doc.__c ? doc.__c : 0,
+					ref: doc._id
+				})
+				await orm(collection).updateOne({ _id: doc._id }, { $unset: {__ss: ''} }).direct()
 			}
 		}
 
@@ -181,7 +273,6 @@ module.exports = function (orm) {
 			orm.emit('commit:setUseCacheStatus', false)
 			await createCommitCache()
 			await orm('CommitData').updateOne({}, {syncData}, {upsert: true})
-			currentHighestUUID = (await orm('Commit').find().sort({ id: -1 }).limit(1))[0].uuid
 			for (let collection of unusedCollections) {
 				await orm(collection).deleteMany({}).direct()
 				await orm('Commit').deleteMany({ collectionName: collection })

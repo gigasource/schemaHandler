@@ -229,6 +229,23 @@ module.exports = function (orm) {
         }
         return defaultFn(...args);
       }
+    } else if (key === 'aggregate') {
+      returnResult.ok = true;
+      returnResult.value = function () {
+        const args = [...arguments];
+        if (args.length && args[0].length && args[0][0].$match) {
+          const condition = args[0].shift();
+          const _parseCondition = parseCondition(schema, condition.$match);
+          target.condition = _parseCondition;
+          args[0].unshift({$match: _parseCondition});
+        }
+        try {
+          target.cursor = target.cursor[key](...args);
+        } catch (e) {
+          console.error(e);
+        }
+        return proxy;
+      }
     }
   })
 
@@ -379,7 +396,7 @@ module.exports = function (orm) {
   orm.on('proxyResultPostProcess', async function ({target, result}) {
     let cmd = target.cmd;
     for (const _result of (target.returnSingleDocument ? [result] : result)) {
-      if ((!cmd.includes('find') || cmd.includes('Update')) && !cmd.includes('delete') && !cmd.includes('remove')) {
+      if (cmd.includes('update') || cmd.includes('Update') || cmd.includes('create') || cmd.includes('insert')) {
         await orm.emit(`update:${target.collectionName}`, _result, target);
         if (orm.mode === 'multi') await orm.emit(`update:${target.collectionName}@${target.dbName}`, _result, target);
         const type = cmd.includes('insert') || cmd.includes('create') ? 'c' : 'u';
@@ -388,7 +405,7 @@ module.exports = function (orm) {
       } else if (cmd.includes('find')) {
         await orm.emit(`find:${target.collectionName}`, _result, target);
         if (orm.mode === 'multi') await orm.emit(`find:${target.collectionName}@${target.dbName}`, _result, target);
-      } else {
+      } else if (cmd.includes('delete')) {
         await orm.emit(`delete:${target.collectionName}`, _result, target);
         if (orm.mode === 'multi') await orm.emit(`delete:${target.collectionName}@${target.dbName}`, _result, target);
       }

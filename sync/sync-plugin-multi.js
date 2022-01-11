@@ -6,9 +6,12 @@ const dayjs = require('dayjs')
 const {ObjectID} = require('bson')
 const bulkUtils = require('./sync-bulk-utils')
 const { Query } = require('mingo')
+const replaceMasterUtils = require('./sync-utils/replace-master')
+const {handleExtraProps} = require('./sync-handle-extra-props');
 
 const syncPlugin = function (orm) {
   const whitelist = []
+  const unwantedCol = []
   let highestCommitIdOfCollection = null
   const shorthand = {
     'createMany': 'cm',
@@ -38,15 +41,32 @@ const syncPlugin = function (orm) {
   orm.getCommitData = getCommitData
   orm.getWhiteList = getWhiteList
   orm.setExpireAfterNumberOfId = setExpireAfterNumberOfId
+  orm.validateCommit = validateCommit
+  orm.validateCommits = validateCommits
+  orm.getUnwantedCol = getUnwantedCol
+  orm.addUnwantedCol = addUnwantdeCol
+
+  orm('Commit').createIndex({ id: 1 }).then(r => r)
+  orm('Commit').createIndex({ collectionName: 1 }).then(r => r)
 
   bulkUtils(orm)
+  replaceMasterUtils(orm)
 
   function setHighestCommitIdOfCollection(col, val) {
     highestCommitIdOfCollection[col] = val
   }
+  const unsavedList = []
 
   function getWhiteList() {
     return whitelist
+  }
+
+  function getUnwantedCol() {
+    return unwantedCol
+  }
+
+  function addUnwantdeCol(cols) {
+    unwantedCol.push(...cols)
   }
 
   function setExpireAfterNumberOfId(numberOfId) {
@@ -81,6 +101,22 @@ const syncPlugin = function (orm) {
       })
     }
   }
+
+  // delete after exec chain
+  orm.registerUnsavedCollection = function () {
+    unsavedList.push(...arguments);
+  }
+
+  orm.on('reset-session', async function () {
+    await orm('CommitData').updateOne({}, { sessionId: uuid() }, { upsert: true })
+  })
+
+  orm.on('commit:handler:postProcess', async commit => {
+    if (unsavedList.includes(commit.collectionName))
+      await orm('Commit').deleteOne({ _id: commit._id })
+  })
+
+  handleExtraProps(orm);
 
   orm.on('pre:execChain', -2, function (query) {
     const last = _.last(query.chain);
@@ -136,9 +172,17 @@ const syncPlugin = function (orm) {
     } else if (last.fn === "direct") {
       query.chain.pop();
       this.stop();
+    } else if (query.chain.find(c => c.fn === 'commit')) {
+      if (query.chain[0].fn.includes('update') || query.chain[0].fn.includes('Update')) {
+        query.chain[0].args[1].$inc = { __c: 1 }
+      }
+      if (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('remove')) {
+        if (!query.chain[0].args || query.chain[0].args.length === 0)
+          query.chain[0].args = [{}]
+      }
     } else {
-      if (whitelist.includes(query.name) && !query.chain.find(c => c.fn === 'commit')) {
-        const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete', 'bulkWrite']
+      if (whitelist.includes(query.name)) {
+        const cmds = ['update', 'Update', 'create', 'insert', 'remove', 'delete', 'bulkWrite', 'replace', 'Replace']
         const findCmds = ['find', 'aggregate']
         let mutateCmd = false;
         let findCmd = false;
@@ -157,6 +201,13 @@ const syncPlugin = function (orm) {
           }
         })
         if (mutateCmd) {
+          if (query.chain[0].fn.includes('update') || query.chain[0].fn.includes('Update')) {
+            query.chain[0].args[1].$inc = { __c: 1 }
+          }
+          if (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('remove')) {
+            if (!query.chain[0].args || query.chain[0].args.length === 0)
+              query.chain[0].args = [{}]
+          }
           query.chain.push({fn: 'commit', args: []})
         }
         if (findCmd && !orm.isMaster()) {
@@ -173,19 +224,24 @@ const syncPlugin = function (orm) {
       return ops.fn === 'skip'
     })
     // chain includes skip
+    let _r = null // result for redundant docs
     if (_query.chain.length < query.chain.length) {
       let cursor = orm(query.name)
       const numberOfFakeDocs = await orm(_query.name).count() // expect this number to be small
       for (let i = 0; i < query.chain.length; i++) {
-        if (query.chain[i].fn !== 'skip') {
-          cursor = cursor[query.chain[i].fn](...query.chain[i].args)
-        } else {
+        if (query.chain[i].fn === 'skip') {
+          _r = parseInt(query.chain[i].args[0]) - (Math.max(0, parseInt(query.chain[i].args[0]) - numberOfFakeDocs))
           cursor = cursor[query.chain[i].fn](Math.max(0, parseInt(query.chain[i].args[0]) - numberOfFakeDocs))
+        } else if (query.chain[i].fn === 'limit') {
+          cursor = cursor[query.chain[i].fn](Math.max(0, parseInt(query.chain[i].args[0]) + numberOfFakeDocs))
+        } else {
+          cursor = cursor[query.chain[i].fn](...query.chain[i].args)
         }
       }
       cursor = cursor.direct()
       result.value = await cursor
     }
+    return _r
   }
 
   async function handleFindQuery(query, result) {
@@ -196,7 +252,7 @@ const syncPlugin = function (orm) {
       }
       _query.name = 'Recovery' + _query.name
       _query.uuid = uuid()
-      await handleSkipQuery(_query, query, result)
+      const nRedundant = await handleSkipQuery(_query, query, result)
       delete _query.mockCollection
       let _result = await orm.execChain(_query)
       const ids = Array.isArray(result.value) ? result.value.map(doc => doc._id) : [result.value ? result.value._id : null]
@@ -229,7 +285,11 @@ const syncPlugin = function (orm) {
           const mingoQuery = new Query({})
           let cursor = mingoQuery.find(result.value)
           for (let i = 1; i < query.chain.length; i++) {
-            cursor[query.chain[i].fn](...query.chain[i].args)
+            if (query.chain[i].fn === 'skip' && nRedundant !== null) {
+              cursor[query.chain[i].fn](nRedundant)
+            } else {
+              cursor[query.chain[i].fn](...query.chain[i].args)
+            }
           }
           result.value = cursor.all()
         }
@@ -298,10 +358,8 @@ const syncPlugin = function (orm) {
         ...query.name.split('@')[1] && {
           dbName: query.name.split('@')[1]
         },
-        uuid: uuid(),
         tags: args.filter(arg => typeof arg === "string"),
-        data: _.assign({}, ...args.filter(arg => typeof arg === "object")),
-        approved: false
+        data: _.assign({}, ...args.filter(arg => typeof arg === "object"))
       };
 
       orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
@@ -355,7 +413,7 @@ const syncPlugin = function (orm) {
       const exec = async () => await orm.execChain(_query)
       const currentDate = new Date()
       if (target.condition) {
-        const docs = await orm(commit.collectionName).find(target.condition).direct()
+        const docs = await orm(commit.collectionName).find(target.condition).direct().noEffect()
         for (let doc of docs) {
           const _doc = await orm(fakeCollectionName).findOne({ _id: doc._id })
           if (!_doc) {
@@ -541,7 +599,11 @@ const syncPlugin = function (orm) {
 
   orm.onQueue('transport:requireSync:callback', async function (commits) {
     if (!commits || !commits.length) return
+    const archivedCommits = _.remove(commits, commit => commit.data && !!commit.data.__arc)
     if (commits.length > COMMIT_BULK_WRITE_THRESHOLD) {
+      await validateCommits(commits)
+      if (!commits.length)
+        return
       await orm.doCreateBulk(commits)
     } else {
       try {
@@ -553,8 +615,11 @@ const syncPlugin = function (orm) {
         console.log('Error in hook transport:requireSync:callback')
       }
     }
+    if (archivedCommits) {
+      await orm.emit('commit:archive:bulk', archivedCommits)
+    }
     orm.emit('commit:handler:doneAllCommits')
-    console.log('Done requireSync', commits.length, commits[0]._id, new Date())
+    console.log('Done requireSync', commits.length, archivedCommits.length, commits.length ? commits[0]._id : archivedCommits[0]._id, new Date())
   })
 
   let highestIdInMemory = null
@@ -566,6 +631,59 @@ const syncPlugin = function (orm) {
     else
       highestIdInMemory = Math.max(highestIdInMemory, newHighestId)
   }
+
+  const VALIDATE_STATUS = {
+    BEHIND_MASTER: 'behind-master',
+    AHEAD_MASTER: 'ahead-master',
+    EQUAL_MASTER: 'equal-master',
+    NULL: null
+  }
+  async function validateCommits(commits) {
+    let lastAhead = -1
+    for (let i = 0; i < commits.length; i++) {
+      const status = await validateCommit(commits[i])
+      if (status === VALIDATE_STATUS.AHEAD_MASTER) {
+        lastAhead = i
+      } else if (status === VALIDATE_STATUS.BEHIND_MASTER) {
+        break
+      }
+    }
+    if (lastAhead !== -1) {
+      _.remove(commits, (item, i) => i <= lastAhead)
+    }
+  }
+  async function validateCommit(commit) {
+    try {
+      if (!commit.condition && commit._c !== 'bw') {
+        return VALIDATE_STATUS.NULL
+      }
+      if (commit._c === 'bw') {
+        // validate bulk
+        await orm.validateBulkQueries(commit, orm.isMaster())
+      } else {
+        if (orm.isMaster()) {
+          const condition = jsonFn.parse(commit.condition)
+          const sumObj = (await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$__c' } } }]))
+          if (sumObj && sumObj.length)
+            commit.__c = sumObj[0].sum
+        } else {
+          const condition = jsonFn.parse(commit.condition)
+          const sumObj = await orm(commit.collectionName).aggregate([{ $match: condition }, { $group: { _id: null, sum: { '$sum': '$__c' } } }]).direct()
+          if ((!sumObj || !sumObj.length) && commit.__c !== undefined) {
+            orm.emit('commit:report:validationFailed', commit, null)
+            return VALIDATE_STATUS.BEHIND_MASTER
+          } else if (sumObj.length && commit.__c !== sumObj[0].sum) {
+            orm.emit('commit:report:validationFailed', commit, sumObj[0].sum)
+            return commit.__c < sumObj[0].sum ? VALIDATE_STATUS.AHEAD_MASTER : VALIDATE_STATUS.BEHIND_MASTER
+          }
+        }
+      }
+      return true
+    } catch (err) {
+      console.log('Error while validating', err)
+    }
+  }
+
   //customize
   orm.onQueue('createCommit', async function (commit) {
     if (!commit.id) {
@@ -582,6 +700,7 @@ const syncPlugin = function (orm) {
       if (commit.id <= highestId)
         return // Commit exists
     }
+    await validateCommit(commit)
     try {
       if (orm.isMaster()) {
         commit.execDate = new Date()
@@ -601,33 +720,47 @@ const syncPlugin = function (orm) {
   })
 
   orm.onDefault('process:commit', async function (commit) {
-    commit.approved = true;
     this.value = commit;
   })
 
   let commitsCache = []
   let CACHE_THRESHOLD = 300
   let USE_CACHE = true
-  orm.on('commit:sync:master', async function (clientHighestId, dbName) {
+  orm.on('commit:sync:master', async function (clientHighestId, archiveCondition, syncAll, dbName) {
     if (!commitsCache.length) {
-      commitsCache = await orm('Commit').find().sort({ id: -1 }).limit(CACHE_THRESHOLD)
+      commitsCache = await orm('Commit').find({ collectionName: { $nin: orm.getUnwantedCol() } }).sort({ id: -1 }).limit(CACHE_THRESHOLD)
       commitsCache.reverse()
     }
     if (commitsCache.length &&
       clientHighestId >= commitsCache[0].id &&
       clientHighestId < _.last(commitsCache).id &&
-      USE_CACHE) {
+      USE_CACHE && !syncAll) {
       this.value = commitsCache.filter(commit => {
         return commit.id > clientHighestId
       })
     } else {
-      this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}, isPending: { $exists: false }}).limit(CACHE_THRESHOLD);
+      const additionalCondition = syncAll ? {} : {collectionName: { $nin: orm.getUnwantedCol() }}
+      this.value = await orm('Commit', dbName).find({
+        id: {$gt: clientHighestId}, isPending: { $exists: false },
+        ...additionalCondition
+      }).sort({ id: 1 }).limit(CACHE_THRESHOLD);
+    }
+    if (this.value.length < CACHE_THRESHOLD) {
+      const archivedCommits = (await orm.emit('commit:getArchive', archiveCondition, CACHE_THRESHOLD - this.value.length)).value
+      if (archivedCommits && Array.isArray(archivedCommits))
+        this.value.push(...archivedCommits)
     }
   })
   orm.on('commit:handler:finish', 1, async commit => {
     if (commitsCache.length) {
       const highestCachedId = commitsCache.length ? _.last(commitsCache).id : 0
-      commitsCache.push(...(await orm('Commit').find({id: {$gt: highestCachedId}, isPending: { $exists: false }}).limit(CACHE_THRESHOLD)))
+      const additionalData = await orm('Commit').find({
+        id: {$gt: highestCachedId},
+        isPending: { $exists: false },
+        collectionName: { $nin: orm.getUnwantedCol() }
+      }).sort({ id: 1 }).limit(CACHE_THRESHOLD)
+      additionalData.reverse()
+      commitsCache.push(...additionalData)
     }
     while (commitsCache.length > CACHE_THRESHOLD)
       commitsCache.shift()
@@ -661,17 +794,6 @@ const syncPlugin = function (orm) {
     console.log('Done commitRequest', commits.length, commits[0]._id, new Date())
   })
 
-  async function removeFake() {
-    for (const collection of whitelist) {
-      const docs = await orm('Recovery' + collection).find()
-      for (const doc of docs) {
-        delete doc._fakeId
-        delete doc._fakeDate
-      }
-      await orm(collection).create(docs)
-    }
-  }
-
   async function removeAll() {
     await orm('Commit').deleteMany()
     for (const collection of whitelist) {
@@ -682,11 +804,17 @@ const syncPlugin = function (orm) {
   // this must be called after master is set
   orm.on('setUpNewMaster', async function (isMaster) {
     if (isMaster)
-      await removeFake()
-    else
-      await removeAll()
-    const highestCommitId = isMaster ? (await orm('Commit').findOne({}).sort('-id') || {id: 0}).id : 0;
-    await orm('CommitData').updateOne({}, { highestCommitId }, { upsert: true })
+      return
+    await removeAll()
+    const highestCommitId = 0;
+    highestCommitIdOfCollection = null
+    await orm('CommitData').updateOne({}, {
+      highestCommitId,
+      $unset: {
+        highestCommitIdOfCollection: ''
+      },
+      fakeId: 0,
+    }, { upsert: true })
     await orm.emit('transport:removeQueue')
     await orm.emit('commit:remove-all-recovery')
   })
@@ -703,22 +831,6 @@ const syncPlugin = function (orm) {
     commitDataId = commitData._id
     this.value = commitData._id
   })
-
-  // if (isMaster) {
-  //   //use only for master
-  //
-  //   orm.on('update:Commit:c', async function (commit) {
-  //     let query = getQuery(commit);
-  //     if (commit.dbName) query.name += `@${commit.dbName}`;
-  //     const result = await orm.execChain(query);
-  //     orm.emit(`commit:result:${commit.uuid}`, result);
-  //     await orm.emit('master:transport:sync', commit.id);
-  //   })
-  //
-  //   orm.on('commit:sync:master', async function (clientHighestId, dbName) {
-  //     this.value = await orm('Commit', dbName).find({id: {$gt: clientHighestId}});
-  //   })
-  // }
 
   orm.emit('initFakeLayer');
 }

@@ -3,6 +3,18 @@ const dayjs = require('dayjs')
 const _ = require('lodash')
 
 module.exports = function (orm) {
+	let disabled = false
+
+	orm.disableQueue = disableQueue
+	orm.enableQueue = enableQueue
+
+	function disableQueue() {
+		disabled = true
+	}
+	function enableQueue() {
+		disabled = false
+	}
+
 	const clearQueue = async () => {
 		if (orm.isMaster && orm.isMaster()) {
 			clearInterval(intervalClearQueue)
@@ -37,11 +49,9 @@ module.exports = function (orm) {
 
 	orm.onQueue('transport:finish:send', async function (_queueCommit) {
 		const removedCommitUUID = _queueCommit.map((commit) => {
-			if (!commit.uuid)
-				console.error('Commit uuid is null')
-			return commit.uuid
+			return commit._id
 		})
-		await orm(QUEUE_COMMIT_MODEL).deleteMany({ 'commit.uuid': { $in: removedCommitUUID } })
+		await orm(QUEUE_COMMIT_MODEL).deleteMany({ 'commit._id': { $in: removedCommitUUID } })
 	})
 
 	async function tryResend() {
@@ -60,6 +70,7 @@ module.exports = function (orm) {
 	}, 10000)
 
 	const doSend = async () => {
+		if (disabled) return
 		console.log('Try to send to master')
 		const data = await orm(QUEUE_COMMIT_MODEL).find()
 		await orm.emit('transport:send', data.map(item => item.commit))
