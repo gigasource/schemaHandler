@@ -74,4 +74,11 @@ describe("checkEqual", function() {
       expect(e.message.slice(0, 6)).toMatchInlineSnapshot(`"E11000"`);
     }
   });
+
+  it("case3", async function() {
+    const Model = orm("Model2", "myproject");
+    await Model.remove();
+    const m1 = await Model.create({ _id: id(), a: 1, b: 20 });
+    const _m1 = await Model.findOne({a: 1}, 'a');
+  });
 });
