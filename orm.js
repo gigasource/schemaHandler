@@ -286,6 +286,9 @@ function createCollectionQuery(query) {
   } else {
     let _nativeCollection = orm._getCollection(...collectionName.split('@'));
     _collection = useNative ? _nativeCollection : mquery().collection(_nativeCollection);
+    if ((query.chain[0].fn === 'find' || query.chain[0].fn === 'findOne') && query.chain[0].args.length > 1) {
+      _collection = _collection.select(query.chain[0].args[1]);
+    }
   }
   const mongoCollection = new Proxy({
     collection: _collection,
