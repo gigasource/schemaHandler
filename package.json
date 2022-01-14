@@ -1,6 +1,6 @@
 {
   "name": "schemahandler",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "",
   "main": "orm.js",
   "scripts": {
@@ -32,7 +32,8 @@
     "node-cache": "^5.1.2",
     "queue": "^6.0.2",
     "traverse": "^0.6.6",
-    "uuid": "^8.3.1"
+    "uuid": "^8.3.1",
+    "@opentelemetry/api": "^1.0.2"
   },
   "devDependencies": {
     "@gigasource/socket.io-p2p-plugin": "^1.11.1",
