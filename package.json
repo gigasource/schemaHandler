@@ -1,10 +1,9 @@
 {
   "name": "schemahandler",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "",
   "main": "orm.js",
   "scripts": {
-
     "test": "jest --colors --silent sync/commit-sync-5.test.js"
   },
   "repository": {
