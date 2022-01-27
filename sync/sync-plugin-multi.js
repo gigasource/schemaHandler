@@ -44,7 +44,7 @@ const syncPlugin = function (orm) {
   orm.validateCommit = validateCommit
   orm.validateCommits = validateCommits
   orm.getUnwantedCol = getUnwantedCol
-  orm.addUnwantedCol = addUnwantdeCol
+  orm.addUnwantedCol = addUnwantedCol
 
   orm('Commit').createIndex({ id: 1 }).then(r => r)
   orm('Commit').createIndex({ collectionName: 1 }).then(r => r)
@@ -65,7 +65,7 @@ const syncPlugin = function (orm) {
     return unwantedCol
   }
 
-  function addUnwantdeCol(cols) {
+  function addUnwantedCol(cols) {
     unwantedCol.push(...cols)
   }
 
