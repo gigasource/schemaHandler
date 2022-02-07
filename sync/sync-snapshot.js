@@ -31,6 +31,31 @@ module.exports = function (orm) {
 			delete doc.__r
 	}
 
+	orm.onQueue('createCommitSnapshot', async function (commits) {
+		// remember to lock sync before calling this
+		if (!commits.length) return
+		let data = {}
+		let highestCommitId = 0
+		for (let commit of commits) {
+			if (!data[commit.collectionName]) {
+				data[commit.collectionName] = []
+			}
+			const doc = jsonFn.parse(commit.chain)[0].args[0]
+			delete commit.chain
+			commit.ref = commit.data.docId
+			highestCommitId = Math.max(highestCommitId, commit.id)
+			data[commit.collectionName].push(doc)
+		}
+		const keys = Object.keys(data)
+		for (let key of keys) {
+			await orm(key).create(data[key]).direct()
+		}
+		await orm('Commit').create(commits)
+		await orm('CommitData').updateOne({}, {
+			highestCommitId
+		})
+	})
+
 	orm.on('commit:setSnapshotCache', value => SNAPSHOT_COMMIT_CACHE = value)
 
 	// only for master
@@ -202,15 +227,17 @@ module.exports = function (orm) {
 				return
 			}
 			if (!orm.isMaster()) return
-			if (!orm.createQuery.includes(orm.shorthand[commit._c])) {
-				const condition = jsonFn.parse(commit.condition)
+			if (!orm.createQuery.includes(commit._c)) {
+				let condition = jsonFn.parse(commit.condition)
+				if (!condition)
+					condition = {}
 				condition._arc = { $exists: false }
 				await orm(collection).updateMany(condition, { __ss: true }).direct()
 			} else {
 				if (result && Array.isArray(result)) {
 					console.log('[Snapshot] case create many')
-					for (let doc of result)
-						await orm(collection).updateOne({ _id: doc._id }, { __ss: true }).direct()
+					const _ids = result.map(doc => doc._id)
+					await orm(collection).updateMany({ _id: { $in: _ids } }, { __ss: true }).direct()
 				} else if (result) {
 					await orm(collection).updateOne({ _id: result._id }, { __ss: true }).direct()
 				}
