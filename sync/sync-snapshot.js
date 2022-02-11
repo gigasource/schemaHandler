@@ -71,6 +71,41 @@ module.exports = function (orm) {
 		}
 	})
 
+	orm.on('transport:require-sync:postProcess', async function (commits) {
+		if (!this.value) {
+			this.value = {}
+		}
+		const docsSnapshot = {}
+		let colsId = {}
+		commits.map(commit => {
+			if (commit.ref) {
+				if (!colsId[commit.collectionName]) colsId[commit.collectionName] = []
+				colsId[commit.collectionName].push(commit.ref)
+			}
+		})
+		const cols = Object.keys(colsId)
+		for (let col of cols) {
+			docsSnapshot[col] = await orm(col).find({ _id: { $in: colsId[col] } }).noEffect()
+		}
+		const mapDocs = {}
+		Object.keys(docsSnapshot).forEach(col => {
+			docsSnapshot[col].forEach(doc => {
+				mapDocs[doc._id.toString()] = doc
+			})
+		})
+		for (let commit of commits) {
+			if (commit.ref) {
+				const doc = mapDocs[commit.ref.toString()]
+				if (!doc) {
+					commit.chain = null
+				} else {
+					cleanDoc(doc)
+					commit.chain = jsonFn.stringify(orm(commit.collectionName).insertOne(doc).chain)
+				}
+			}
+		}
+	})
+
 	orm.setUnusedCollection = function (collections) {
 		unusedCollections.push(...collections)
 	}
