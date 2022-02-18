@@ -129,7 +129,7 @@ module.exports = function (orm) {
             console.warn(e);
           }
           if (updateValue._id) delete updateValue._id;
-          updateValue = clearUndefined(updateValue);
+          //updateValue = clearUndefined(updateValue);
           args.unshift(updateValue);
         }
         args.unshift(_parseCondition);
