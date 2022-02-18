@@ -8,6 +8,7 @@ const bulkUtils = require('./sync-bulk-utils')
 const { Query } = require('mingo')
 const replaceMasterUtils = require('./sync-utils/replace-master')
 const {handleExtraProps} = require('./sync-handle-extra-props');
+const AwaitLock = require('await-lock').default
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -44,7 +45,10 @@ const syncPlugin = function (orm) {
   orm.validateCommit = validateCommit
   orm.validateCommits = validateCommits
   orm.getUnwantedCol = getUnwantedCol
-  orm.addUnwantedCol = addUnwantdeCol
+  orm.addUnwantedCol = addUnwantedCol
+  orm.lockSync = lockSync
+  orm.releaseSync = releaseSync
+  orm.updateHighestId = updateHighestId
 
   orm('Commit').createIndex({ id: 1 }).then(r => r)
   orm('Commit').createIndex({ collectionName: 1 }).then(r => r)
@@ -65,7 +69,7 @@ const syncPlugin = function (orm) {
     return unwantedCol
   }
 
-  function addUnwantdeCol(cols) {
+  function addUnwantedCol(cols) {
     unwantedCol.push(...cols)
   }
 
@@ -623,7 +627,7 @@ const syncPlugin = function (orm) {
   })
 
   let highestIdInMemory = null
-  const updateHighestId = (newHighestId) => {
+  function updateHighestId(newHighestId) {
     if (!newHighestId || isNaN(newHighestId))
       return
     if (!highestIdInMemory)
@@ -684,8 +688,19 @@ const syncPlugin = function (orm) {
     }
   }
 
+  const lock = new AwaitLock()
+  function lockSync() {
+    lock.tryAcquire()
+  }
+
+  function releaseSync() {
+    lock.acquired && lock.release()
+  }
+
   //customize
   orm.onQueue('createCommit', async function (commit) {
+    if (lock.acquired)
+      return
     if (!commit.id) {
       let { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName);
       if (highestIdInMemory)

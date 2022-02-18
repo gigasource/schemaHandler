@@ -31,6 +31,31 @@ module.exports = function (orm) {
 			delete doc.__r
 	}
 
+	orm.onQueue('createCommitSnapshot', async function (commits) {
+		// remember to lock sync before calling this
+		if (!commits.length) return
+		let data = {}
+		let highestCommitId = 0
+		for (let commit of commits) {
+			if (!data[commit.collectionName]) {
+				data[commit.collectionName] = []
+			}
+			const doc = jsonFn.parse(commit.chain)[0].args[0]
+			delete commit.chain
+			commit.ref = commit.data.docId
+			highestCommitId = Math.max(highestCommitId, commit.id)
+			data[commit.collectionName].push(doc)
+		}
+		const keys = Object.keys(data)
+		for (let key of keys) {
+			await orm(key).create(data[key]).direct()
+		}
+		await orm('Commit').create(commits)
+		await orm('CommitData').updateOne({}, {
+			highestCommitId
+		})
+	})
+
 	orm.on('commit:setSnapshotCache', value => SNAPSHOT_COMMIT_CACHE = value)
 
 	// only for master
@@ -43,6 +68,41 @@ module.exports = function (orm) {
 				id: {$gt: clientHighestId},
 				...additionalCondition
 			}).sort({ id: 1 })))
+		}
+	})
+
+	orm.on('transport:require-sync:postProcess', async function (commits) {
+		if (!this.value) {
+			this.value = {}
+		}
+		const docsSnapshot = {}
+		let colsId = {}
+		commits.map(commit => {
+			if (commit.ref) {
+				if (!colsId[commit.collectionName]) colsId[commit.collectionName] = []
+				colsId[commit.collectionName].push(commit.ref)
+			}
+		})
+		const cols = Object.keys(colsId)
+		for (let col of cols) {
+			docsSnapshot[col] = await orm(col).find({ _id: { $in: colsId[col] } }).noEffect()
+		}
+		const mapDocs = {}
+		Object.keys(docsSnapshot).forEach(col => {
+			docsSnapshot[col].forEach(doc => {
+				mapDocs[doc._id.toString()] = doc
+			})
+		})
+		for (let commit of commits) {
+			if (commit.ref) {
+				const doc = mapDocs[commit.ref.toString()]
+				if (!doc) {
+					commit.chain = null
+				} else {
+					cleanDoc(doc)
+					commit.chain = jsonFn.stringify(orm(commit.collectionName).insertOne(doc).chain)
+				}
+			}
 		}
 	})
 
@@ -156,41 +216,6 @@ module.exports = function (orm) {
 			}
 		})
 
-		orm.on('transport:require-sync:postProcess', async function (commits) {
-			if (!this.value) {
-				this.value = {}
-			}
-			const docsSnapshot = {}
-			let colsId = {}
-			commits.map(commit => {
-				if (commit.ref) {
-					if (!colsId[commit.collectionName]) colsId[commit.collectionName] = []
-					colsId[commit.collectionName].push(commit.ref)
-				}
-			})
-			const cols = Object.keys(colsId)
-			for (let col of cols) {
-				docsSnapshot[col] = await orm(col).find({ _id: { $in: colsId[col] } }).noEffect()
-			}
-			const mapDocs = {}
-			Object.keys(docsSnapshot).forEach(col => {
-				docsSnapshot[col].forEach(doc => {
-					mapDocs[doc._id.toString()] = doc
-				})
-			})
-			for (let commit of commits) {
-				if (commit.ref) {
-					const doc = mapDocs[commit.ref.toString()]
-					if (!doc) {
-						commit.chain = null
-					} else {
-						cleanDoc(doc)
-						commit.chain = jsonFn.stringify(orm(commit.collectionName).insertOne(doc).chain)
-					}
-				}
-			}
-		})
-
 		// add lastTimeModified field
 		orm.on(`commit:handler:finish:${collection}`, -1, async function (result, commit) {
 			if (commit.data && commit.data.snapshot) {
@@ -202,15 +227,17 @@ module.exports = function (orm) {
 				return
 			}
 			if (!orm.isMaster()) return
-			if (!orm.createQuery.includes(orm.shorthand[commit._c])) {
-				const condition = jsonFn.parse(commit.condition)
+			if (!orm.createQuery.includes(commit._c)) {
+				let condition = jsonFn.parse(commit.condition)
+				if (!condition)
+					condition = {}
 				condition._arc = { $exists: false }
 				await orm(collection).updateMany(condition, { __ss: true }).direct()
 			} else {
 				if (result && Array.isArray(result)) {
 					console.log('[Snapshot] case create many')
-					for (let doc of result)
-						await orm(collection).updateOne({ _id: doc._id }, { __ss: true }).direct()
+					const _ids = result.map(doc => doc._id)
+					await orm(collection).updateMany({ _id: { $in: _ids } }, { __ss: true }).direct()
 				} else if (result) {
 					await orm(collection).updateOne({ _id: result._id }, { __ss: true }).direct()
 				}
