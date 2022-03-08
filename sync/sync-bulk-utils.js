@@ -118,7 +118,11 @@ module.exports = function (orm) {
           }
           if (query.updateOne || query.updateMany) {
             const key = Object.keys(query)[0]
-            query[key].update.$inc = { __c: 1 }
+            if (!query[key].update.$inc) {
+              query[key].update.$inc = { __c: 1 }
+            } else {
+              query[key].update.$inc.__c = 1
+            }
           }
           if (query.insertOne || query.insertMany) {
             commit.data.var.push(null)

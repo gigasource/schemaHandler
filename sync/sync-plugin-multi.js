@@ -178,7 +178,11 @@ const syncPlugin = function (orm) {
       this.stop();
     } else if (query.chain.find(c => c.fn === 'commit')) {
       if (query.chain[0].fn.includes('update') || query.chain[0].fn.includes('Update')) {
-        query.chain[0].args[1].$inc = { __c: 1 }
+        if (!query.chain[0].args[1].$inc) {
+          query.chain[0].args[1].$inc = { __c: 1 }
+        } else {
+          query.chain[0].args[1].$inc.__c = 1
+        }
       }
       if (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('remove')) {
         if (!query.chain[0].args || query.chain[0].args.length === 0)
@@ -206,7 +210,11 @@ const syncPlugin = function (orm) {
         })
         if (mutateCmd) {
           if (query.chain[0].fn.includes('update') || query.chain[0].fn.includes('Update')) {
-            query.chain[0].args[1].$inc = { __c: 1 }
+            if (!query.chain[0].args[1].$inc) {
+              query.chain[0].args[1].$inc = { __c: 1 }
+            } else {
+              query.chain[0].args[1].$inc.__c = 1
+            }
           }
           if (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('remove')) {
             if (!query.chain[0].args || query.chain[0].args.length === 0)
