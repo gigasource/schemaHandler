@@ -714,7 +714,7 @@ const syncPlugin = function (orm) {
       if (highestIdInMemory)
         if (highestId !== highestIdInMemory) {
           await orm.emit('commit:report:errorId', highestId, highestIdInMemory)
-          highestId = highestIdInMemory
+          highestId = Math.max(highestIdInMemory, highestId)
         }
       commit.id = highestId + 1;
     } else {
