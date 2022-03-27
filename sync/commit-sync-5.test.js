@@ -1975,5 +1975,41 @@ describe('main sync test', function () {
 			expect(unwantedData.length).toEqual(1)
 			done()
 		})
+
+		it('[Sync snapshot] Case 22: Client send commit and master remove ref', async (done) => {
+			jest.useFakeTimers()
+			lodashMock()
+			const { orms, utils } = await genOrm(2,
+				['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+					'sync-queue-commit', 'sync-snapshot'])
+			utils.forEach(util => {
+				util.mockModelAndCreateCommits(0)
+			})
+			orms.forEach(orm => {
+				orm.setSyncCollection('Model')
+			})
+			orms[1].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+			orms[1].emit('commit:setBulkWriteThreshold', 0)
+			// create a query
+			await orms[0]('Model').create({ table: 10 })
+			await orms[0]('Model').updateOne({ table: 10 }, { name: 'Testing' })
+			await utils[1].waitToSync(2)
+			orms[0].on('snapshot-done', async () => {
+				jest.advanceTimersByTime(10000)
+				await utils[1].waitToSync(4)
+				const commitsSnapshot = await orms[0]('Commit').find()
+				await orms[1]('Model').updateOne({}, { name: 'Updated' })
+				await utils[0].waitToSync(5)
+				const commitsAfterRemoveRef = await orms[0]('Commit').find()
+				expect(commitsAfterRemoveRef[0].chain).not.toBe(undefined)
+				await orms[1]('Model').deleteMany({})
+				await utils[0].waitToSync(6)
+				const deleteCommit = await orms[0]('Commit').findOne({ id: 6 })
+				expect(deleteCommit.data.deletedDoc.length).toEqual(1)
+				done()
+			})
+			orms[0].startSyncSnapshot().then(r => r)
+		})
 	})
 })

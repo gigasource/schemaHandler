@@ -154,7 +154,7 @@ module.exports = function (orm) {
 
 		orm.on(`process:commit:${collection}`, async function (commit, target) {
 			// deleteOne must be used with specific condition such as _id
-			if (!target || (!target.cmd.includes('delete') && !target.cmd.includes('remove')))
+			if (!orm.isMaster() || !['do', 'dm', 'r', 'ro'].includes(commit._c))
 				return
 			if (!commit.condition)
 				commit.condition = '{}'
@@ -162,7 +162,7 @@ module.exports = function (orm) {
 				commit.data = {}
 			const parsedCondition = jsonFn.parse(commit.condition)
 			const deletedDoc = []
-			if (target.cmd.includes('One')) {
+			if (['do', 'ro'].includes(commit._c)) {
 				const foundDoc = await orm(collection).findOne(parsedCondition).noEffect()
 				if (foundDoc) {
 					deletedDoc.push(foundDoc)
@@ -181,7 +181,7 @@ module.exports = function (orm) {
 		})
 
 		orm.on(`process:commit:${collection}`, 1, async function (commit, target) {
-			if (!target || commit.data.snapshot || !commit.condition)
+			if (commit.data.snapshot || !commit.condition || !orm.isMaster())
 				return
 			const condition = commit.condition ? jsonFn.parse(commit.condition) : {}
 			const refDoc = await orm(collection).find({ __r: true, ...condition }).noEffect()

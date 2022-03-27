@@ -800,9 +800,8 @@ const syncPlugin = function (orm) {
       if (!commits || !commits.length)
         return
       for (let commit of commits) {
-        if (!commit.tags) {
-          await orm.emit(`process:commit:${commit.collectionName}`, commit)
-        } else {
+        await orm.emit(`process:commit:${commit.collectionName}`, commit)
+        if (commit.tags) {
           for (const tag of commit.tags) {
             await orm.emit(`process:commit:${tag}`, commit)
           }
