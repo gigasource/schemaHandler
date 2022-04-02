@@ -11,12 +11,12 @@ module.exports = function (orm) {
     await orm('Recovery' + col).update({ _fakeId: { $exists: false } }, { _fakeId: fakeId, _fakeDate: currentDate }).direct()
   }
 
-  const supportedQuery = ['updateOne', 'insertOne', 'updateMany', 'deleteOne', 'deleteMany', 'replaceOne']
+  const supportedQuery = ['updateOne', 'insertOne', 'updateMany', 'replaceOne']
   const convertedQuery = {
     'findOneAndUpdate': 'updateOne'
   }
   function convertChain(chain) {
-    let result
+    let result = null
     switch (chain[0].fn) {
       case 'updateOne':
         if (chain[0].args.length < 2) return null
@@ -60,20 +60,20 @@ module.exports = function (orm) {
           }
         }
         break
-      case 'deleteOne':
-        result = {
-          deleteOne: {
-            filter: chain[0].args.length && chain[0].args[0] ? chain[0].args[0] : {}
-          }
-        }
-        break
-      case 'deleteMany':
-        result = {
-          deleteMany: {
-            filter: chain[0].args.length && chain[0].args[0] ? chain[0].args[0] : {}
-          }
-        }
-        break
+      // case 'deleteOne':
+      //   result = {
+      //     deleteOne: {
+      //       filter: chain[0].args.length && chain[0].args[0] ? chain[0].args[0] : {}
+      //     }
+      //   }
+      //   break
+      // case 'deleteMany':
+      //   result = {
+      //     deleteMany: {
+      //       filter: chain[0].args.length && chain[0].args[0] ? chain[0].args[0] : {}
+      //     }
+      //   }
+      //   break
       case 'insertOne':
         if (chain[0].args.length < 1) return null
         result = {

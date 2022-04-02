@@ -2011,5 +2011,40 @@ describe('main sync test', function () {
 			})
 			orms[0].startSyncSnapshot().then(r => r)
 		})
+
+		it('[Sync snapshot] Case 23: Client sync with both deleteCommit and snapshot in the same batch', async (done) => {
+			jest.useFakeTimers()
+			lodashMock()
+			const { orms, utils } = await genOrm(2,
+				['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+					'sync-queue-commit', 'sync-snapshot'])
+			utils.forEach(util => {
+				util.mockModelAndCreateCommits(0)
+			})
+			orms.forEach(orm => {
+				orm.setSyncCollection('Model')
+			})
+			orms[1].socketConnect(orms[0].ioId)
+			jest.advanceTimersByTime(100) // time to connect
+			orms[1].emit('commit:setBulkWriteThreshold', 0)
+			const doc = await orms[0]('Model').create({ table: 10 })
+			await orms[0]('Model').create({ table: 11 })
+			await utils[1].waitToSync(2)
+			utils[0].setLockEvent('master:transport:sync', true)
+			orms[1].socket.fakeDisconnect()
+			await orms[0]('Model').deleteMany({})
+			await orms[0]('Model').create(doc)
+			orms[0].on('snapshot-done', async () => {
+				orms[1].socket.isFakeDisconnect = false
+				jest.advanceTimersByTime(10000)
+				utils[0].setLockEvent('master:transport:sync', false)
+				orms[0].emit('master:transport:sync')
+				await utils[1].waitToSync(6)
+				const doc1 = await orms[1]('Model').find()
+				expect(doc1.length).toEqual(1)
+				done()
+			})
+			orms[0].startSyncSnapshot().then(r => r)
+		})
 	})
 })
