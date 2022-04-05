@@ -7,6 +7,7 @@ const {ObjectID} = require('bson')
 const bulkUtils = require('./sync-bulk-utils')
 const { Query } = require('mingo')
 const replaceMasterUtils = require('./sync-utils/replace-master')
+const storeOldCommits = require('./sync-utils/store-old-commits')
 const {handleExtraProps} = require('./sync-handle-extra-props');
 const AwaitLock = require('await-lock').default
 
@@ -55,6 +56,7 @@ const syncPlugin = function (orm) {
 
   bulkUtils(orm)
   replaceMasterUtils(orm)
+  storeOldCommits(orm)
 
   function setHighestCommitIdOfCollection(col, val) {
     highestCommitIdOfCollection[col] = val
