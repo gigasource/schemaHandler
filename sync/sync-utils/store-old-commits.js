@@ -16,12 +16,12 @@ module.exports = function (orm) {
       }
     })
   }
-  function startStoringCommits() {
+  function startStoringCommits(ignoreCol) {
     if (deleteInterval) return
     deleteInterval = setInterval(deleteCommitReplay, 8 * 60 * 60 * 1000) // 8 hours
     deleteCommitReplay().then()
     off = orm.on('commit:handler:finish', -5, async function (commit) {
-      if (commit.chain && commit.execDate) {
+      if (commit.chain && commit.execDate && !ignoreCol.includes(commit.collectionName)) {
         await orm('OldCommit').create(commit)
       }
     }).off
