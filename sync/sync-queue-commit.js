@@ -20,7 +20,7 @@ module.exports = function (orm) {
 			clearInterval(intervalClearQueue)
 			return
 		}
-		const clearDate = dayjs().subtract(1, 'hour').toDate()
+		const clearDate = dayjs().subtract(1, 'day').toDate()
 		await orm(QUEUE_COMMIT_MODEL).deleteMany({
 			dateAdded: { '$exists': false }
 		})
@@ -29,7 +29,7 @@ module.exports = function (orm) {
 		})
 	}
 
-	const intervalClearQueue = setInterval(clearQueue, 60 * 60 * 1000)
+	const intervalClearQueue = setInterval(clearQueue, 3 * 60 * 60 * 1000)
 
 	orm.on('transport:removeQueue', async function () {
 		clearInterval(intervalClearQueue)
