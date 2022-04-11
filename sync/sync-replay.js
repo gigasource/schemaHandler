@@ -20,7 +20,7 @@ module.exports = function (orm) {
   orm.getAffectedDocInRange = getAffectedDocInRange
   orm.addSupportedReplayCol = addSupportedReplayCol
   orm.replayDoc = replayDoc
-  orm.getDocsAndCommits = getDocsAndCommits
+  orm.getReplayDocsAndCommits = getReplayDocsAndCommits
 
   function addSupportedReplayCol(col) {
     supportedCol.push(col)
@@ -29,7 +29,14 @@ module.exports = function (orm) {
       orm.registerSchema('Temporary' + col, schema, true)
   }
 
-  function getDocsAndCommits() {
+  orm.on('schemaRegistered', (collectionName, dbName, schema) => {
+    if (!supportedCol.includes(collectionName)) return
+    const _schema = orm.getSchema('Temporary' + collectionName)
+    if (!_schema)
+      orm.registerSchema('Temporary' + collectionName, schema, true)
+  })
+
+  function getReplayDocsAndCommits() {
     return {
       docs,
       commits

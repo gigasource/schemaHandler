@@ -47,7 +47,7 @@ describe('main sync test', function () {
     await orms[0]('Model').updateOne({ _id: doc._id }, { table: 12 })
     MockDate.set('2000-11-23 12:12:13');
     await orms[0].getAffectedDocInRange(new Date('2000-11-22'), new Date('2000-11-24'))
-    const data = orms[0].getDocsAndCommits()
+    const data = orms[0].getReplayDocsAndCommits()
     console.log('Data', data)
     const docIds = Object.keys(data.docs)
     const replayResult = await orms[0].replayDoc(docIds[0], 'Model', 3)
