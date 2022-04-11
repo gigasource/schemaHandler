@@ -5,7 +5,8 @@ const pluginsList = {
 	'sync-snapshot': require('../sync-snapshot'),
 	'sync-transporter': require('../sync-transporter'),
 	'sync-report': require('../sync-report'),
-	'sync-archive': require('../sync-archive')
+	'sync-archive': require('../sync-archive'),
+	'sync-replay': require('../sync-replay')
 }
 const hooks = require('../../hooks/hooks')
 const Orm = require('../../orm')

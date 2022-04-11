@@ -708,7 +708,7 @@ const syncPlugin = function (orm) {
   }
 
   //customize
-  orm.onQueue('createCommit', async function (commit) {
+  orm.onQueue('createCommit', async function (commit, opts = {}) {
     if (lock.acquired)
       return
     if (!commit.id) {
@@ -731,6 +731,7 @@ const syncPlugin = function (orm) {
         commit.execDate = new Date()
         commit.isPending = true
       }
+      await orm.emit('replay:pushToQueue', commit, opts)
       this.value = await orm(`Commit`, commit.dbName).create(commit);
       updateHighestId(commit.id)
       await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true })
@@ -799,16 +800,17 @@ const syncPlugin = function (orm) {
 
   orm.onQueue('commitRequest', async function (commits) {
     try {
+      const opts = {}
       if (!commits || !commits.length)
         return
       for (let commit of commits) {
-        await orm.emit(`process:commit:${commit.collectionName}`, commit)
+        await orm.emit(`process:commit:${commit.collectionName}`, commit, null, opts)
         if (commit.tags) {
           for (const tag of commit.tags) {
             await orm.emit(`process:commit:${tag}`, commit)
           }
         }
-        await orm.emit('createCommit', commit);
+        await orm.emit('createCommit', commit, opts);
       }
     } catch (err) {
       console.log('Error in commitRequest')
@@ -822,6 +824,7 @@ const syncPlugin = function (orm) {
     await orm('Commit').deleteMany()
     for (const collection of whitelist) {
       await orm(collection).remove().direct()
+      setHighestCommitIdOfCollection(collection, 0)
     }
   }
 

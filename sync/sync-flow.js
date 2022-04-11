@@ -47,7 +47,8 @@ module.exports = function (orm, role) {
     }
     //todo: [process:commit] can return array
     let _commit = _.cloneDeep(commit)
-    await orm.emit(`process:commit:${commit.collectionName}`, _commit, target)
+    const opts = {}
+    await orm.emit(`process:commit:${commit.collectionName}`, _commit, target, opts)
     if (_commit.tags) {
       for (const tag of _commit.tags) {
         await orm.emit(`process:commit:${tag}`, _commit)
@@ -77,7 +78,7 @@ module.exports = function (orm, role) {
         value = result
         lock.release()
       })
-      orm.emit('createCommit', commit)
+      orm.emit('createCommit', commit, opts)
       await lock.acquireAsync()
     }
     this.value = value

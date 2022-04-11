@@ -180,18 +180,21 @@ module.exports = function (orm) {
 			commit.data.deletedDoc = deletedDoc.map(doc => doc._id)
 		})
 
-		orm.on(`process:commit:${collection}`, 1, async function (commit, target) {
+		orm.on(`process:commit:${collection}`, 1, async function (commit, target, opts) {
 			if (commit.data.snapshot || !commit.condition || !orm.isMaster())
 				return
 			const condition = commit.condition ? jsonFn.parse(commit.condition) : {}
-			const refDoc = await orm(collection).find({ __r: true, ...condition }).noEffect()
+			const allDoc = await orm(collection).find({ ...condition }).noEffect()
+			const refDoc = allDoc.filter(doc => doc.__r == true)
 			for (let doc of refDoc) {
 				cleanDoc(doc)
 				const chain = jsonFn.stringify(orm(collection).insertOne(doc).chain)
-				await orm('Commit').updateOne({ ref: doc._id },
+				const commit = await orm('Commit').findOneAndUpdate({ ref: doc._id },
 					{ chain, $unset: { ref: ''} })
+				orm.emit('replay:pushToQueue', commit, {})
 				await orm(collection).updateOne({ _id: doc._id }, { $unset: { __r: '' } }).direct()
 			}
+			opts.affectedDoc = allDoc.map(doc => doc._id)
 		})
 
 		/**
