@@ -1406,40 +1406,6 @@ describe('main sync test', function () {
 			orms[0].startSyncSnapshot()
 		})
 
-		it('[Sync report] Case 5: Create prevId', async (done) => {
-			jest.useFakeTimers()
-			lodashMock()
-			const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi',
-				'sync-queue-commit', 'sync-report'], {
-				setMaster: true
-			})
-			await utils.mockModelAndCreateCommits(10)
-			const commits = await orm('Commit').find()
-			for (let i = 1; i < commits.length; i++) {
-				expect(commits[i].prevId).toEqual(commits[i - 1].id)
-			}
-			done()
-		})
-
-		it('[Sync report] Case 6: wrong prevId', async (done) => {
-			jest.useFakeTimers()
-			lodashMock()
-			const { orm, utils } = await ormGenerator([
-				'sync-flow',
-				'sync-plugin-multi',
-				'sync-report'], {
-				setMaster: false
-			})
-			await orm.emit('transport:requireSync:callback', [
-				{ id: 1 },
-				{ id: 3, prevId: 2 }
-			])
-			await utils.waitForAnEvent('commit:handler:finish')
-			const commitReport = await orm('CommitReport').find()
-			expect(commitReport.length).toEqual(1)
-			done()
-		})
-
 		it('[Sync report] Case 7: disconnect health check', async (done) => {
 			const { orm, utils } = await ormGenerator([
 				'sync-report'], {

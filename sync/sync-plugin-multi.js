@@ -722,7 +722,7 @@ const syncPlugin = function (orm) {
     } else {
       // commit with id smaller than highestId has been already created
       const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName)
-      if (commit.id <= highestId)
+      if (commit.id <= highestId && (!commit.data || !commit.data.deletedDoc))
         return // Commit exists
     }
     await validateCommit(commit)
@@ -732,16 +732,12 @@ const syncPlugin = function (orm) {
         commit.isPending = true
       }
       this.value = await orm(`Commit`, commit.dbName).create(commit);
+    } catch (e) {
+      console.error(e)
+    } finally {
       updateHighestId(commit.id)
       await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true })
-    } catch (e) {
-      if (e.message.slice(0, 6) === 'E11000') {
-        //console.log('sync two fast')
-      }
     }
-    // if (isMaster) {
-    //   this.value = await orm(`Commit`, commit.dbName).create(commit);
-    // }
   })
 
   orm.onDefault('process:commit', async function (commit) {

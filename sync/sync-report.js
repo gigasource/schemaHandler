@@ -27,7 +27,6 @@ const syncReport = function (orm) {
 
 	orm.disableReport = function () {
 		clearInterval(interval)
-		off1()
 		off2()
 		off3()
 		off4()
@@ -52,35 +51,6 @@ const syncReport = function (orm) {
 		})
 	}, 60 * 1000 * 3)
 
-	/**
-	 * This must be called before lower id commits are deleted
-	 */
-	const off1 = orm.on('commit:handler:finish', -1, async (commit) => {
-		await fnLock.acquireAsync()
-		if (!prevId) {
-			const lastHighestIdCommit = (await orm('Commit').find({ id: { $lt: commit.id } }).sort({ id: -1 }).limit(1))
-			if (!lastHighestIdCommit.length) {
-				fnLock.release()
-				return
-			}
-			prevId = lastHighestIdCommit[0].id
-		}
-
-		if (commit.prevId) {
-			if (commit.prevId !== prevId) {
-				await orm('CommitReport').create({
-					type: COMMIT_TYPE.WRONG_COMMIT,
-					wrongId: prevId,
-					currentId: commit.id,
-					prevId: commit.prevId
-				})
-			}
-		} else {
-			await orm('Commit').updateOne({id: commit.id}, { prevId })
-		}
-		prevId = commit.id
-		fnLock.release()
-	}).off
 	/**
 	 * Health check report
 	 */
