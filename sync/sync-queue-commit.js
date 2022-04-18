@@ -43,7 +43,7 @@ module.exports = function (orm) {
 			commit,
 			dateAdded: new Date()
 		})
-		if (!orm.getQueue('queue:send').length)
+		if (orm.getQueue('queue:send').length <= 1)
 			orm.emit('queue:send')
 	})
 
