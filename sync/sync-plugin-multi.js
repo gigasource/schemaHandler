@@ -467,6 +467,14 @@ const syncPlugin = function (orm) {
         }
       } else {
         try {
+          if (Array.isArray(query.chain[0].args[0])) {
+            const _idList = query.chain[0].args[0].map(doc => doc._id).filter(_id => !!_id)
+            await orm(fakeCollectionName).deleteMany({ _id: { $in: _idList }, _deleted: true })
+          } else {
+            const _id = query.chain[0].args[0]._id
+            if (_id)
+              await orm(fakeCollectionName).deleteOne({ _id, _deleted: true })
+          }
           const result = await exec()
           if (Array.isArray(result)) {
             for (let doc of result) {

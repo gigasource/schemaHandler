@@ -213,31 +213,7 @@ describe('main sync test', function () {
 			done()
 		})
 
-		/**
-		 * Flow of this case:
-		 *  - Socket from ormB to ormA disconnected
-		 *  - only 1 doSend action is triggered
-		 */
-		it('Case 4: Use with queue and can not send to master', async (done) => {
-			lodashMock()
-			const { orm, utils } = await ormGenerator(["sync-transporter", 'sync-queue-commit'])
-			orm.on('transport:send', async () => {
-				await new Promise(resolve => {
-				})
-			})
-			utils.waitEventIsCalled('queue:send', 2).then(r => done('error'))
-			orm.emit('transport:toMaster', {
-				id: 1
-			})
-			orm.emit('transport:toMaster', {
-				id: 2
-			})
-			await utils.waitEventIsCalled('transport:send')
-			expect(utils.getNumberOfTimesOnCalled('queue:send')).toEqual(1)
-			done()
-		})
-
-		it('Case 5: Send transport:require-sync twice', async (done) => {
+		it('Case 4: Send transport:require-sync twice', async (done) => {
 			jest.useFakeTimers()
 			lodashMock()
 			const { orm: ormA, utils: utilsA } = await ormGenerator(["sync-transporter"], {
@@ -696,6 +672,25 @@ describe('main sync test', function () {
 			const docs2 = await orm('Model').find().sort({ test: 1 }).skip(2).limit(1)
 			expect(docs2.length).toEqual(1)
 			expect(docs2[0].test).toEqual(5)
+			done()
+		})
+
+		it('Case 19: Delete and recreate', async function (done) {
+			jest.useFakeTimers()
+			const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+				setMaster: false,
+				name: 'B'
+			});
+			await utils.mockModelAndCreateCommits(0)
+			await orm('Model').create({ test: 3, _id: '6234bd9344d99f96d9d3a7e4' })
+			await orm('Model').delete({ _id: '6234bd9344d99f96d9d3a7e4' })
+			await orm('Model').create({ test: 4, _id: '6234bd9344d99f96d9d3a7e4' })
+			const data = await orm('Model').find()
+			expect(data.length).toBe(1)
+			await orm('Model').delete({ _id: '6234bd9344d99f96d9d3a7e4' })
+			await orm('Model').create([{ test: 4, _id: '6234bd9344d99f96d9d3a7e4' }, { test: 3 }])
+			const data1 = await orm('Model').find()
+			expect(data1.length).toBe(2)
 			done()
 		})
 	})
