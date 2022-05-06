@@ -1,6 +1,7 @@
 const AwaitLock = require('await-lock').default;
 const _ = require('lodash');
 const jsonFn = require('json-fn')
+const { EVENT_CONSTANT } = require('./sync-log')
 
 module.exports = function (orm, role) {
   let masterDbMap = (orm.mode === 'multi' ? {} : false)
@@ -47,6 +48,7 @@ module.exports = function (orm, role) {
     }
     //todo: [process:commit] can return array
     let _commit = _.cloneDeep(commit)
+    orm.writeSyncLog(EVENT_CONSTANT.START_FLOW, commit)
     await orm.emit(`process:commit:${commit.collectionName}`, _commit, target)
     if (_commit.tags) {
       for (const tag of _commit.tags) {
@@ -54,6 +56,7 @@ module.exports = function (orm, role) {
       }
     }
     commit = _commit;
+    orm.writeSyncLog(EVENT_CONSTANT.AFTER_FIRST_PROCESS, commit)
 
     let value
     if (!checkMaster(commit.dbName)) {
@@ -65,6 +68,7 @@ module.exports = function (orm, role) {
       commit.fromClient = (await orm.emit('getCommitDataId')).value
       commit.createdDate = new Date()
       commit._fakeId = fakeId
+      orm.writeSyncLog(EVENT_CONSTANT.SEND_TO_MASTER, commit._id)
       orm.emit('transport:toMaster', commit)
       fakeId += 1
       await orm('CommitData').updateOne({}, { fakeId })
@@ -73,6 +77,7 @@ module.exports = function (orm, role) {
       commit.fromMaster = true;
       const lock = new AwaitLock()
       await lock.acquireAsync()
+      orm.writeSyncLog(EVENT_CONSTANT.START_EXECUTE, commit._id)
       orm.once(`commit:result:${commit._id.toString()}`, function (result) {
         value = result
         lock.release()
@@ -117,10 +122,12 @@ module.exports = function (orm, role) {
 
   orm.onQueue('update:Commit:c', 'fake-channel', async function (commit) {
     if (!commit.id) return
+    orm.writeSyncLog(EVENT_CONSTANT.FLOW_EXEC, commit._id)
     if (!checkMaster(commit.dbName)) {
       await orm.emit('commit:update-fake', commit);
     }
     const run = !(await orm.emit(`commit:handler:shouldNotExecCommand:${commit.collectionName}`, commit));
+    orm.writeSyncLog(EVENT_CONSTANT.FLOW_SHOULD_NOT_EXEC, commit._id + ' ' + run)
     let result
     if (run) {
       let query = orm.getQuery(commit)
@@ -128,6 +135,7 @@ module.exports = function (orm, role) {
       try {
         result = await orm.execChain(query)
       } catch (e) {
+        orm.writeSyncLog(EVENT_CONSTANT.FLOW_EXEC_ERROR, commit._id + ' ' + e.message)
         console.error('Error on query', jsonFn.stringify(query), 'is', e)
         await orm.emit('commit:report:errorExec', commit.id, e.message)
       }

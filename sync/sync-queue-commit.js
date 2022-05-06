@@ -1,6 +1,7 @@
 const QUEUE_COMMIT_MODEL = 'QueueCommit'
 const dayjs = require('dayjs')
 const _ = require('lodash')
+const { EVENT_CONSTANT } = require('./sync-log')
 
 module.exports = function (orm) {
 	let disabled = false
@@ -43,6 +44,7 @@ module.exports = function (orm) {
 			commit,
 			dateAdded: new Date()
 		})
+		orm.writeSyncLog(EVENT_CONSTANT.ADDED_TO_QUEUE, commit._id)
 		if (orm.getQueue('queue:send').length <= 1)
 			orm.emit('queue:send')
 	})
@@ -51,6 +53,7 @@ module.exports = function (orm) {
 		const removedCommitUUID = _queueCommit.map((commit) => {
 			return commit._id
 		})
+		orm.writeSyncLog(EVENT_CONSTANT.FINISH_SEND, removedCommitUUID)
 		await orm(QUEUE_COMMIT_MODEL).deleteMany({ 'commit._id': { $in: removedCommitUUID } })
 	})
 
@@ -73,6 +76,11 @@ module.exports = function (orm) {
 		if (disabled) return
 		console.log('Try to send to master')
 		const data = await orm(QUEUE_COMMIT_MODEL).find()
+		try {
+			orm.writeSyncLog(EVENT_CONSTANT.DO_SEND, data.map(item => item.commit._id))
+		} catch (e) {
+			console.error(e)
+		}
 		await orm.emit('transport:send', data.map(item => item.commit))
 	}
 

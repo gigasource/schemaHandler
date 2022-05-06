@@ -89,6 +89,10 @@ class Orm extends EventEmitter {
   getOptions(collectionName, dbName) {
   }
 
+  //mock
+  writeSyncLog(type, mess) {
+  }
+
   plugin(plugin, ...args) {
     const _this = new Proxy(Orm, proxyHandlerFactory(this));
     plugin(_this, ...args);
