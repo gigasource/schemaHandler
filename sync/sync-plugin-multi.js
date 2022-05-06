@@ -508,9 +508,19 @@ const syncPlugin = function (orm) {
           return
         }
         const query = orm.getQuery(commit)
+        const fakeCollectionName = 'Recovery' + commit.collectionName
         // return if query is create or insert
-        if (query.chain && (query.chain[0].fn.includes('create') || query.chain[0].fn.includes('insert')))
+        if (query.chain && (query.chain[0].fn.includes('create') || query.chain[0].fn.includes('insert'))) {
+          if (Array.isArray(query.chain[0].args[0])) {
+            const _idList = query.chain[0].args[0].map(doc => doc._id).filter(_id => !!_id)
+            await orm(fakeCollectionName).deleteMany({ _id: { $in: _idList }, _deleted: true })
+          } else {
+            const _id = query.chain[0].args[0]._id
+            if (_id)
+              await orm(fakeCollectionName).deleteOne({ _id, _deleted: true })
+          }
           return
+        }
         // check whether query is delete
         if ((!commit.condition || commit.condition === 'null') &&
           !(query.chain && (query.chain[0].fn.includes('delete') || query.chain[0].fn.includes('bulk'))))
@@ -542,7 +552,6 @@ const syncPlugin = function (orm) {
           await removeFakeOfCollection(commit.collectionName, _parseCondition)
           return
         }
-        const fakeCollectionName = 'Recovery' + commit.collectionName
         query.name = fakeCollectionName
         if (commit.dbName) query.name += `@${commit.dbName}`
         let result = null
