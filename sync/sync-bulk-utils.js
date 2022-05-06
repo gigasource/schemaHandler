@@ -1,5 +1,6 @@
 const _ = require('lodash')
 const jsonfn = require('json-fn')
+const { EVENT_CONSTANT } = require('./sync-log')
 
 module.exports = function (orm) {
   orm.doCreateBulk = doCreateBulk
@@ -163,6 +164,7 @@ module.exports = function (orm) {
     await orm.removeFakeOfCollection(col, {})
     while (true) {
       try {
+        orm.writeSyncLog(EVENT_CONSTANT.DO_BULK_QUERY, bulkOp.map(op => op._id))
         if (!bulkOp.length) return
         await orm(col).bulkWrite(bulkOp).direct()
         await orm('CommitData').updateOne({}, {  [`highestCommitIdOfCollection.${col}`]: _.last(bulkOp).id  })
@@ -173,9 +175,11 @@ module.exports = function (orm) {
           && e.errors[1].writeErrors.length && e.errors[1].writeErrors[0].err && e.errors[1].writeErrors[0].err.index !== undefined) {
           const index = e.errors[1].writeErrors[0].err.index
           await orm('CommitData').updateOne({}, { [`highestCommitIdOfCollection.${col}`]: bulkOp[index].id })
+          orm.writeSyncLog(EVENT_CONSTANT.BULK_ERROR, bulkOp[index]._id)
           orm.setHighestCommitIdOfCollection(col, bulkOp[index].id)
           bulkOp = bulkOp.slice(index + 1)
         } else {
+          orm.writeSyncLog(EVENT_CONSTANT.DO_BULK_QUERY, bulkOp.map(op => op._id))
           console.error('Wrong thing happened in bulk write', e.message)
           return
         }
@@ -187,6 +191,7 @@ module.exports = function (orm) {
     const bulkOp = {}
     if (!commits.length)
       return
+    orm.writeSyncLog(EVENT_CONSTANT.EXEC_BULK, commits.map(commit => commit._id))
     for (const commit of commits) {
       const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName)
       if (commit.id <= highestId) continue
@@ -197,6 +202,7 @@ module.exports = function (orm) {
           _query.chain[0].fn = convertedQuery[_query.chain[0].fn]
         const convertedChain = convertChain(_query.chain)
         convertedChain.id = commit.id
+        convertedChain._id = commit._id
         if (convertedChain) {
           const run = !(await orm.emit(`commit:handler:shouldNotExecCommand:${commit.collectionName}`, commit));
           if (!run) continue

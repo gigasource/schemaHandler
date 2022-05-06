@@ -10,6 +10,7 @@ const replaceMasterUtils = require('./sync-utils/replace-master')
 const storeOldCommits = require('./sync-utils/store-old-commits')
 const {handleExtraProps} = require('./sync-handle-extra-props');
 const AwaitLock = require('await-lock').default
+const { EVENT_CONSTANT } = require('./sync-log')
 
 const syncPlugin = function (orm) {
   const whitelist = []
@@ -420,6 +421,7 @@ const syncPlugin = function (orm) {
 
     orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, commit) {
       if (!commit.chain) return;
+      orm.writeSyncLog(EVENT_CONSTANT.BUILD_FAKE, commit._id)
       const isDeleteCmd = target.cmd.includes('delete') || target.cmd.includes('remove')
       const fakeCollectionName = 'Recovery' + commit.collectionName
       const _query = orm.getQuery(commit)
@@ -621,6 +623,8 @@ const syncPlugin = function (orm) {
 
   orm.onQueue('transport:requireSync:callback', async function (commits) {
     if (!commits || !commits.length) return
+    const _idsList = commits.map(commit => commit._id)
+    orm.writeSyncLog(EVENT_CONSTANT.REQUIRE_SYNC, _idsList)
     const archivedCommits = _.remove(commits, commit => commit.data && !!commit.data.__arc)
     if (commits.length > COMMIT_BULK_WRITE_THRESHOLD) {
       await validateCommits(commits)
@@ -719,6 +723,7 @@ const syncPlugin = function (orm) {
   orm.onQueue('createCommit', async function (commit) {
     if (lock.acquired)
       return
+    orm.writeSyncLog(orm.isMaster() ? EVENT_CONSTANT.CREATE_COMMIT : EVENT_CONSTANT.CREATE_COMMIT_CLIENT, commit._id)
     if (!commit.id) {
       let { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName);
       if (highestIdInMemory)
@@ -738,6 +743,7 @@ const syncPlugin = function (orm) {
       if (orm.isMaster()) {
         commit.execDate = new Date()
         commit.isPending = true
+        orm.writeSyncLog(EVENT_CONSTANT.PERFECT_FORM, commit)
       }
       this.value = await orm(`Commit`, commit.dbName).create(commit);
     } catch (e) {
@@ -803,6 +809,7 @@ const syncPlugin = function (orm) {
 
   orm.onQueue('commitRequest', async function (commits) {
     try {
+      orm.writeSyncLog(EVENT_CONSTANT.COMMIT_REQUEST, commits.map(commit => commit._id))
       if (!commits || !commits.length)
         return
       for (let commit of commits) {
