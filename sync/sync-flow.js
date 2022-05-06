@@ -77,7 +77,7 @@ module.exports = function (orm, role) {
       commit.fromMaster = true;
       const lock = new AwaitLock()
       await lock.acquireAsync()
-      orm.writeSyncLog(EVENT_CONSTANT.START_EXECUTE)
+      orm.writeSyncLog(EVENT_CONSTANT.START_EXECUTE, commit._id)
       orm.once(`commit:result:${commit._id.toString()}`, function (result) {
         value = result
         lock.release()
