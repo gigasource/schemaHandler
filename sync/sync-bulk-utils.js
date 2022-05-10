@@ -110,6 +110,9 @@ module.exports = function (orm) {
       const queries = parsedChain[0].args[0]
       if (isMaster) {
         commit.data.var = []
+        const condition = {
+          $or: []
+        }
         for (let id = 0; id < queries.length; id++) {
           const query = queries[id]
           if (query.updateOne || query.updateMany || query.deleteOne || query.deleteMany) {
@@ -124,6 +127,7 @@ module.exports = function (orm) {
             } else {
               query[key].update.$inc.__c = 1
             }
+            condition.$or.push(query[key].filter)
           }
           if (query.insertOne || query.insertMany) {
             commit.data.var.push(null)
@@ -132,10 +136,15 @@ module.exports = function (orm) {
             const foundDoc = await orm(commit.collectionName).findOne(query.replaceOne.filter).noEffect()
             commit.data.var.push(foundDoc && foundDoc.__c ? foundDoc.__c : 0)
             query.replaceOne.replacement.__c = (foundDoc && foundDoc.__c ? foundDoc.__c : 0) + id + 1
+            condition.$or.push(query.replaceOne.filter)
           }
         }
         parsedChain[0].args = [queries]
         commit.chain = jsonfn.stringify(parsedChain)
+        commit.condition = jsonfn.stringify(condition)
+
+        // for sync purpose
+        await orm.emit(`process:commit:${commit.collectionName}`, commit)
       } else {
         for (let id = 0; id < queries.length; id++) {
           const query = queries[id]
