@@ -31,7 +31,7 @@ const syncPlugin = function (orm) {
     'delete': 'd',
     'deleteOne': 'do',
     'findOneAndUpdate': 'foau',
-    'replaceOne': 'ro',
+    'replaceOne': 'ro1',
     'bulkWrite': 'bw'
   }
   const createQuery = Object.keys(shorthand).filter(key => key.includes('create') || key.includes('insert')).map(key => shorthand[key])
