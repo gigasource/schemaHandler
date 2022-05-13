@@ -31,7 +31,7 @@ const syncPlugin = function (orm) {
     'delete': 'd',
     'deleteOne': 'do',
     'findOneAndUpdate': 'foau',
-    'replaceOne': 'ro',
+    'replaceOne': 'ro1',
     'bulkWrite': 'bw'
   }
   const createQuery = Object.keys(shorthand).filter(key => key.includes('create') || key.includes('insert')).map(key => shorthand[key])
@@ -54,6 +54,7 @@ const syncPlugin = function (orm) {
 
   orm('Commit').createIndex({ id: 1 }).then(r => r)
   orm('Commit').createIndex({ collectionName: 1 }).then(r => r)
+  orm('Commit').createIndex({ ref: 1 }).then(r => r)
 
   bulkUtils(orm)
   replaceMasterUtils(orm)
@@ -136,7 +137,7 @@ const syncPlugin = function (orm) {
         let value;
         if (fn === 'insertOne') {
           value = {insertOne: {document: args[0]}}
-        } else if (fn === 'findOneAndUpdate') {
+        } else if (fn === 'findOneAndUpdate' || fn === 'updateOne') {
           value = {
             updateOne: {
               "filter": args[0],

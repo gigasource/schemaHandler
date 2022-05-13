@@ -185,12 +185,22 @@ module.exports = function (orm) {
 				return
 			const condition = commit.condition ? jsonFn.parse(commit.condition) : {}
 			const refDoc = await orm(collection).find({ __r: true, ...condition }).noEffect()
+			const raws = []
+			const colRaws = []
 			for (let doc of refDoc) {
 				cleanDoc(doc)
 				const chain = jsonFn.stringify(orm(collection).insertOne(doc).chain)
-				await orm('Commit').updateOne({ ref: doc._id },
-					{ chain, $unset: { ref: ''} })
-				await orm(collection).updateOne({ _id: doc._id }, { $unset: { __r: '' } }).direct()
+				raws.push(await orm('Commit').updateOne({ ref: doc._id },
+					{ $set: { chain: chain }, $unset: { ref: ''} }).batch())
+				colRaws.push(await orm(collection).updateOne({ _id: doc._id }, { $unset: { __r: '' } }).batch())
+			}
+			try {
+				if (raws.length) {
+					await orm('Commit').bulkWrite(raws)
+					await orm(collection).bulkWrite(colRaws).direct()
+				}
+			} catch (err) {
+				console.error('Error while processing commit in sync')
 			}
 		})
 

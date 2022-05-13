@@ -1087,6 +1087,9 @@ describe('main sync test', function () {
 			utils.forEach(util => {
 				util.mockModelAndCreateCommits(0)
 			})
+			orms.forEach(orm => {
+				orm.setSyncCollection('Model')
+			})
 			orms[1].socketConnect(orms[0].ioId)
 			jest.advanceTimersByTime(100) // time to connect
 
@@ -1224,6 +1227,86 @@ describe('main sync test', function () {
 			const validationFailed = await orms[1]('CommitReport').find({ type: 'validation-failed' })
 			expect(validationFailed.length).toEqual(1)
 			done()
+		})
+
+		it('Case 12: BulkWrite after snapshot', async (done) => {
+			jest.useFakeTimers()
+			lodashMock()
+			const { orms, utils } = await genOrm(1,
+				['sync-flow', 'sync-plugin-multi', 'sync-transporter',
+					'sync-queue-commit', 'sync-snapshot', 'sync-report'])
+			utils.forEach(util => {
+				util.mockModelAndCreateCommits(0)
+			})
+			orms.forEach(orm => {
+				orm.setSyncCollection('Model')
+			})
+			jest.advanceTimersByTime(100) // time to connect
+			const docs = []
+			for (let i = 0; i < 20; i++) {
+				const doc = await orms[0]('Model').create({ id: i })
+				docs.push(doc)
+			}
+			orms[0].on('snapshot-done', async () => {
+				await orms[0]('Model').bulkWrite([
+					{
+						updateOne: {
+							filter: {
+								_id: docs[0]._id
+							},
+							update: {
+								$set: {
+									test: false
+								}
+							}
+						}
+					},
+					{
+						replaceOne: {
+							filter: {
+								_id: docs[3]._id
+							},
+							replacement: {
+								replaced: true,
+								_id: docs[3]._id
+							}
+						}
+					},
+					{
+						updateOne: {
+							filter: {
+								_id: docs[6]._id
+							},
+							update: {
+								$set: {
+									updated: true
+								}
+							}
+						}
+					},
+					{
+						replaceOne: {
+							filter: {
+								_id: docs[15]._id
+							},
+							replacement: {
+								replaced: true,
+								_id: docs[15]._id
+							}
+						}
+					}
+				])
+				const models = await orms[0]('Model').find()
+				const needToBeSnapshoted = await orms[0]('Model').count({ __ss: true })
+				const commits = await orms[0]('Commit').find()
+				expect(commits[0].ref).toBe(undefined)
+				expect(commits[3].ref).toBe(undefined)
+				expect(commits[6].ref).toBe(undefined)
+				expect(commits[15].ref).toBe(undefined)
+				expect(needToBeSnapshoted).toEqual(4)
+				done()
+			})
+			orms[0].startSyncSnapshot()
 		})
 	})
 
