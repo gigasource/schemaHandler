@@ -15,6 +15,7 @@ const { EVENT_CONSTANT } = require('./sync-log')
 const syncPlugin = function (orm) {
   const whitelist = []
   const unwantedCol = []
+  const neverFakeCol = []
   let highestCommitIdOfCollection = null
   const shorthand = {
     'createMany': 'cm',
@@ -51,6 +52,7 @@ const syncPlugin = function (orm) {
   orm.lockSync = lockSync
   orm.releaseSync = releaseSync
   orm.updateHighestId = updateHighestId
+  orm.registerNeverFakeCol = registerNeverFakeCol
 
   orm('Commit').createIndex({ id: 1 }).then(r => r)
   orm('Commit').createIndex({ collectionName: 1 }).then(r => r)
@@ -132,7 +134,7 @@ const syncPlugin = function (orm) {
       query.chain.pop();
       this.stop();
       query.mockCollection = true;
-      orm.once(`proxyPreReturnValue:${query.uuid}`, async function (_query, target, exec) {
+      orm.once(`proxyPreReturnValue:${query.uuid}`, -999, async function (_query, target, exec) {
         const {fn, args} = _query.chain[0];
         let value;
         if (fn === 'insertOne') {
@@ -421,7 +423,7 @@ const syncPlugin = function (orm) {
     })
 
     orm.onQueue("commit:build-fake", 'fake-channel', async function (query, target, commit) {
-      if (!commit.chain) return;
+      if (!commit.chain || neverFakeCol.includes(commit.collectionName)) return;
       orm.writeSyncLog(EVENT_CONSTANT.BUILD_FAKE, commit._id)
       const isDeleteCmd = target.cmd.includes('delete') || target.cmd.includes('remove')
       const fakeCollectionName = 'Recovery' + commit.collectionName
@@ -657,6 +659,10 @@ const syncPlugin = function (orm) {
     orm.emit('commit:handler:doneAllCommits')
     console.log('Done requireSync', commits.length, archivedCommits.length, commits.length ? commits[0]._id : archivedCommits[0]._id, new Date())
   })
+
+  function registerNeverFakeCol(cols) {
+    neverFakeCol.push(...cols)
+  }
 
   let highestIdInMemory = null
   function updateHighestId(newHighestId) {
