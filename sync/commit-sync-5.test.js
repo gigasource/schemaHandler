@@ -693,6 +693,26 @@ describe('main sync test', function () {
 			expect(data1.length).toBe(2)
 			done()
 		})
+
+		it('Case 20: Find and sort date', async function (done) {
+			jest.useFakeTimers()
+			const { orm, utils } = await ormGenerator(['sync-flow', 'sync-plugin-multi'], {
+				setMaster: false,
+				name: 'B'
+			});
+			await utils.mockModelAndCreateCommits(0)
+			await orm('Model').create({ date: new Date("2021/01/25") }).direct()
+			await orm('Model').create({ date: new Date("2021/01/26") }).direct()
+			await orm('Model').create({ date: new Date("2021/01/28") })
+			await orm('Model').create({ date: new Date("2021/01/29") }).direct()
+			await orm('Model').create({ date: new Date("2021/01/30") })
+			const data = await orm('Model').find().sort({ date: -1 }).skip(1).limit(3)
+			expect(data.length).toEqual(3)
+			expect(data[0].date).toEqual(new Date("2021/01/29"))
+			expect(data[1].date).toEqual(new Date("2021/01/28"))
+			expect(data[2].date).toEqual(new Date("2021/01/26"))
+			done()
+		})
 	})
 
 	describe("[Module] Test bulk write", function () {
