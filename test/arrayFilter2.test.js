@@ -1,91 +1,66 @@
 const {
-  checkEqual2,
-  convertSchemaToPaths,
-  findAllPathsInLevelArrHandler2,
-  parseCondition
+  checkEqual2, convertSchemaToPaths, findAllPathsInLevelArrHandler2, parseCondition
 } = require("../schemaHandler");
 const orm = require("../orm");
-const { ObjectID } = require("bson");
+const {ObjectID} = require("bson");
 
 let id = () => "5fb7f13453d00d8aace1d89b";
 let paths, Model, model;
 
 function stringify() {
-  return JSON.parse(
-    JSON.stringify(
-      arguments[0],
-      function(k, v) {
-        if (
-          this[k] instanceof ObjectID ||
-          (typeof this[k] === "object" && ObjectID.isValid(this[k]))
-        ) {
-          return "ObjectID";
-        }
-        return v;
-      },
-      4
-    )
-  );
+  return JSON.parse(JSON.stringify(arguments[0], function (k, v) {
+    if (this[k] instanceof ObjectID || (typeof this[k] === "object" && ObjectID.isValid(this[k]))) {
+      return "ObjectID";
+    }
+    return v;
+  }, 4));
 }
 
-describe("checkEqual", function() {
+describe("checkEqual", function () {
   beforeAll(async done => {
-    orm.connect({ uri: "mongodb://localhost:27017" }, "myproject");
+    orm.connect({uri: "mongodb://localhost:27017"}, "myproject");
+    const printerSchema = {
+      name: String
+    }
     const schema = {
-      a: Number,
-      b: {
-        type: Number,
-        default: 100
-      },
-      items: [{}],
-      date: Date,
-      strArr: [String],
-      groups: [
-        {
-          type: ObjectID
-        }
-      ],
-      author: {
+      a: Number, b: {
+        type: Number, default: 100
+      }, items: [{}], date: Date, strArr: [String], groups: [{
         type: ObjectID
-      },
-      categories: [
-        {
-          name: String,
-          products: [
-            {
-              name: String,
-              items: [{}]
-            }
-          ]
-        }
-      ]
+      }], author: {
+        type: ObjectID
+      }, categories: [{
+        name: String, products: [{
+          printer: {
+            type: ObjectID,
+            ref: 'Printer',
+            autopopulate: false
+          },
+          name: String, items: [{}]
+        }]
+      }]
     };
     //paths = convertSchemaToPaths(schema);
     Model = orm.registerSchema("Model", schema);
     //Model = orm.getCollection('Model')
     await Model.remove();
     model = await Model.create({
-      categories: [
-        {
-          name: "catA",
-          products: [{ name: "A" }, { name: "B" }]
-        },
-        {
-          name: "catB",
-          products: [{ name: "C" }, { name: "D" }]
-        }
-      ]
+      categories: [{
+        name: "catA", products: [{name: "A"}, {name: "B"}]
+      }, {
+        name: "catB", products: [{name: "C"}, {name: "D"}]
+      }]
     });
     done();
   });
 
-  it("case4", async function() {
-    const filter1 = { "cate._id": model.categories[1]._id.toString() };
+  it("case4", async function () {
+    const filter1 = {"cate._id": model.categories[1]._id.toString()};
     const filter2 = {
       "product._id": model.categories[1].products[1]._id.toString()
     };
     const condition = {
-      $set: { "categories.$[cate].products.$[product].name": "D2" }
+      $set: {"categories.$[cate].products.$[product].name": "D2"}
     };
     /*const condition = {
       $set: { "categories.$[cate].name": "catB2" }
@@ -96,7 +71,7 @@ describe("checkEqual", function() {
     expect(stringify(arrayFilters)).toMatchInlineSnapshot(
       `"[{\\"_id\\":\\"ObjectID\\"},{\\"product\\":{\\"_id\\":\\"ObjectID\\"}}]"`
     );*/
-    const _model = await Model.findOneAndUpdate({ _id: model._id }, condition, {
+    const _model = await Model.findOneAndUpdate({_id: model._id}, condition, {
       arrayFilters
     });
     expect(stringify(arrayFilters)).toMatchInlineSnapshot(`
@@ -154,13 +129,13 @@ describe("checkEqual", function() {
     `);
   });
 
-  it("case5: without schema", async function() {
-    const filter1 = { "cate._id": new ObjectID() };
+  it("case5: without schema", async function () {
+    const filter1 = {"cate._id": new ObjectID()};
     const filter2 = {
       "product._id": new ObjectID()
     };
     const condition = {
-      $set: { "categories.$[cate].products.$[product].name": "D2" }
+      $set: {"categories.$[cate].products.$[product].name": "D2"}
     };
     /*const condition = {
       $set: { "categories.$[cate].name": "catB2" }
@@ -172,13 +147,9 @@ describe("checkEqual", function() {
       `"[{\\"_id\\":\\"ObjectID\\"},{\\"product\\":{\\"_id\\":\\"ObjectID\\"}}]"`
     );*/
     const Model2 = orm.getCollection("Model2");
-    const _model = await Model2.findOneAndUpdate(
-      { _id: model._id },
-      condition,
-      {
-        arrayFilters
-      }
-    );
+    const _model = await Model2.findOneAndUpdate({_id: model._id}, condition, {
+      arrayFilters
+    });
     expect(stringify(arrayFilters)).toMatchInlineSnapshot(`
       Array [
         Object {
@@ -199,5 +170,45 @@ describe("checkEqual", function() {
         "value": null,
       }
     `);
+  });
+  it("case 6: ", async function () {
+    await Model.remove();
+    const categoryId = (new ObjectID()).toString()
+    const productId = (new ObjectID()).toString() //remove toString to make the test passed
+    await Model.create({
+      categories: []
+    });
+    await Model.findOneAndUpdate({}, {
+      $push: {
+        "categories": {
+          $each: [{
+            _id: categoryId,
+            name: 'c1',
+            products: []
+          }]
+        }
+      }
+    })
+    let _orderLayout = await Model.findOneAndUpdate({}, {
+      $push: {
+        "categories.$[f0].products": {
+          $each: [{
+            _id: productId, name: 'p1',
+          }]
+        }
+      }
+    }, {
+      arrayFilters: [{
+        "f0._id": categoryId.toString(),
+      },]
+    });
+    expect(_orderLayout.categories[0].products[0].name).toBe("p1")
+    expect(typeof _orderLayout.categories[0].products[0]._id).toBe('object')
+    _orderLayout = await Model.findOneAndUpdate({}, {
+      $set: {'categories.$[f0].products.$[f1].name': 'p2'}
+    }, {
+      arrayFilters: [{'f0._id': categoryId}, {'f1._id': productId}]
+    })
+    expect(_orderLayout.categories[0].products[0].name).toBe("p2")
   });
 });
