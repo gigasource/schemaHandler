@@ -295,6 +295,8 @@ function filterMongoOperators(paths, keepLast = true, keepDollar = false) {
           list.push(item);
         } else if (keepDollar && item === '$') {
           list.push('0');
+        } else if (/^\$\[\w*\]$/i.test(item)) {
+          list.push('0')
         }
       }
       rememberPrevent = false;
