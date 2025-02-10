@@ -1,5 +1,5 @@
 {
-  "name": "schemahandler",
+  "name": "@atc-group/schemahandler",
   "version": "1.4.12",
   "description": "",
   "main": "orm.js",
