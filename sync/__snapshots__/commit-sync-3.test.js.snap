@@ -27,6 +27,107 @@ Array [
 ]
 `;
 
+exports[`commit-sync case create + findOneAndUpdate: 
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "approved": true,
+          "chain": "[{\\"fn\\":\\"create\\",\\"args\\":[{\\"table\\":10}]}]",
+          "collectionName": "Model",
+          "data": Object {
+            "docId": "5fcdba6b26f1fe37ef2da6a2",
+            "table": 10,
+          },
+          "id": 1,
+          "tags": Array [
+            "create",
+          ],
+          "uuid": "uuid-v1",
+        },
+      ]
+     1`] = `Array []`;
+
+exports[`commit-sync case create + findOneAndUpdate: 
+      Array [
+        Object {
+          "_id": "ObjectID",
+          "table": 10,
+        },
+      ]
+     1`] = `
+Array [
+  Object {
+    "_fakeDate": "2025-07-24T19:56:00.311Z",
+    "_fakeId": 1,
+    "_id": "ObjectID",
+    "status": "paid",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T19:56:00.383Z",
+    "_fakeId": 2,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T19:57:03.275Z",
+    "_fakeId": 3,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T19:57:03.281Z",
+    "_fakeId": 4,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T22:14:53.083Z",
+    "_fakeId": 5,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T22:14:53.090Z",
+    "_fakeId": 6,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T22:32:32.662Z",
+    "_fakeId": 7,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T22:32:32.665Z",
+    "_fakeId": 8,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T22:36:07.924Z",
+    "_fakeId": 9,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T22:36:07.932Z",
+    "_fakeId": 10,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+  Object {
+    "_fakeDate": "2025-07-24T22:57:04.843Z",
+    "_fakeId": 11,
+    "_id": "ObjectID",
+    "table": 10,
+  },
+]
+`;
+
+exports[`commit-sync case create + findOneAndUpdate: Array [] 1`] = `Array []`;
+
 exports[`commit-sync case only master 1`] = `
 Array [
   Object {

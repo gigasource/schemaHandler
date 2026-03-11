@@ -25,10 +25,44 @@ const syncPlugin = require("./sync-plugin-multi");
 const syncFlow = require('./sync-flow');
 let toMasterLock;
 
+const EVENT_CONSTANT = {
+  START_FLOW: 0,
+  AFTER_FIRST_PROCESS: 1,
+  SEND_TO_MASTER: 2,
+  BUILD_FAKE: 3,
+  ADDED_TO_QUEUE: 4,
+  DO_SEND: 5,
+  FINISH_SEND: 6,
+  COMMIT_REQUEST: 7,
+
+  START_EXECUTE: 100,
+  CREATE_COMMIT: 101,
+  PERFECT_FORM: 102,
+
+  REQUIRE_SYNC: 199,
+  EXEC_BULK: 200,
+  DO_BULK_QUERY: 201,
+  BULK_ERROR: 202,
+  CREATE_COMMIT_CLIENT: 203,
+  FLOW_EXEC: 204,
+  FLOW_SHOULD_NOT_EXEC: 205,
+  FLOW_EXEC_ERROR: 206
+}
+
+const REVERT_EVENTS = {}
+for (const key of Object.keys(EVENT_CONSTANT)) {
+  REVERT_EVENTS[EVENT_CONSTANT[key]] = key
+}
+
 describe("commit-sync", function() {
   beforeAll(async () => {
     ormA.connect({ uri: "mongodb://localhost:27017" }, "myproject");
     ormB.connect({ uri: "mongodb://localhost:27017" }, "myproject2");
+
+    ormA.writeSyncLog = (type, mess) => console.log('A', REVERT_EVENTS[type], mess)
+    ormB.writeSyncLog = (type, mess) => {
+      console.log('B', REVERT_EVENTS[type], mess)
+    }
 
     ormA.plugin(syncPlugin);
     ormA.plugin(syncFlow);
@@ -86,8 +120,25 @@ describe("commit-sync", function() {
       orm.emit(`transport:requireSync:callback:${called}`);
     });
 
-    toMasterLock = orm.getLock("transport:toMaster");
+    toMasterLock = orm.getQueue("transport:toMaster");
   });
+
+  it('create & update order', async function(done) {
+    const Model = ormB("Model");
+    const m1 = await Model.create({ table: 10 });
+    await Model.update({ _id: m1._id }, { status: "paid" });
+    done()
+  })
+
+  it('create & update order 2 machine', async function(done) {
+    const Model2 = ormB("Model");
+    const m1 = await Model2.create({ table: 10 });
+    await delay(1000);
+    const doc = await Model.findOne({ _id: m1._id });
+    console.log('doc', doc)
+    await Model.update({ _id: m1._id }, { status: "paid" });
+    done()
+  })
 
   it("order resolve conflict: can not create table", async function(done) {
     //problems : prevent Model.create({table: 10})
@@ -181,7 +232,6 @@ describe("commit-sync", function() {
   });
 
   it("case create + findOneAndUpdate", async function() {
-    toMasterLock.acquireAsync();
     const m1 = await Model.create({ table: 10 }).commit("create", {
       table: 10
     });
@@ -191,7 +241,6 @@ describe("commit-sync", function() {
     expect(stringify(await Model.find())).toMatchSnapshot();
     expect(stringify(await orm("Recovery").find())).toMatchSnapshot();
     expect(stringify(await orm("Commit").find())).toMatchObject([]);
-    toMasterLock.release();
     await delay(50);
     expect(stringify(await Model.find())).toMatchSnapshot(`
       Array [
