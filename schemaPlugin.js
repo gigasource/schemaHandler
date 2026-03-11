@@ -102,7 +102,7 @@ module.exports = function (orm) {
           try {
             objId = new ObjectID(objId)
           } catch (e) {
-            console.error(`Invalid value for objectId ${objId}`, e.message, e.stack)
+            console.error(`Invalid value for objectId ${objId} at collection ${target.collectionName} of database ${target.dbName}`, e.message, e.stack)
             throw e
           }
         }
