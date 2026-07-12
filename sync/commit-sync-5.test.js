@@ -1,3 +1,11 @@
+jest.mock('uuid', () => {
+  let counter = 0;
+  return {
+    v1: () => 'mocked-v1-' + (++counter) + '-' + Math.random(),
+    v4: () => 'mocked-v4-' + (++counter) + '-' + Math.random()
+  };
+});
+
 const { Socket, Io } = require("../io/io");
 const ormGenerator = require("./test-utils/ormGenerator");
 const { genOrm, globalHook } = ormGenerator

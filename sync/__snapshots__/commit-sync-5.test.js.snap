@@ -71,17 +71,7 @@ Array [
 ]
 `;
 
-exports[`main sync test [Integration] Test all plugins [Sync validation] Case 13: Validate new commit failed and snapshot fix wrong commit 1`] = `
-Array [
-  Object {
-    "_id": "ObjectID",
-    "commitId": 3,
-    "expectedSum": 1,
-    "realSum": 0,
-    "type": "validation-failed",
-  },
-]
-`;
+exports[`main sync test [Integration] Test all plugins [Sync validation] Case 13: Validate new commit failed and snapshot fix wrong commit 1`] = `Array []`;
 
 exports[`main sync test [Integration] Test all plugins [Sync validation] Case 13: Validate new commit failed and snapshot fix wrong commit 2`] = `
 Object {

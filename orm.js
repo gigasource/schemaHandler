@@ -223,11 +223,11 @@ function factory(orm) {
 
       {
         let returnResult = await orm.emit('pre:execChain', query);
-        if (returnResult.ok) return resolve(returnResult.value);
+        if (returnResult && returnResult.ok) return resolve(returnResult.value);
       }
 
       let returnResult = await orm.emit('debug', query);
-      if (returnResult.ok) return resolve(returnResult.value);
+      if (returnResult && returnResult.ok) return resolve(returnResult.value);
 
       let cursor = orm.execChain(query);
       cursor.then(resolve, reject);
@@ -248,7 +248,7 @@ function execChain(query, withHooks = false) {
   if (withHooks) {
     return new Promise(async resolve => {
       let returnResult = await this.emit('pre:execChain', query);
-      if (returnResult.ok) return resolve(returnResult.value);
+      if (returnResult && returnResult.ok) return resolve(returnResult.value);
 
       if (query.chain.length === 0) return;
       let cursor = this.createCollectionQuery(query);
@@ -353,7 +353,7 @@ function createCollectionQuery(query) {
               }
               const r = await orm.emit(`proxyPreReturnValue:${query.uuid}`, result, target, exec);
               await orm.emit(`proxyMutateResult:${query.uuid}`, query, r)
-              return resolve(r.value);
+              return resolve(r && r.value);
             }
             if (process.env.NODE_ENV === 'test') {
               orm.emit('beforeReturnValue', query, target);
@@ -383,7 +383,7 @@ function createCollectionQuery(query) {
 
       orm.emit('preQueryHandler', {target, key, proxy, defaultFn});
       const result = orm.emit('proxyQueryHandler', {target, key, proxy, defaultFn});
-      if (result.ok) return result.value;
+      if (result && result.ok) return result.value;
 
       return defaultFn;
     }
@@ -462,7 +462,7 @@ async function resultPostProcess(result, target) {
 
   try {
     const returnResult = await this.emit('proxyResultPostProcess', {target, result: _result})
-    if (returnResult.ok) {
+    if (returnResult && returnResult.ok) {
       _result = returnResult.value;
     }
   } catch (e) {

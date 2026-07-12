@@ -740,18 +740,35 @@ const syncPlugin = function (orm) {
     if (lock.acquired)
       return
     orm.writeSyncLog(orm.isMaster() ? EVENT_CONSTANT.CREATE_COMMIT : EVENT_CONSTANT.CREATE_COMMIT_CLIENT, commit._id)
+    // Client-side duplicate detection by _id (flexible mechanism for existing data/re-delivery)
+    if (!orm.isMaster()) {
+      const existing = await orm('Commit', commit.dbName).findOne({ _id: commit._id })
+      if (existing) {
+        updateHighestId(commit.id)
+        await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true })
+        return
+      }
+    }
+
     if (!commit.id) {
       let { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName);
-      if (highestIdInMemory)
-        if (highestId !== highestIdInMemory) {
-          await orm.emit('commit:report:errorId', highestId, highestIdInMemory)
-          highestId = Math.max(highestIdInMemory, highestId)
-        }
-      commit.id = highestId + 1;
+      
+      const res = await orm('CommitData', commit.dbName).findOneAndUpdate(
+        {},
+        { $inc: { highestCommitId: 1 } },
+        { upsert: true, returnOriginal: false, new: true }
+      );
+      
+      if (res && res.highestCommitId <= highestId) {
+        commit.id = highestId + 1;
+        await orm('CommitData', commit.dbName).updateOne({}, { highestCommitId: commit.id }, { upsert: true });
+      } else {
+        commit.id = res ? res.highestCommitId : (highestId + 1);
+      }
     } else {
-      // commit with id smaller than highestId has been already created
-      const { value: highestId } = await orm.emit('getHighestCommitId', commit.dbName)
-      if (commit.id <= highestId && (!commit.data || !commit.data.deletedDoc))
+      // Check if commit already exists locally by _id
+      const existing = await orm('Commit', commit.dbName).findOne({ _id: commit._id })
+      if (existing)
         return // Commit exists
     }
     await validateCommit(commit)
