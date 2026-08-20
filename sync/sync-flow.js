@@ -41,6 +41,7 @@ module.exports = function (orm, role) {
 
   // customize
   let fakeId = null
+  orm.on('resync:resetFakeId', () => { fakeId = null })
   orm.onQueue('commit:flow:execCommit', async function (query, target, exec, commit) {
     if (orm.mode === 'multi' && !commit.dbName) {
       console.warn('commit.dbName is undefined')

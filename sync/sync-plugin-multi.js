@@ -887,6 +887,80 @@ const syncPlugin = function (orm) {
     await orm.emit('commit:remove-all-recovery')
   })
 
+  /**
+   * Resync: rollback to earliest snapshot commit, re-pull from Master.
+   * Snapshot commits auto-fix divergent docs via __c comparison.
+   * Returns { success: false, reason: '...' } if no snapshot commits found.
+   */
+  orm.resync = async function () {
+    if (orm.isMaster()) {
+      console.warn('[Resync] Cannot resync on master')
+      return { success: false, reason: 'is-master' }
+    }
+
+    const oldestSnapshot = await orm('Commit').findOne({ 'data.snapshot': true }).sort({ id: 1 })
+    if (!oldestSnapshot) {
+      console.warn('[Resync] No snapshot commits found, cannot resync')
+      return { success: false, reason: 'no-snapshot' }
+    }
+
+    const commitData = await orm('CommitData').findOne()
+    if (!commitData) {
+      return { success: false, reason: 'no-commit-data' }
+    }
+
+    const oldHighestId = commitData.highestCommitId
+    const newHighestId = Math.max(0, oldestSnapshot.id - 1)
+
+    console.log(`[Resync] Rolling back from ${oldHighestId} to ${newHighestId}`)
+    orm.emit('resync:start')
+
+    await orm('Commit').deleteMany({ id: { $gt: newHighestId } })
+    await orm('CommitData').updateOne({}, { highestCommitId: newHighestId })
+    highestIdInMemory = null
+    orm.emit('resync:resetFakeId')
+
+    orm.emit('transport:require-sync')
+    console.log('[Resync] Done, waiting for sync from master')
+    return { success: true, rolledBackFrom: oldHighestId, rolledBackTo: newHighestId }
+  }
+
+  /**
+   * Force resync: wipe all local data and re-sync from scratch.
+   * Use as last resort when resync() is not sufficient.
+   */
+  orm.forceResync = async function () {
+    if (orm.isMaster()) {
+      console.warn('[ForceResync] Cannot force resync on master')
+      return { success: false, reason: 'is-master' }
+    }
+
+    console.log('[ForceResync] Start force resync', new Date())
+    orm.emit('resync:start')
+
+    lockSync()
+
+    await removeAll()
+    highestCommitIdOfCollection = null
+    highestIdInMemory = null
+
+    await orm('CommitData').updateOne({}, {
+      highestCommitId: 0,
+      $unset: { highestCommitIdOfCollection: '' },
+      fakeId: 0,
+    }, { upsert: true })
+
+    await orm.emit('transport:removeQueue')
+    await orm.emit('commit:remove-all-recovery')
+    orm.emit('resync:resetFakeId')
+
+    releaseSync()
+
+    orm.emit('transport:require-sync')
+    console.log('[ForceResync] Reset done, waiting for sync from master')
+    return { success: true }
+  }
+
   let commitDataId = null
   orm.on('getCommitDataId', async function () {
     if (commitDataId) {
